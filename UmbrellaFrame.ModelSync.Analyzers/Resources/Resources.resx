@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="xml:space" use="optional" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- MSYNC001 -->
+  <data name="MSYNC001_Title" xml:space="preserve">
+    <value>Missing column type attribute</value>
+  </data>
+  <data name="MSYNC001_MessageFormat" xml:space="preserve">
+    <value>Property '{0}' is missing a column type attribute (e.g. MySqlColumnTypeAttribute, SqlServerColumnTypeAttribute)</value>
+  </data>
+  <data name="MSYNC001_Description" xml:space="preserve">
+    <value>All public properties on a model class decorated with a table name attribute must have a column type attribute so ModelSync can generate correct SQL.</value>
+  </data>
+
+  <!-- MSYNC002 -->
+  <data name="MSYNC002_Title" xml:space="preserve">
+    <value>Missing table name attribute</value>
+  </data>
+  <data name="MSYNC002_MessageFormat" xml:space="preserve">
+    <value>Class '{0}' has column type attributes but is missing a table name attribute (e.g. MySqlTableNameAttribute)</value>
+  </data>
+  <data name="MSYNC002_Description" xml:space="preserve">
+    <value>Classes whose properties carry column type attributes should also have a table name attribute so ModelSync can generate correct SQL.</value>
+  </data>
+
+  <!-- MSYNC003 -->
+  <data name="MSYNC003_Title" xml:space="preserve">
+    <value>Missing primary key attribute</value>
+  </data>
+  <data name="MSYNC003_MessageFormat" xml:space="preserve">
+    <value>Model class '{0}' has no property decorated with a primary key attribute</value>
+  </data>
+  <data name="MSYNC003_Description" xml:space="preserve">
+    <value>Every database table model should designate at least one property as a primary key.</value>
+  </data>
+
+  <!-- DbColumnTypeAttribute -->
+  <data name="Attr_InvalidLength" xml:space="preserve">
+    <value>Invalid length for {0}. Must be a number &lt;= 65535 or 'MAX'.</value>
+  </data>
+  <data name="Attr_LengthNotSupported" xml:space="preserve">
+    <value>Length is not supported for {0}.</value>
+  </data>
+</root>

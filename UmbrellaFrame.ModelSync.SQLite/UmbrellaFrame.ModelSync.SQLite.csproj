@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- NuGet metadata -->
+    <PackageId>UmbrellaFrame.ModelSync.SQLite</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>UmbrellaFrame</Authors>
+    <Description>SQLite provider for UmbrellaFrame.ModelSync — attribute-based schema generator.</Description>
+    <PackageTags>sqlite sql schema generator orm-free attributes dotnet</PackageTags>
+    <PackageProjectUrl>https://github.com/umbrellaframe/modelsync</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/umbrellaframe/modelsync</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <Copyright>Copyright (c) 2025 UmbrellaFrame</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\"/>
+    <None Include="modelsync-sqlite.png" Pack="true" PackagePath="\icon.png"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UmbrellaFrame.ModelSync.Core\UmbrellaFrame.ModelSync.Core.csproj" />
+  </ItemGroup>
+
+</Project>

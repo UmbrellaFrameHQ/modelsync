@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="xml:space" use="optional" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- MSYNC001 -->
+  <data name="MSYNC001_Title" xml:space="preserve">
+    <value>Kolon tipi attribute eksik</value>
+  </data>
+  <data name="MSYNC001_MessageFormat" xml:space="preserve">
+    <value>'{0}' property'si bir kolon tipi attribute'u ile isaretlenmemis (ornek: MySqlColumnTypeAttribute, SqlServerColumnTypeAttribute)</value>
+  </data>
+  <data name="MSYNC001_Description" xml:space="preserve">
+    <value>Tablo adi attribute'u ile isaretlenmis bir model sinifindaki tum public property'ler, dogru SQL uretimi icin bir kolon tipi attribute'una sahip olmalidir.</value>
+  </data>
+
+  <!-- MSYNC002 -->
+  <data name="MSYNC002_Title" xml:space="preserve">
+    <value>Tablo adi attribute eksik</value>
+  </data>
+  <data name="MSYNC002_MessageFormat" xml:space="preserve">
+    <value>'{0}' sinifi kolon tipi attribute'larina sahip ancak tablo adi attribute'u eksik (ornek: MySqlTableNameAttribute)</value>
+  </data>
+  <data name="MSYNC002_Description" xml:space="preserve">
+    <value>Property'lerinde kolon tipi attribute'u bulunan siniflar, dogru SQL uretimi icin bir tablo adi attribute'una da sahip olmalidir.</value>
+  </data>
+
+  <!-- MSYNC003 -->
+  <data name="MSYNC003_Title" xml:space="preserve">
+    <value>Primary key attribute eksik</value>
+  </data>
+  <data name="MSYNC003_MessageFormat" xml:space="preserve">
+    <value>'{0}' model sinifinda primary key attribute'u ile isaretlenmis hicbir property bulunamadi</value>
+  </data>
+  <data name="MSYNC003_Description" xml:space="preserve">
+    <value>Her veritabani tablo modeli, en az bir property'yi primary key olarak tanimlamalidir.</value>
+  </data>
+
+  <!-- DbColumnTypeAttribute -->
+  <data name="Attr_InvalidLength" xml:space="preserve">
+    <value>{0} icin gecersiz uzunluk. Deger 65535'ten kucuk veya esit bir sayi ya da 'MAX' olmalidir.</value>
+  </data>
+  <data name="Attr_LengthNotSupported" xml:space="preserve">
+    <value>{0} tipi icin uzunluk (Length) desteklenmemektedir.</value>
+  </data>
+</root>

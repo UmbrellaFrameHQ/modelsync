@@ -1,0 +1,29 @@
+## Visual Studio artifacts
+.vs/
+*.user
+*.suo
+
+## Build outputs
+**/bin/
+**/obj/
+
+## NuGet packages
+*.nupkg
+*.snupkg
+cd D:\Projeler\UmbrellaFrame\ModelSync
+
+git init
+git add .
+git commit -m "feat: ModelSync v1.0.0 initial release - 4 providers, 116 tests"
+git branch -M main
+git remote add origin https://github.com/ksomaz/modelsync.git
+git push -u origin main
+## OS
+.DS_Store
+Thumbs.db
+
+## Test results
+TestResults/
+coverage/
+*.trx
+*.coveragexml

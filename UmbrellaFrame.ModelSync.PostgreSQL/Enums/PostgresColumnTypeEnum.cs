@@ -1,0 +1,46 @@
+﻿
+namespace UmbrellaFrame.ModelSync.PostgreSQL
+{
+    public enum PostgresColumnType
+    {
+        SMALLINT,
+        INTEGER,
+        BIGINT,
+        DECIMAL,
+        NUMERIC,
+        REAL,
+        DOUBLE_PRECISION,
+        SERIAL,
+        BIGSERIAL,
+        MONEY,
+        DATE,
+        TIME,
+        TIMESTAMP,
+        TIMESTAMPTZ,
+        INTERVAL,
+        CHAR,
+        VARCHAR,
+        TEXT,
+        BYTEA,
+        BOOLEAN,
+        UUID,
+        JSON,
+        JSONB,
+        XML,
+        CIDR,
+        INET,
+        MACADDR,
+        POINT,
+        LINE,
+        LSEG,
+        BOX,
+        PATH,
+        POLYGON,
+        CIRCLE,
+        BIT,
+        VARBIT,
+        HSTORE,
+        ARRAY,
+        RANGE
+    }
+}

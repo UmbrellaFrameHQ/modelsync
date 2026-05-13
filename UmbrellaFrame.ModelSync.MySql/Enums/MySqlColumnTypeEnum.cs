@@ -1,0 +1,39 @@
+﻿
+namespace UmbrellaFrame.ModelSync.MySql
+{
+    public enum MySqlColumnType
+    {
+        TINYINT,
+        SMALLINT,
+        MEDIUMINT,
+        INT,
+        BIGINT,
+        DECIMAL,
+        NUMERIC,
+        FLOAT,
+        DOUBLE,
+        DATE,
+        DATETIME,
+        TIMESTAMP,
+        TIME,
+        YEAR,
+        CHAR,
+        VARCHAR,
+        TINYTEXT,
+        TEXT,
+        MEDIUMTEXT,
+        LONGTEXT,
+        BINARY,
+        VARBINARY,
+        TINYBLOB,
+        BLOB,
+        MEDIUMBLOB,
+        LONGBLOB,
+        ENUM,
+        SET,
+        JSON,
+        GEOMETRY,
+        BIT,
+        BOOLEAN
+    }
+}

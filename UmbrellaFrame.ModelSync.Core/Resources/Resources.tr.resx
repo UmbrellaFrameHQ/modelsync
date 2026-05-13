@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="xml:space" use="optional" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- DbColumnTypeAttribute -->
+  <data name="DbColumnType_InvalidLength" xml:space="preserve">
+    <value>{0}, {1} icin gecerli bir uzunluk degili.</value>
+  </data>
+
+  <!-- DbColumnCheckAttribute -->
+  <data name="DbColumnCheck_NullOrEmpty" xml:space="preserve">
+    <value>CHECK ifadesi null veya bos olamaz.</value>
+  </data>
+
+  <!-- DbColumnDefaultAttribute -->
+  <data name="DbColumnDefault_NullOrEmpty" xml:space="preserve">
+    <value>Varsayilan deger null veya bos olamaz.</value>
+  </data>
+
+  <!-- DynamicPropertyManager -->
+  <data name="PropertyManager_NotFound" xml:space="preserve">
+    <value>'{0}' ozelligi bulunamadi.</value>
+  </data>
+  <data name="PropertyManager_NameNullOrWhitespace" xml:space="preserve">
+    <value>Ozellik adi null veya bosluk olamaz.</value>
+  </data>
+
+  <!-- SqlTableGenerator -->
+  <data name="TableGen_MissingColumnTypeAttr" xml:space="preserve">
+    <value>'{1}' turundeki '{0}' ozelligi icin kolon tipi attribute eksik.</value>
+  </data>
+  <data name="TableGen_SqlGenerated" xml:space="preserve">
+    <value>{0} icin SQL uretildi: {1}</value>
+  </data>
+  <data name="TableGen_TableNameAttrNotFound" xml:space="preserve">
+    <value>{0} uzerinde DbTableNameAttribute bulunamadi. Tablo adi olarak sinif adi kullaniliyor.</value>
+  </data>
+  <data name="TableGen_TableNameAttrFound" xml:space="preserve">
+    <value>DbTableNameAttribute bulundu: {0}</value>
+  </data>
+</root>
