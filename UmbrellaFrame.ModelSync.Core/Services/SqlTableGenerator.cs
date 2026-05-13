@@ -38,7 +38,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         /// </summary>
         protected virtual string IfNotExistsClause => "IF NOT EXISTS";
 
-        protected SqlTableGenerator(ILogger logger = null)
+        protected SqlTableGenerator(ILogger? logger = null)
         {
             _logger = logger ?? NullLogger.Instance;
         }

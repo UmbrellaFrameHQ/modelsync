@@ -7,6 +7,10 @@
     <Nullable>enable</Nullable>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>false</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <DebugType>none</DebugType>
+    <NoWarn>CS1591</NoWarn>
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Analyzers</PackageId>

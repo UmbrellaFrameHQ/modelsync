@@ -7,6 +7,11 @@
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeSymbols>false</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <NoWarn>CS1591</NoWarn>
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Core</PackageId>

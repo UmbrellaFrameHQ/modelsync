@@ -9,13 +9,14 @@ namespace UmbrellaFrame.ModelSync.Core
         protected const int MaxVarcharLength = 65535;
 
         public string ColumnType { get; }
-        public new string Length { get; }
+        public string Length { get; }
 
         protected DbColumnTypeAttribute(string columnType)
         {
             ColumnType = columnType;
+            Length = string.Empty;
         }
-        protected DbColumnTypeAttribute(string columnType, string length = null)
+        protected DbColumnTypeAttribute(string columnType, string? length = null)
         {
             if (!IsValidLengthForType(columnType, length))
             {
@@ -23,10 +24,10 @@ namespace UmbrellaFrame.ModelSync.Core
             }
 
             ColumnType = columnType;
-            Length = length;
+            Length = length ?? string.Empty;
         }
 
-        private bool IsValidLengthForType(string columnType, string length)
+        private bool IsValidLengthForType(string columnType, string? length)
         {
             if (columnType == "CHAR" || columnType == "NCHAR" || columnType == "VARCHAR" || columnType == "NVARCHAR" || columnType == "TEXT" || columnType == "TINYTEXT")
             {

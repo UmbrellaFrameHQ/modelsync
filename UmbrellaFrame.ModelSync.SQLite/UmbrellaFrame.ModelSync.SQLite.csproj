@@ -5,6 +5,10 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>false</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <DebugType>none</DebugType>
+    <NoWarn>CS1591</NoWarn>
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.SQLite</PackageId>

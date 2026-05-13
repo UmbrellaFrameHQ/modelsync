@@ -51,7 +51,7 @@ namespace UmbrellaFrame.ModelSync.Core.Helpers
         {
             if (_properties.Value.TryGetValue(propertyName, out var metadata))
             {
-                return metadata.Value;
+                return metadata.Value!;
             }
             throw new PropertyNotFoundException(CoreResources.Get("PropertyManager_NotFound", propertyName));
         }
@@ -76,7 +76,7 @@ namespace UmbrellaFrame.ModelSync.Core.Helpers
 
         public List<KeyValuePair<string, object>> GetAllPropertiesAsList()
         {
-            return _properties.Value.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value.Value)).ToList();
+            return _properties.Value.Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value.Value!)).ToList();
         }
 
         /// <summary>
@@ -87,7 +87,7 @@ namespace UmbrellaFrame.ModelSync.Core.Helpers
         {
             return _properties.Value
                 .OrderBy(kv => kv.Value.PropertyInfo?.MetadataToken)
-                .Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value.Value))
+                .Select(kv => new KeyValuePair<string, object>(kv.Key, kv.Value.Value!))
                 .ToList();
         }
 
