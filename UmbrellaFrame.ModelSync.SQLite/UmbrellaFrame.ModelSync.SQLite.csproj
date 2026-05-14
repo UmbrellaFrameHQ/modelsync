@@ -18,9 +18,9 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.SQLite</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>UmbrellaFrame</Authors>
-    <Description>SQLite provider for UmbrellaFrame.ModelSync — attribute-based schema generator.</Description>
+    <Description>SQLite provider for UmbrellaFrame.ModelSync - attribute-based schema generator.</Description>
     <PackageTags>sqlite sql schema generator orm-free attributes dotnet</PackageTags>
     <PackageProjectUrl>https://github.com/umbrellaframe/modelsync</PackageProjectUrl>
     <RepositoryUrl>https://github.com/umbrellaframe/modelsync</RepositoryUrl>

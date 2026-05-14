@@ -13,6 +13,15 @@ Sürümleme: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [1.0.3] — NuGet README Uyumluluğu
+
+### Değiştirildi
+- Paket README içeriğindeki HTML başlık kaldırıldı.
+- Logo yolu NuGet üzerinde çalışacak mutlak GitHub raw URL ile güncellendi.
+- Paket sürümleri `1.0.3` olarak güncellendi.
+
+---
+
 ## [1.0.2] — Güvenlik Sertleştirmesi
 
 ### Eklendi

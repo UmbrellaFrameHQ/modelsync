@@ -21,9 +21,9 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Core</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>UmbrellaFrame</Authors>
-    <Description>Attribute-based SQL schema generator core library for .NET — zero ORM dependency.</Description>
+    <Description>Attribute-based SQL schema generator core library for .NET - zero ORM dependency.</Description>
     <PackageTags>sql schema generator orm-free attributes migration dotnet</PackageTags>
     <PackageProjectUrl>https://github.com/umbrellaframe/modelsync</PackageProjectUrl>
     <RepositoryUrl>https://github.com/umbrellaframe/modelsync</RepositoryUrl>

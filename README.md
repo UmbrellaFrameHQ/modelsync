@@ -1,8 +1,6 @@
-<div align="center">
-
-<img src="assets/icons/modelsync-core.png" alt="ModelSync" width="160"/>
-
 # ModelSync
+
+![ModelSync](https://raw.githubusercontent.com/ksomaz/modelsync/main/assets/icons/modelsync-core.png)
 
 [![NuGet](https://img.shields.io/nuget/v/UmbrellaFrame.ModelSync.Core.svg?style=flat-square)](https://www.nuget.org/packages/UmbrellaFrame.ModelSync.Core)
 [![CI](https://github.com/ksomaz/modelsync/actions/workflows/ci.yml/badge.svg)](https://github.com/ksomaz/modelsync/actions)
@@ -10,8 +8,6 @@
 [![.NET Standard 2.0](https://img.shields.io/badge/.NET%20Standard-2.0-purple?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
 
 **Language / Dil:** [English](#english) - [Turkce](#turkce)
-
-</div>
 
 ---
 

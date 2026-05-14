@@ -20,9 +20,9 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Analyzers</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>UmbrellaFrame</Authors>
-    <Description>Roslyn analyzer for UmbrellaFrame.ModelSync — compile-time model attribute validation (MSYNC001, MSYNC002, MSYNC003).</Description>
+    <Description>Roslyn analyzer for UmbrellaFrame.ModelSync - compile-time model attribute validation (MSYNC001, MSYNC002, MSYNC003).</Description>
     <PackageTags>roslyn analyzer sql schema generator attributes modelsync dotnet</PackageTags>
     <PackageProjectUrl>https://github.com/umbrellaframe/modelsync</PackageProjectUrl>
     <RepositoryUrl>https://github.com/umbrellaframe/modelsync</RepositoryUrl>
