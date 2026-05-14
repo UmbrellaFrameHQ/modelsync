@@ -10,6 +10,8 @@ Sürümleme: [Semantic Versioning](https://semver.org/)
 
 ### Eklendi
 - Kapsamlı `docs/` dizini (10 bölümlük dokümantasyon seti)
+- ModelSync tanıtımı için 3 kısa makale eklendi.
+- MySQL, SQL Server, SQLite ve destructive-operation kullanımı için `examples/` dizini eklendi.
 
 ---
 

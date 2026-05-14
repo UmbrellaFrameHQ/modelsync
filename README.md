@@ -190,6 +190,13 @@ dotnet_diagnostic.MSYNC003.severity = none
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
 
+### Articles and Examples
+
+| Resource | Description |
+|---|---|
+| [Articles](articles/README.md) | Three short publish-ready articles for introducing ModelSync |
+| [Examples](examples/README.md) | MySQL, SQL Server, SQLite, and destructive-operation examples |
+
 ### Why ModelSync?
 
 | Feature | ModelSync | EF Core | FluentMigrator | DbUp |
@@ -306,7 +313,7 @@ Izin verilen desen:
 ^[A-Za-z_][A-Za-z0-9_]*$
 ```
 
-Bosluk, nokta, tirnak, koseli parantez, noktalı virgul, tire ve benzeri karakterler bilincli olarak reddedilir.
+Bosluk, nokta, tirnak, koseli parantez, noktali virgul, tire ve benzeri karakterler bilincli olarak reddedilir.
 
 ### Desteklenen Attribute'lar
 
@@ -321,6 +328,13 @@ Bosluk, nokta, tirnak, koseli parantez, noktalı virgul, tire ve benzeri karakte
 | `[DbColumnDefault("ifade")]` | DEFAULT ifadesi ekler |
 | `[DbColumnCheck("ifade")]` | CHECK ifadesi ekler |
 | `[DbColumnIndex]` | `GenerateIndexSql<T>()` ile index SQL'i uretir |
+
+### Makaleler ve Ornekler
+
+| Kaynak | Aciklama |
+|---|---|
+| [Makaleler](articles/README.md) | ModelSync'i tanitmak icin hazir uc kisa yazi |
+| [Ornekler](examples/README.md) | MySQL, SQL Server, SQLite ve destructive-operation ornekleri |
 
 ### Lisans
 
