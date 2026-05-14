@@ -9,6 +9,12 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <DebugType>none</DebugType>
     <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <IncludeSymbols>false</IncludeSymbols>
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.SQLite</PackageId>

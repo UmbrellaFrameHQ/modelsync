@@ -20,7 +20,7 @@ namespace UmbrellaFrame.ModelSync.Core
         {
             if (!IsValidLengthForType(columnType, length))
             {
-                throw new ArgumentException(CoreResources.Get("DbColumnType_InvalidLength", length, columnType));
+                throw new ArgumentException(CoreResources.Get("DbColumnType_InvalidLength", length ?? "null", columnType));
             }
 
             ColumnType = columnType;
@@ -31,13 +31,13 @@ namespace UmbrellaFrame.ModelSync.Core
         {
             if (columnType == "CHAR" || columnType == "NCHAR" || columnType == "VARCHAR" || columnType == "NVARCHAR" || columnType == "TEXT" || columnType == "TINYTEXT")
             {
-                return IsValidLength(length);
+                return IsValidLength(length ?? string.Empty);
             }
 
             return true;
         }
 
-        private bool IsValidLength(string length)
+        private bool IsValidLength(string? length)
         {
             if (string.IsNullOrEmpty(length)) return true;
 
