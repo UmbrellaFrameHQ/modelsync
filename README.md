@@ -6,6 +6,7 @@
 [![CI](https://github.com/ksomaz/modelsync/actions/workflows/ci.yml/badge.svg)](https://github.com/ksomaz/modelsync/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![.NET Standard 2.0](https://img.shields.io/badge/.NET%20Standard-2.0-purple?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
+[![Views](https://hits.sh/github.com/ksomaz/modelsync.svg?style=flat-square&label=views&color=blue)](https://hits.sh/github.com/ksomaz/modelsync/)
 
 **Language / Dil:** [English](#english) - [Turkce](#turkce)
 
