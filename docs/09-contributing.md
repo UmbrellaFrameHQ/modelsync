@@ -13,7 +13,7 @@
 ## Projeyi Klonlama
 
 ```bash
-git clone https://github.com/UmbrellaFrame/ModelSync.git
+git clone https://github.com/UmbrellaFrameHQ/modelsync.git
 cd ModelSync
 dotnet restore
 dotnet build

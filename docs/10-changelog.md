@@ -1,88 +1,100 @@
-﻿# 10 — Changelog
+﻿# 10 - Changelog
 
-Tüm önemli değişiklikler bu dosyada belgelenmiştir.
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-Sürümleme: [Semantic Versioning](https://semver.org/)
-
----
-
-## [Yayınlanmamış]
-
-### Eklendi
-- Kapsamlı `docs/` dizini (10 bölümlük dokümantasyon seti)
-- ModelSync tanıtımı için 3 kısa makale eklendi.
-- MySQL, SQL Server, SQLite ve destructive-operation kullanımı için `examples/` dizini eklendi.
+All notable changes are documented here.
+Format: Keep a Changelog.
+Versioning: Semantic Versioning.
 
 ---
 
-## [1.0.3] — NuGet README Uyumluluğu
+## [Unreleased]
 
-### Değiştirildi
-- Paket README içeriğindeki HTML başlık kaldırıldı.
-- Logo yolu NuGet üzerinde çalışacak mutlak GitHub raw URL ile güncellendi.
-- Paket sürümleri `1.0.3` olarak güncellendi.
-
----
-
-## [1.0.2] — Güvenlik Sertleştirmesi
-
-### Eklendi
-- `DestructiveOperationOptions` eklendi.
-- `DropTables`, `DropColumn` ve `AlterColumnType` için açık destructive-operation onayı eklendi.
-- Tablo, kolon, index ve veritabanı adları için sıkı identifier doğrulaması eklendi.
-- Attribute tablo adıyla cached drop SQL üretimini doğrulayan testler eklendi.
-- Şüpheli identifier değerlerinin reddedildiğini doğrulayan testler eklendi.
-
-### Değiştirildi
-- Provider quote implementasyonları `QuoteValidatedIdentifier` üzerine taşındı; doğrulama base class içinde merkezi hale getirildi.
-- README tekrarlı içerikten arındırıldı ve v1.0.2 güvenlik davranışını anlatacak şekilde güncellendi.
-- Paket sürümleri `1.0.2` olarak güncellendi.
-
-### Düzeltildi
-- `DropTables()` akışının attribute ile verilen tablo adı yerine model class adını kullanabilmesi düzeltildi.
-- MySQL, PostgreSQL, SQL Server ve SQLite provider'larında drop işlemleri cached table-name metadata ile hizalandı.
+### Added
+- Comprehensive `docs/` directory.
+- Article drafts for introducing ModelSync.
+- Examples for MySQL, SQL Server, SQLite, and destructive-operation behavior.
 
 ---
 
-## [1.0.0] — Yakında
+## [1.0.4] - NuGet Links and Documentation Refresh
 
-### Eklendi
-- `ITableGenerator` arayüzü (DI desteği)
-- `SqlTableGenerator` soyut temel sınıfı
-- Provider-specific identifier quoting (backtick / köşeli parantez / çift tırnak)
-- `IF NOT EXISTS` desteği (MySQL, PostgreSQL, SQLite; SQL Server hariç)
-- Async API: `GenerateSqlTableAsync`, `CreateTablesAsync`, `DropTablesAsync`
-- `GenerateDropTableSql<T>()` — DROP TABLE ifadesi üretimi
-- `GenerateTruncateTableSql<T>()` — TRUNCATE TABLE ifadesi üretimi
-- `GenerateIndexSql<T>()` — CREATE [UNIQUE] INDEX ifadeleri üretimi
-- `DbColumnDefaultAttribute` — DEFAULT constraint desteği
-- `DbColumnCheckAttribute` — CHECK constraint desteği
-- `DbColumnIndexAttribute` — Index tanımı desteği
-- `ConcurrentDictionary` tabanlı per-instance önbellek (thread-safe)
-- `MetadataToken` ile deterministik property sıralaması
-- `ILogger` entegrasyonu (`NullLogger` fallback ile)
-- Roslyn Analyzer: `MSYNC001` — Eksik kolon tipi attribute'u
-- Roslyn Analyzer: `MSYNC002` — Eksik tablo adı attribute'u
-- Roslyn Analyzer: `MSYNC003` — Eksik primary key
-- GitHub Actions CI/CD pipeline
-- README.md, LICENSE (MIT), .gitignore
-- Tüm library'ler için NuGet metadata
+### Changed
+- NuGet package README content now uses `docs/nuget/README.md`, a pure Markdown file that renders cleanly on NuGet.org.
+- GitHub repository, source ZIP, releases, examples, and tutorial links were moved to `UmbrellaFrameHQ/modelsync`.
+- Package metadata fields were refreshed: `PackageProjectUrl`, `RepositoryUrl`, release notes, and copyright.
+- Package versions were bumped to `1.0.4`.
+- GitHub Actions NuGet publish flow now works for `v*` tags.
 
-### Değiştirildi
-- Hedef framework `netcoreapp3.1` → `netstandard2.0` (daha geniş uyumluluk)
-- Generator sınıfları yeniden isimlendirildi (`GenerateMySqlTable`, `GenerateSqlServerTable`, vb.)
-- DDL çalıştırma `ExecuteReader`/`ExecuteScalar` → `ExecuteNonQuery`/`ExecuteNonQueryAsync`
-
-### Düzeltildi
-- Paylaşılan static önbellek nedeniyle provider'lar arası SQL kirlenmesi giderildi
-- Property sıralama garanti altına alındı (`MetadataToken` ile)
+### Added
+- Added `scripts/publish-nuget.ps1`.
+- Added download and NuGet links to the documentation index.
 
 ---
 
-## [0.1.0] — İlk Sürüm (Internal)
+## [1.0.3] - NuGet README Compatibility
 
-### Eklendi
-- Temel MySQL attribute tabanlı CREATE TABLE üretimi
-- `MySqlTableGenerator` sınıfı
-- `MySqlColumnTypeAttribute`, `MySqlTableNameAttribute`
-- `DynamicPropertyManager<T>` yansıma yardımcısı
+### Changed
+- Removed HTML heading content from the package README.
+- Updated logo URL to a NuGet-compatible GitHub raw URL.
+- Package versions were bumped to `1.0.3`.
+
+---
+
+## [1.0.2] - Security Hardening
+
+### Added
+- Added `DestructiveOperationOptions`.
+- Added explicit destructive-operation approval for `DropTables`, `DropColumn`, and `AlterColumnType`.
+- Added strict identifier validation for table, column, index, and database names.
+- Added tests for cached drop SQL using attribute table names.
+- Added tests for suspicious identifier rejection.
+
+### Changed
+- Moved provider quoting implementations onto `QuoteValidatedIdentifier`; validation is now centralized in the base class.
+- Updated README to describe v1.0.2 destructive-operation behavior.
+- Package versions were bumped to `1.0.2`.
+
+### Fixed
+- Fixed cached drop SQL using model class names instead of attribute table names.
+- Aligned drop behavior with cached table-name metadata across MySQL, PostgreSQL, SQL Server, and SQLite providers.
+
+---
+
+## [1.0.0] - Initial Public Release
+
+### Added
+- `ITableGenerator` interface for DI support.
+- `SqlTableGenerator` abstract base class.
+- Provider-specific identifier quoting.
+- `IF NOT EXISTS` support for MySQL, PostgreSQL, and SQLite.
+- Async APIs: `GenerateSqlTableAsync`, `CreateTablesAsync`, `DropTablesAsync`.
+- `GenerateDropTableSql<T>()`.
+- `GenerateTruncateTableSql<T>()`.
+- `GenerateIndexSql<T>()`.
+- `DbColumnDefaultAttribute`.
+- `DbColumnCheckAttribute`.
+- `DbColumnIndexAttribute`.
+- Per-instance thread-safe cache.
+- Deterministic property ordering with `MetadataToken`.
+- `ILogger` integration with `NullLogger` fallback.
+- Roslyn Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003`.
+- GitHub Actions CI/CD pipeline.
+- NuGet metadata for all library packages.
+
+### Changed
+- Target framework changed from `netcoreapp3.1` to `netstandard2.0`.
+- Generator methods were renamed to provider aliases such as `GenerateMySqlTable` and `GenerateSqlServerTable`.
+- DDL execution moved from reader/scalar calls to non-query execution.
+
+### Fixed
+- Fixed SQL cache pollution across providers.
+- Guaranteed property order with `MetadataToken`.
+
+---
+
+## [0.1.0] - Internal Prototype
+
+### Added
+- Basic MySQL attribute-based CREATE TABLE generation.
+- `MySqlTableGenerator`.
+- `MySqlColumnTypeAttribute`, `MySqlTableNameAttribute`.
+- `DynamicPropertyManager<T>` reflection helper.

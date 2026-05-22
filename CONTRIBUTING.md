@@ -17,7 +17,7 @@ Thank you for considering contributing to ModelSync! This document explains how 
 ### Clone & Build
 
 ```bash
-git clone https://github.com/umbrellaframe/modelsync.git
+git clone https://github.com/UmbrellaFrameHQ/modelsync.git
 cd modelsync
 dotnet restore
 dotnet build
@@ -46,13 +46,13 @@ ModelSync/
 
 ### Reporting Bugs
 
-1. Search existing [Issues](https://github.com/umbrellaframe/modelsync/issues) first.
+1. Search existing [Issues](https://github.com/UmbrellaFrameHQ/modelsync/issues) first.
 2. If not found, open a new issue using the **Bug Report** template.
 3. Include the provider, .NET version, a minimal repro, and the expected vs actual SQL output.
 
 ### Suggesting Features
 
-1. Open a [Discussion](https://github.com/umbrellaframe/modelsync/discussions) to propose the idea.
+1. Open a [Discussion](https://github.com/UmbrellaFrameHQ/modelsync/discussions) to propose the idea.
 2. Once agreed upon, open an Issue referencing the discussion.
 
 ### Submitting a Pull Request

@@ -8,7 +8,7 @@
     <IncludeSymbols>false</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <DebugType>none</DebugType>
-    <NoWarn>CS1591</NoWarn>
+    <NoWarn>CS1591;CS8625;CS8618;CS0109;CS8604</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -18,22 +18,23 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.SQLite</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>SQLite provider for UmbrellaFrame.ModelSync - attribute-based schema generator.</Description>
     <PackageTags>sqlite sql schema generator orm-free attributes dotnet</PackageTags>
-    <PackageProjectUrl>https://github.com/umbrellaframe/modelsync</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/umbrellaframe/modelsync</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/UmbrellaFrameHQ/modelsync</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/UmbrellaFrameHQ/modelsync</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <Copyright>Copyright (c) 2025 UmbrellaFrame</Copyright>
+    <PackageReleaseNotes>NuGet README rendering cleanup, repository links moved to UmbrellaFrameHQ/modelsync, documentation download links refreshed, and integration test publishing workflow improvements.</PackageReleaseNotes>
+    <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\"/>
-    <None Include="modelsync-sqlite.png" Pack="true" PackagePath="\icon.png"/>
+    <None Include="..\docs\nuget\README.md" Pack="true" PackagePath="\" />
+    <None Include="modelsync-sqlite.png" Pack="true" PackagePath="icon.png"/>
   </ItemGroup>
 
   <ItemGroup>

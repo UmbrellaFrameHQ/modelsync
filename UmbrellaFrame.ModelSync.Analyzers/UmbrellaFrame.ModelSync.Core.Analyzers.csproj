@@ -10,7 +10,7 @@
     <IncludeSymbols>false</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <DebugType>none</DebugType>
-    <NoWarn>CS1591</NoWarn>
+    <NoWarn>CS1591;CS8625;RS2008</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -20,23 +20,24 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Analyzers</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>Roslyn analyzer for UmbrellaFrame.ModelSync - compile-time model attribute validation (MSYNC001, MSYNC002, MSYNC003).</Description>
     <PackageTags>roslyn analyzer sql schema generator attributes modelsync dotnet</PackageTags>
-    <PackageProjectUrl>https://github.com/umbrellaframe/modelsync</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/umbrellaframe/modelsync</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/UmbrellaFrameHQ/modelsync</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/UmbrellaFrameHQ/modelsync</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <Copyright>Copyright (c) 2025 UmbrellaFrame</Copyright>
+    <PackageReleaseNotes>NuGet README rendering cleanup, repository links moved to UmbrellaFrameHQ/modelsync, documentation download links refreshed, and integration test publishing workflow improvements.</PackageReleaseNotes>
+    <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
     <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\"/>
-    <None Include="..\UmbrellaFrame.ModelSync.Core\modelsync-core.png" Pack="true" PackagePath="\icon.png"/>
+    <None Include="..\docs\nuget\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\UmbrellaFrame.ModelSync.Core\modelsync-core.png" Pack="true" PackagePath="icon.png"/>
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
   </ItemGroup>
 

@@ -1,12 +1,12 @@
 # ModelSync
 
-![ModelSync](https://raw.githubusercontent.com/ksomaz/modelsync/main/assets/icons/modelsync-core.png)
+![ModelSync](https://raw.githubusercontent.com/UmbrellaFrameHQ/modelsync/main/assets/icons/modelsync-core.png)
 
 [![NuGet](https://img.shields.io/nuget/v/UmbrellaFrame.ModelSync.Core.svg?style=flat-square)](https://www.nuget.org/packages/UmbrellaFrame.ModelSync.Core)
-[![CI](https://github.com/ksomaz/modelsync/actions/workflows/ci.yml/badge.svg)](https://github.com/ksomaz/modelsync/actions)
+[![CI](https://github.com/UmbrellaFrameHQ/modelsync/actions/workflows/ci.yml/badge.svg)](https://github.com/UmbrellaFrameHQ/modelsync/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![.NET Standard 2.0](https://img.shields.io/badge/.NET%20Standard-2.0-purple?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
-[![Views](https://hits.sh/github.com/ksomaz/modelsync.svg?style=flat-square&label=views&color=blue)](https://hits.sh/github.com/ksomaz/modelsync/)
+[![Views](https://hits.sh/github.com/UmbrellaFrameHQ/modelsync.svg?style=flat-square&label=views&color=blue)](https://hits.sh/github.com/UmbrellaFrameHQ/modelsync/)
 
 **Language / Dil:** [English](#english) - [Turkce](#turkce)
 
@@ -62,6 +62,18 @@ Optionally add the analyzer package:
 ```bash
 dotnet add package UmbrellaFrame.ModelSync.Analyzers
 ```
+
+### Downloads and Tutorials
+
+| Resource | Link |
+|---|---|
+| GitHub repository | [UmbrellaFrameHQ/modelsync](https://github.com/UmbrellaFrameHQ/modelsync) |
+| Latest source download | [Download ZIP](https://github.com/UmbrellaFrameHQ/modelsync/archive/refs/heads/main.zip) |
+| Releases | [GitHub Releases](https://github.com/UmbrellaFrameHQ/modelsync/releases) |
+| Quick start tutorial | [docs/02-quickstart.md](docs/02-quickstart.md) |
+| Provider tutorials | [docs/04-providers.md](docs/04-providers.md) |
+| Examples | [examples/README.md](examples/README.md) |
+| NuGet README source | [docs/nuget/README.md](docs/nuget/README.md) |
 
 ### Quick Start
 
@@ -308,6 +320,18 @@ Package NuGet artifacts and the Notes VSIX:
 
 ```powershell
 .\scripts\pack.ps1
+```
+
+If your local PowerShell policy blocks scripts:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\pack.ps1
+```
+
+Publish NuGet packages after setting `NUGET_API_KEY`:
+
+```powershell
+.\scripts\publish-nuget.ps1
 ```
 
 Integration tests are opt-in because they require live databases. Set the relevant flag and connection string before running `.\scripts\test.ps1 -Integration`:
