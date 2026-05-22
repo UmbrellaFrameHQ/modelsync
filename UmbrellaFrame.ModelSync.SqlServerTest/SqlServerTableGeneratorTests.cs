@@ -34,6 +34,9 @@ internal class FakeSqlServerTableGenerator : SqlServerTableGenerator, ITableGene
 [TestFixture]
 public class SqlServerTableGeneratorTests
 {
+    private const string RunSqlServerIntegrationVariable = "MODELSYNC_RUN_SQLSERVER_INTEGRATION";
+    private const string SqlServerConnectionStringVariable = "MODELSYNC_SQLSERVER_CONNECTION_STRING";
+
     private enum StatusEnum
     {
         Active,
@@ -158,7 +161,9 @@ public class SqlServerTableGeneratorTests
     [Category("Integration")]
     public void GenerateCreateTableCommand1_Integration_CreateTables()
     {
-        var sqlGenerator = new SqlServerTableGenerator("Server=localhost;Database=appdb;User Id=sa;Password=123;Encrypt=False;TrustServerCertificate=True;");
+        RequireSqlServerIntegration();
+
+        var sqlGenerator = new SqlServerTableGenerator(GetSqlServerConnectionString());
         sqlGenerator.GenerateSqlTable<MockModel>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel2>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel3>(ifNotExists: true);
@@ -169,8 +174,10 @@ public class SqlServerTableGeneratorTests
     [Category("Integration")]
     public void CreateDatabase_Integration_ShouldBeIdempotent()
     {
+        RequireSqlServerIntegration();
+
         // DB zaten varsa hata vermemeli, tekrar çağrılabilmeli
-        var sqlGenerator = new SqlServerTableGenerator("Server=localhost;Database=appdb;User Id=sa;Password=123;Encrypt=False;TrustServerCertificate=True;");
+        var sqlGenerator = new SqlServerTableGenerator(GetSqlServerConnectionString());
 
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // ilk çağrı — DB yoksa oluşturur
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // ikinci çağrı — DB varsa hiçbir şey yapmaz
@@ -184,7 +191,9 @@ public class SqlServerTableGeneratorTests
     /// </summary>
     private static SqlServerTableGenerator CreateFreshMockTable3()
     {
-        const string cs = "Server=localhost;Database=appdb;User Id=sa;Password=123;Encrypt=False;TrustServerCertificate=True;";
+        RequireSqlServerIntegration();
+
+        var cs = GetSqlServerConnectionString();
         var gen = new SqlServerTableGenerator(cs);
         gen.CreateDatabase();
 
@@ -242,5 +251,19 @@ public class SqlServerTableGeneratorTests
 
         // Price kolonunun tipini attribute'tan okuyarak günceller → DECIMAL(10,2)
         Assert.DoesNotThrow(() => sqlGenerator.AlterColumnType<MockModel3>("Price", DestructiveOperationOptions.Allow()), "AlterColumnType");
+    }
+
+    private static void RequireSqlServerIntegration()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable(RunSqlServerIntegrationVariable), "1", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Ignore("SQL Server integration tests require a local SQL Server instance on localhost with sa/123. Set MODELSYNC_RUN_SQLSERVER_INTEGRATION=1 to run this test.");
+        }
+    }
+
+    private static string GetSqlServerConnectionString()
+    {
+        return Environment.GetEnvironmentVariable(SqlServerConnectionStringVariable)
+            ?? "Server=localhost;Database=appdb;User Id=sa;Password=123;Encrypt=False;TrustServerCertificate=True;";
     }
 }

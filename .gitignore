@@ -11,6 +11,17 @@
 *.nupkg
 *.snupkg
 
+## VSIX artifacts
+*.vsix
+!UmbrellaFrame.ModelSync.NotesExtension.Vsix/
+!UmbrellaFrame.ModelSync.NotesExtension.Vsix/**
+UmbrellaFrame.ModelSync.NotesExtension.Vsix/bin/
+UmbrellaFrame.ModelSync.NotesExtension.Vsix/obj/
+artifacts/
+
+## ModelSync runtime workspace data
+.modelsync/
+
 ## OS
 .DS_Store
 Thumbs.db

@@ -1,16 +1,59 @@
 # ModelSync Icons
 
-Bu klasöre aşağıdaki ikon dosyalarını kaydedin:
+This folder keeps source icon assets used by NuGet package metadata and repository documentation.
 
-| Dosya Adı | Hangi Paket | Hangi Resim |
+## Icon Map
+
+| File | Package | Purpose |
 |---|---|---|
-| `modelsync-core.png` | UmbrellaFrame.ModelSync.Core | 3. resim (sync ok'lu DB — genel logo) |
-| `modelsync-sqlserver.png` | UmbrellaFrame.ModelSync.SqlServer | 2. resim (diamond SQL Server logosu) |
-| `modelsync-mysql.png` | UmbrellaFrame.ModelSync.MySql | 1. resim (MySQL dolphin) |
-| `modelsync-postgresql.png` | UmbrellaFrame.ModelSync.PostgreSQL | PostgreSQL ikonu (hazırlanacak) |
-| `modelsync-sqlite.png` | UmbrellaFrame.ModelSync.SQLite | SQLite ikonu (hazırlanacak) |
+| `modelsync-core.png` | `UmbrellaFrame.ModelSync.Core` | Main ModelSync package icon |
+| `modelsync-sqlserver.png` | `UmbrellaFrame.ModelSync.SqlServer` | SQL Server provider icon |
+| `modelsync-mysql.png` | `UmbrellaFrame.ModelSync.MySql` | MySQL/MariaDB provider icon |
+| `modelsync-postgresql.png` | `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL provider icon |
+| `modelsync-sqlite.png` | `UmbrellaFrame.ModelSync.SQLite` | SQLite provider icon |
+| `modelsync-notes.png` | `UmbrellaFrame.ModelSync.NotesExtension.Vsix` | Visual Studio Notes extension icon |
 
-## Gereksinimler
-- Format: **PNG**
-- Boyut: **128x128 px** (NuGet için minimum öneri)
-- Arka plan: **Beyaz veya şeffaf**
+## Requirements
+
+- Format: PNG
+- Recommended size: 128x128 px or larger
+- Background: transparent or white
+- Keep visual weight consistent between provider icons
+
+## Example Package Reference
+
+Provider `.csproj` files can include an icon like this:
+
+```xml
+<PropertyGroup>
+  <PackageIcon>modelsync-mysql.png</PackageIcon>
+</PropertyGroup>
+
+<ItemGroup>
+  <None Include="modelsync-mysql.png" Pack="true" PackagePath="" />
+</ItemGroup>
+```
+
+## VSIX Icon Example
+
+The Notes VSIX uses the icon in `source.extension.vsixmanifest`:
+
+```xml
+<Metadata>
+  <Icon>modelsync-notes.png</Icon>
+</Metadata>
+```
+
+The VSIX project also includes the file in the package:
+
+```xml
+<ItemGroup>
+  <Content Include="modelsync-notes.png" IncludeInVSIX="true" />
+</ItemGroup>
+```
+
+## Note
+
+Do not replace package icons with screenshots or UI captures. NuGet icons should stay simple, square, and readable at small sizes.
+
+The Notes icon combines a document and clock shape so it reads as "developer note history" in the Visual Studio Extensions window.

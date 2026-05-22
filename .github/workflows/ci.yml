@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    name: Build & Test
+    name: Build & Unit Test
     runs-on: ubuntu-latest
 
     steps:
@@ -24,16 +24,54 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: |
+          dotnet build UmbrellaFrame.ModelSync.Core/UmbrellaFrame.ModelSync.Core.csproj --no-restore --configuration Release
+          dotnet build UmbrellaFrame.ModelSync.MySql/UmbrellaFrame.ModelSync.MySql.csproj --no-restore --configuration Release
+          dotnet build UmbrellaFrame.ModelSync.SqlServer/UmbrellaFrame.ModelSync.SqlServer.csproj --no-restore --configuration Release
+          dotnet build UmbrellaFrame.ModelSync.PostgreSQL/UmbrellaFrame.ModelSync.PostgreSQL.csproj --no-restore --configuration Release
+          dotnet build UmbrellaFrame.ModelSync.SQLite/UmbrellaFrame.ModelSync.SQLite.csproj --no-restore --configuration Release
+          dotnet build UmbrellaFrame.ModelSync.Analyzers/UmbrellaFrame.ModelSync.Core.Analyzers.csproj --no-restore --configuration Release
+          dotnet build UmbrellaFrame.ModelSync.NotesExtension/UmbrellaFrame.ModelSync.NotesExtension.csproj --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+        run: |
+          dotnet test UmbrellaFrame.ModelSync.CoreTest/UmbrellaFrame.ModelSync.CoreTest.csproj --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test UmbrellaFrame.ModelSync.NotesExtensionTest/UmbrellaFrame.ModelSync.NotesExtensionTest.csproj --no-build --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           directory: ./coverage
           fail_ci_if_error: false
+
+  build-vsix:
+    name: Build Notes VSIX
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore
+        run: dotnet restore UmbrellaFrame.ModelSync.NotesExtension.Vsix/UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj
+
+      - name: Build
+        run: dotnet build UmbrellaFrame.ModelSync.NotesExtension.Vsix/UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj --no-restore --configuration Release
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: modelsync-notes-vsix
+          path: UmbrellaFrame.ModelSync.NotesExtension.Vsix/bin/Release/net472/*.vsix
 
   pack:
     name: Pack NuGet

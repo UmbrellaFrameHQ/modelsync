@@ -34,6 +34,11 @@ internal class FakeMySqlTestGenerator : MySqlTableGenerator, ITableGenerator
 [TestFixture]
 public class MySqlTestTableGeneratorTests
 {
+    private const string RunMySqlIntegrationVariable = "MODELSYNC_RUN_MYSQL_INTEGRATION";
+    private const string RunMariaDbIntegrationVariable = "MODELSYNC_RUN_MARIADB_INTEGRATION";
+    private const string MySqlConnectionStringVariable = "MODELSYNC_MYSQL_CONNECTION_STRING";
+    private const string MariaDbConnectionStringVariable = "MODELSYNC_MARIADB_CONNECTION_STRING";
+
     private enum StatusEnum
     {
         Active,
@@ -157,7 +162,9 @@ public class MySqlTestTableGeneratorTests
     [Category("Integration")]
     public void GenerateCreateTableCommand1_Integration_MySQL_CreateTables()
     {
-        var sqlGenerator = new MySqlTableGenerator("Server=localhost;Port=3306;Database=appdb;User ID=appuser;Password=apppass;");
+        RequireMySqlIntegration();
+
+        var sqlGenerator = new MySqlTableGenerator(GetMySqlConnectionString());
         sqlGenerator.GenerateSqlTable<MockModel>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel2>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel3>(ifNotExists: true);
@@ -169,7 +176,9 @@ public class MySqlTestTableGeneratorTests
     [Category("Integration")]
     public void GenerateCreateTableCommand1_Integration_MariaDB_CreateTables()
     {
-        var sqlGenerator = new MySqlTableGenerator("Server=localhost;Port=3307;Database=appdb;User ID=appuser;Password=apppass;");
+        RequireMariaDbIntegration();
+
+        var sqlGenerator = new MySqlTableGenerator(GetMariaDbConnectionString());
         sqlGenerator.GenerateSqlTable<MockModel>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel2>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel3>(ifNotExists: true);
@@ -181,7 +190,9 @@ public class MySqlTestTableGeneratorTests
     [Category("Integration")]
     public void CreateDatabase_Integration_MySQL_ShouldBeIdempotent()
     {
-        var sqlGenerator = new MySqlTableGenerator("Server=localhost;Port=3306;Database=appdb;User ID=appuser;Password=apppass;");
+        RequireMySqlIntegration();
+
+        var sqlGenerator = new MySqlTableGenerator(GetMySqlConnectionString());
 
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // DB yoksa oluşturur
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // DB varsa hiçbir şey yapmaz
@@ -191,7 +202,9 @@ public class MySqlTestTableGeneratorTests
     [Category("Integration")]
     public void CreateDatabase_Integration_MariaDB_ShouldBeIdempotent()
     {
-        var sqlGenerator = new MySqlTableGenerator("Server=localhost;Port=3307;Database=appdb;User ID=appuser;Password=apppass;");
+        RequireMariaDbIntegration();
+
+        var sqlGenerator = new MySqlTableGenerator(GetMariaDbConnectionString());
 
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // DB yoksa oluşturur
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // DB varsa hiçbir şey yapmaz
@@ -274,7 +287,9 @@ public class MySqlTestTableGeneratorTests
 
     private static MySqlTableGenerator CreateFreshMySqlMockTable3()
     {
-        const string cs = "Server=localhost;Port=3306;Database=appdb;User ID=appuser;Password=apppass;";
+        RequireMySqlIntegration();
+
+        var cs = GetMySqlConnectionString();
         var gen = new MySqlTableGenerator(cs);
         gen.CreateDatabase();
 
@@ -322,5 +337,35 @@ public class MySqlTestTableGeneratorTests
     {
         var gen = CreateFreshMySqlMockTable3();
         Assert.DoesNotThrow(() => gen.AlterColumnType<MockModel3>("Price", DestructiveOperationOptions.Allow()), "AlterColumnType");
+    }
+
+    private static void RequireMySqlIntegration()
+    {
+        RequireIntegration(RunMySqlIntegrationVariable, "MySQL integration tests require a local MySQL instance on localhost:3306 with appuser/apppass.");
+    }
+
+    private static void RequireMariaDbIntegration()
+    {
+        RequireIntegration(RunMariaDbIntegrationVariable, "MariaDB integration tests require a local MariaDB instance on localhost:3307 with appuser/apppass.");
+    }
+
+    private static void RequireIntegration(string variableName, string reason)
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable(variableName), "1", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Ignore($"{reason} Set {variableName}=1 to run this test.");
+        }
+    }
+
+    private static string GetMySqlConnectionString()
+    {
+        return Environment.GetEnvironmentVariable(MySqlConnectionStringVariable)
+            ?? "Server=localhost;Port=3306;Database=appdb;User ID=appuser;Password=apppass;";
+    }
+
+    private static string GetMariaDbConnectionString()
+    {
+        return Environment.GetEnvironmentVariable(MariaDbConnectionStringVariable)
+            ?? "Server=localhost;Port=3307;Database=appdb;User ID=appuser;Password=apppass;";
     }
 }

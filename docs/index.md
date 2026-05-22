@@ -22,6 +22,7 @@
 | [08 — Architecture](08-architecture.md) | Layer diagram, flow, extensibility |
 | [09 — Contributing](09-contributing.md) | Dev environment, PR process, code standards |
 | [10 — Changelog](10-changelog.md) | Version history |
+| [11 — Notes Extension](11-notes-extension.md) | Optional Visual Studio notes/history extension |
 
 ---
 
@@ -41,3 +42,4 @@
 | [08 — Mimari](08-architecture.md) | Katman diyagramı, akış, genişletilebilirlik |
 | [09 — Katkı Rehberi](09-contributing.md) | Geliştirme ortamı, PR süreci, kod standartları |
 | [10 — Changelog](10-changelog.md) | Sürüm geçmişi |
+| [11 — Notes Extension](11-notes-extension.md) | Opsiyonel Visual Studio not/history eklentisi |

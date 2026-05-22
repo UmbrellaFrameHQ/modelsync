@@ -34,6 +34,9 @@ internal class FakePostgresTestGenerator : PostgresTableGenerator, ITableGenerat
 [TestFixture]
 public class PostgresTableGeneratorTests
 {
+    private const string RunPostgresIntegrationVariable = "MODELSYNC_RUN_POSTGRES_INTEGRATION";
+    private const string PostgresConnectionStringVariable = "MODELSYNC_POSTGRES_CONNECTION_STRING";
+
     private enum StatusEnum
     {
         Active,
@@ -157,7 +160,9 @@ public class PostgresTableGeneratorTests
     [Category("Integration")]
     public void GenerateCreateTableCommand1_Integration_CreateTables()
     {
-        var sqlGenerator = new PostgresTableGenerator("Host=localhost;Port=5432;Database=appdb;Username=appuser;Password=apppass;");
+        RequirePostgresIntegration();
+
+        var sqlGenerator = new PostgresTableGenerator(GetPostgresConnectionString());
         sqlGenerator.GenerateSqlTable<MockModel>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel2>(ifNotExists: true);
         sqlGenerator.GenerateSqlTable<MockModel3>(ifNotExists: true);
@@ -169,7 +174,9 @@ public class PostgresTableGeneratorTests
     [Category("Integration")]
     public void CreateDatabase_Integration_ShouldBeIdempotent()
     {
-        var sqlGenerator = new PostgresTableGenerator("Host=localhost;Port=5432;Database=appdb;Username=appuser;Password=apppass;");
+        RequirePostgresIntegration();
+
+        var sqlGenerator = new PostgresTableGenerator(GetPostgresConnectionString());
 
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // DB yoksa oluşturur
         Assert.DoesNotThrow(() => sqlGenerator.CreateDatabase()); // DB varsa hiçbir şey yapmaz
@@ -253,7 +260,9 @@ public class PostgresTableGeneratorTests
 
     private static PostgresTableGenerator CreateFreshPostgresMockTable3()
     {
-        const string cs = "Host=localhost;Port=5432;Database=appdb;Username=appuser;Password=apppass;";
+        RequirePostgresIntegration();
+
+        var cs = GetPostgresConnectionString();
         var gen = new PostgresTableGenerator(cs);
         gen.CreateDatabase();
 
@@ -300,5 +309,19 @@ public class PostgresTableGeneratorTests
     {
         var gen = CreateFreshPostgresMockTable3();
         Assert.DoesNotThrow(() => gen.AlterColumnType<MockModel3>("Price", DestructiveOperationOptions.Allow()), "AlterColumnType");
+    }
+
+    private static void RequirePostgresIntegration()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable(RunPostgresIntegrationVariable), "1", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Ignore("PostgreSQL integration tests require a local PostgreSQL instance on localhost:5432 with appuser/apppass. Set MODELSYNC_RUN_POSTGRES_INTEGRATION=1 to run this test.");
+        }
+    }
+
+    private static string GetPostgresConnectionString()
+    {
+        return Environment.GetEnvironmentVariable(PostgresConnectionStringVariable)
+            ?? "Host=localhost;Port=5432;Database=appdb;Username=appuser;Password=apppass;";
     }
 }

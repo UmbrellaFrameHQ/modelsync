@@ -1,0 +1,93 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  database-integration:
+    name: Database Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: rootpass
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: appuser
+          POSTGRES_PASSWORD: apppass
+          POSTGRES_DB: appdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U appuser -d appdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: YourStrong!Passw0rd
+        ports:
+          - 1433:1433
+
+    env:
+      MODELSYNC_RUN_MYSQL_INTEGRATION: 1
+      MODELSYNC_RUN_MARIADB_INTEGRATION: 1
+      MODELSYNC_RUN_POSTGRES_INTEGRATION: 1
+      MODELSYNC_RUN_SQLSERVER_INTEGRATION: 1
+      MODELSYNC_MYSQL_CONNECTION_STRING: Server=127.0.0.1;Port=3306;Database=appdb;User ID=root;Password=rootpass;
+      MODELSYNC_MARIADB_CONNECTION_STRING: Server=127.0.0.1;Port=3307;Database=appdb;User ID=root;Password=rootpass;
+      MODELSYNC_POSTGRES_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=appdb;Username=appuser;Password=apppass;
+      MODELSYNC_SQLSERVER_CONNECTION_STRING: Server=127.0.0.1,1433;Database=appdb;User Id=sa;Password=YourStrong!Passw0rd;Encrypt=False;TrustServerCertificate=True;
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore
+        run: |
+          dotnet restore UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj
+          dotnet restore UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj
+          dotnet restore UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj
+
+      - name: Build
+        run: |
+          dotnet build UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj --configuration Release --no-restore
+          dotnet build UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --configuration Release --no-restore
+          dotnet build UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --configuration Release --no-restore
+
+      - name: Run integration tests
+        run: |
+          dotnet test UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj --configuration Release --no-build --filter "Category=Integration"
+          dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --configuration Release --no-build --filter "Category=Integration"
+          dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --configuration Release --no-build --filter "Category=Integration"

@@ -26,6 +26,8 @@ UmbrellaFrame.ModelSync.MySql         -> MySQL / MariaDB provider
 UmbrellaFrame.ModelSync.PostgreSQL    -> PostgreSQL provider
 UmbrellaFrame.ModelSync.SQLite        -> SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
+UmbrellaFrame.ModelSync.NotesExtension -> Optional Visual Studio Notes service layer
+UmbrellaFrame.ModelSync.NotesExtension.Vsix -> Optional Visual Studio editor extension
 ```
 
 ### Design Philosophy
@@ -103,6 +105,44 @@ CREATE TABLE IF NOT EXISTS `products` (
 );
 ```
 
+### Complete Example with Index and Default
+
+```csharp
+using UmbrellaFrame.ModelSync.Core;
+using UmbrellaFrame.ModelSync.PostgreSQL;
+
+[PostgresTableName("customers")]
+public sealed class CustomerModel
+{
+    [PostgresColumnType(PostgresColumnType.INTEGER)]
+    [PostgresColumnPrimaryKey]
+    public int Id { get; set; }
+
+    [PostgresColumnType(PostgresColumnType.VARCHAR, "160")]
+    [PostgresColumnNotNull]
+    [DbColumnIndex("idx_customers_email", isUnique: true)]
+    public string Email { get; set; } = string.Empty;
+
+    [PostgresColumnType(PostgresColumnType.TIMESTAMP)]
+    [DbColumnDefault("CURRENT_TIMESTAMP")]
+    public DateTime CreatedAt { get; set; }
+}
+
+var generator = new PostgresTableGenerator(
+    "Host=localhost;Database=appdb;Username=postgres;Password=pass;");
+
+var tableSql = generator.GeneratePostgresTable<CustomerModel>(ifNotExists: true);
+var indexes = generator.GenerateIndexSql<CustomerModel>();
+
+Console.WriteLine(tableSql);
+foreach (var indexSql in indexes)
+{
+    Console.WriteLine(indexSql);
+}
+```
+
+This prints both table DDL and index DDL before anything is executed.
+
 ### ALTER TABLE Operations
 
 Safe additive operations can run directly:
@@ -176,6 +216,109 @@ dotnet_diagnostic.MSYNC001.severity = error
 dotnet_diagnostic.MSYNC003.severity = none
 ```
 
+### ModelSync Notes for Visual Studio
+
+ModelSync Notes is an optional VSIX, not part of the core runtime package. It adds a small notes/history glyph next to model classes and model properties in Visual Studio. Each entry stores the author, date, and note text.
+
+![ModelSync Notes icon](assets/icons/modelsync-notes.png)
+
+There are two visual elements:
+
+- Extension icon: `modelsync-notes.png`, shown by Visual Studio in the Extensions window.
+- Editor glyph: the small clickable history button rendered next to model classes and properties.
+
+Notes are stored as solution-local JSON:
+
+```text
+<solution>\.modelsync\notes.json
+```
+
+The extension is designed for developer workflow notes, not as a secure audit log. The UI and service allow only the note owner to edit or delete a note, but a local JSON file can still be edited by anyone with filesystem access.
+
+Example Notes JSON:
+
+```json
+{
+  "schemaVersion": 1,
+  "notes": {
+    "ProductModel.Name": [
+      {
+        "id": "note_4b2e...",
+        "createdAt": "2026-05-20T10:35:00+00:00",
+        "createdBy": {
+          "id": "kursat@example.com",
+          "name": "Kursat Solmaz",
+          "source": "visualstudio-git"
+        },
+        "text": "Keep VARCHAR(255); external catalog rejects longer names."
+      }
+    ]
+  }
+}
+```
+
+Build the VSIX on Windows:
+
+```powershell
+dotnet build .\UmbrellaFrame.ModelSync.NotesExtension.Vsix\UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj -c Release
+```
+
+Install:
+
+```text
+UmbrellaFrame.ModelSync.NotesExtension.Vsix\bin\Release\net472\UmbrellaFrame.ModelSync.NotesExtension.Vsix.vsix
+```
+
+The VSIX package includes its own icon file:
+
+```text
+UmbrellaFrame.ModelSync.NotesExtension.Vsix\modelsync-notes.png
+```
+
+The default model detector shows notes only for classes ending with `Model`. You can customize this per solution:
+
+```json
+{
+  "modelClassSuffixes": [ "Model", "Entity" ],
+  "modelClassNames": [ "Product" ]
+}
+```
+
+Save that file as:
+
+```text
+<solution>\.modelsync\notes-settings.json
+```
+
+### Development
+
+Run unit tests without external databases:
+
+```powershell
+.\scripts\test.ps1
+```
+
+Run all solution build steps on Windows:
+
+```powershell
+.\scripts\build.ps1
+```
+
+Package NuGet artifacts and the Notes VSIX:
+
+```powershell
+.\scripts\pack.ps1
+```
+
+Integration tests are opt-in because they require live databases. Set the relevant flag and connection string before running `.\scripts\test.ps1 -Integration`:
+
+```powershell
+$env:MODELSYNC_RUN_MYSQL_INTEGRATION = "1"
+$env:MODELSYNC_MYSQL_CONNECTION_STRING = "Server=localhost;Port=3306;Database=appdb;User ID=root;Password=rootpass;"
+```
+
+Note: integration tests are intentionally opt-in. A fresh clone can run unit tests without installing MySQL, PostgreSQL, SQL Server, or MariaDB.
+
 ### Documentation
 
 | Document | Description |
@@ -190,6 +333,7 @@ dotnet_diagnostic.MSYNC003.severity = none
 | [Architecture](docs/08-architecture.md) | Internal flow and extension points |
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
+| [Notes Extension](docs/11-notes-extension.md) | Optional Visual Studio notes/history extension |
 
 ### Articles and Examples
 
@@ -303,6 +447,45 @@ generator.DropTables(allow);
 `DropColumn`, `AlterColumnType` veya `DropTables` metotlarini `DestructiveOperationOptions.Allow()` olmadan cagirmak tasarim geregi exception firlatir.
 
 SQLite `ALTER COLUMN TYPE` islemini dogrudan desteklemez. Destructive izin verilse bile SQLite saglayicisi `NotSupportedException` firlatir; tabloyu yeniden olusturup veriyi tasima stratejisi gerekir.
+
+### Visual Studio Notes
+
+Notes eklentisi core pakete dahil degildir. Ayrica kurulan VSIX, Visual Studio editorunde model class ve property satirlarinda kucuk history/notes ikonu gosterir.
+
+Notes icin iki farkli gorsel vardir:
+
+- VSIX ikonu: Visual Studio Extensions ekraninda gorunen `modelsync-notes.png`.
+- Editor ikonu: model class/property satirinin yaninda cikan kucuk tiklanabilir history butonu.
+
+Ornek model:
+
+```csharp
+[MySqlTableName("products")]
+public sealed class ProductModel
+{
+    [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
+    [MySqlColumnNotNull]
+    public string Name { get; set; } = string.Empty;
+}
+```
+
+`Name` satirindaki ikona tiklayinca `ProductModel.Name` icin not formu acilir. Kayit edilen not JSON olarak saklanir:
+
+```json
+{
+  "schemaVersion": 1,
+  "notes": {
+    "ProductModel.Name": [
+      {
+        "createdBy": { "name": "Kursat Solmaz" },
+        "text": "External catalog limit nedeniyle 255 karakter tutuldu."
+      }
+    ]
+  }
+}
+```
+
+Note: Bu dosya gelistirici notlari icindir; guvenli audit log yerine gecmez.
 
 ### Identifier Guvenligi
 
