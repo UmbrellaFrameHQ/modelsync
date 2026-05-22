@@ -56,4 +56,4 @@ The VSIX project also includes the file in the package:
 
 Do not replace package icons with screenshots or UI captures. NuGet icons should stay simple, square, and readable at small sizes.
 
-The Notes icon combines a document and clock shape so it reads as "developer note history" in the Visual Studio Extensions window.
+The Notes icon keeps the ModelSync umbrella brand and adds a document/clock overlay so it reads as "developer note history" in the Visual Studio Extensions window.
