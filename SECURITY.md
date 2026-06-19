@@ -26,14 +26,7 @@ This policy covers:
 - The core SQL generation engine
 - All provider packages
 - The Roslyn Analyzer package
-- The optional ModelSync Notes extension and VSIX packaging
 
 Out of scope:
 - Vulnerabilities in third-party dependencies
 - Issues in documentation
-
-## Notes Extension Boundary
-
-ModelSync Notes stores developer notes in a solution-local JSON file. The extension enforces owner-only edit/delete in the UI and service layer, but local JSON storage is not a tamper-proof audit system. Anyone with filesystem write access can modify `.modelsync/notes.json`.
-
-Use a backend service with authenticated users and server-side authorization if your organization needs regulated audit history or strong identity enforcement.

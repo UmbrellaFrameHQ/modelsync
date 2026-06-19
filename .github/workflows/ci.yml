@@ -32,7 +32,6 @@ jobs:
           dotnet build UmbrellaFrame.ModelSync.PostgreSQL/UmbrellaFrame.ModelSync.PostgreSQL.csproj --no-restore --configuration Release
           dotnet build UmbrellaFrame.ModelSync.SQLite/UmbrellaFrame.ModelSync.SQLite.csproj --no-restore --configuration Release
           dotnet build UmbrellaFrame.ModelSync.Analyzers/UmbrellaFrame.ModelSync.Core.Analyzers.csproj --no-restore --configuration Release
-          dotnet build UmbrellaFrame.ModelSync.NotesExtension/UmbrellaFrame.ModelSync.NotesExtension.csproj --no-restore --configuration Release
 
       - name: Test
         run: |
@@ -41,38 +40,12 @@ jobs:
           dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
           dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
           dotnet test UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
-          dotnet test UmbrellaFrame.ModelSync.NotesExtensionTest/UmbrellaFrame.ModelSync.NotesExtensionTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           directory: ./coverage
           fail_ci_if_error: false
-
-  build-vsix:
-    name: Build Notes VSIX
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.x'
-
-      - name: Restore
-        run: dotnet restore UmbrellaFrame.ModelSync.NotesExtension.Vsix/UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj
-
-      - name: Build
-        run: dotnet build UmbrellaFrame.ModelSync.NotesExtension.Vsix/UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj --no-restore --configuration Release
-
-      - name: Upload VSIX
-        uses: actions/upload-artifact@v4
-        with:
-          name: modelsync-notes-vsix
-          path: UmbrellaFrame.ModelSync.NotesExtension.Vsix/bin/Release/net472/*.vsix
 
   pack:
     name: Pack NuGet

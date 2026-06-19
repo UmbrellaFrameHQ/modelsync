@@ -11,7 +11,6 @@ This folder keeps source icon assets used by NuGet package metadata and reposito
 | `modelsync-mysql.png` | `UmbrellaFrame.ModelSync.MySql` | MySQL/MariaDB provider icon |
 | `modelsync-postgresql.png` | `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL provider icon |
 | `modelsync-sqlite.png` | `UmbrellaFrame.ModelSync.SQLite` | SQLite provider icon |
-| `modelsync-notes.png` | `UmbrellaFrame.ModelSync.NotesExtension.Vsix` | Visual Studio Notes extension icon |
 
 ## Requirements
 
@@ -34,26 +33,6 @@ Provider `.csproj` files can include an icon like this:
 </ItemGroup>
 ```
 
-## VSIX Icon Example
-
-The Notes VSIX uses the icon in `source.extension.vsixmanifest`:
-
-```xml
-<Metadata>
-  <Icon>modelsync-notes.png</Icon>
-</Metadata>
-```
-
-The VSIX project also includes the file in the package:
-
-```xml
-<ItemGroup>
-  <Content Include="modelsync-notes.png" IncludeInVSIX="true" />
-</ItemGroup>
-```
-
 ## Note
 
 Do not replace package icons with screenshots or UI captures. NuGet icons should stay simple, square, and readable at small sizes.
-
-The Notes icon keeps the ModelSync umbrella brand and adds a document/clock overlay so it reads as "developer note history" in the Visual Studio Extensions window.

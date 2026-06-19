@@ -1,6 +1,6 @@
 ﻿# ModelSync Documentation
 
-Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider packages, analyzer support, and optional Visual Studio Notes extension.
+Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider packages, analyzer support, and explicit destructive-operation safety.
 
 ## English
 
@@ -18,7 +18,6 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [08 - Architecture](08-architecture.md) | Layer diagram, flow, extensibility |
 | [09 - Contributing](09-contributing.md) | Dev environment, PR process, code standards |
 | [10 - Changelog](10-changelog.md) | Version history |
-| [11 - Notes Extension](11-notes-extension.md) | Optional Visual Studio notes/history extension |
 
 ### Downloads
 
@@ -46,7 +45,6 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [08 - Mimari](08-architecture.md) | Katman diyagrami, akis, genisletilebilirlik |
 | [09 - Katki Rehberi](09-contributing.md) | Gelistirme ortami, PR sureci, kod standartlari |
 | [10 - Changelog](10-changelog.md) | Surum gecmisi |
-| [11 - Notes Extension](11-notes-extension.md) | Opsiyonel Visual Studio not/history eklentisi |
 
 ### Indirme
 

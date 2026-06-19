@@ -21,6 +21,3 @@ $packages = @(
 foreach ($project in $packages) {
     dotnet pack (Join-Path $root $project) --configuration $Configuration --output $outputPath
 }
-
-dotnet build (Join-Path $root "UmbrellaFrame.ModelSync.NotesExtension.Vsix\UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj") --configuration $Configuration
-Copy-Item (Join-Path $root "UmbrellaFrame.ModelSync.NotesExtension.Vsix\bin\$Configuration\net472\*.vsix") $outputPath -Force

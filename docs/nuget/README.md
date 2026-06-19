@@ -106,10 +106,9 @@ generator.DropTables(allow);
 - Quick start: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/02-quickstart.md
 - Provider guides: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/04-providers.md
 - Examples: https://github.com/UmbrellaFrameHQ/modelsync/tree/main/examples
-- Notes VSIX: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/11-notes-extension.md
 
 ## Notes
 
 ModelSync validates table, column, database, and index identifiers before quoting them. Names with spaces, dots, semicolons, quotes, or hyphens are rejected intentionally.
 
-The Visual Studio Notes extension is distributed as a VSIX from the repository artifacts, not as part of the runtime database provider packages.
+ModelSync runtime packages are focused on SQL schema generation. Visual Studio tooling and scaffolding experiments should live in separate repositories so provider packages stay small and predictable.

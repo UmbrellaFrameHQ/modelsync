@@ -26,8 +26,6 @@ UmbrellaFrame.ModelSync.MySql         -> MySQL / MariaDB provider
 UmbrellaFrame.ModelSync.PostgreSQL    -> PostgreSQL provider
 UmbrellaFrame.ModelSync.SQLite        -> SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
-UmbrellaFrame.ModelSync.NotesExtension -> Optional Visual Studio Notes service layer
-UmbrellaFrame.ModelSync.NotesExtension.Vsix -> Optional Visual Studio editor extension
 ```
 
 ### Design Philosophy
@@ -43,6 +41,8 @@ Planned Phase 2 direction:
 - support dry-run SQL output
 - classify risky and destructive operations
 - require explicit opt-in before data-loss operations
+
+Database-first model scaffolding and Visual Studio tooling are intentionally kept out of this runtime repository. Those tools can build on the same provider packages, but they should live in separate repositories so ModelSync stays focused on schema generation.
 
 ### Installation
 
@@ -228,80 +228,6 @@ dotnet_diagnostic.MSYNC001.severity = error
 dotnet_diagnostic.MSYNC003.severity = none
 ```
 
-### ModelSync Notes for Visual Studio
-
-ModelSync Notes is an optional VSIX, not part of the core runtime package. It adds a small notes/history glyph next to model classes and model properties in Visual Studio. Each entry stores the author, date, and note text.
-
-![ModelSync Notes icon](assets/icons/modelsync-notes.png)
-
-There are two visual elements:
-
-- Extension icon: `modelsync-notes.png`, shown by Visual Studio in the Extensions window.
-- Editor glyph: the small clickable history button rendered next to model classes and properties.
-
-Notes are stored as solution-local JSON:
-
-```text
-<solution>\.modelsync\notes.json
-```
-
-The extension is designed for developer workflow notes, not as a secure audit log. The UI and service allow only the note owner to edit or delete a note, but a local JSON file can still be edited by anyone with filesystem access.
-
-Example Notes JSON:
-
-```json
-{
-  "schemaVersion": 1,
-  "notes": {
-    "ProductModel.Name": [
-      {
-        "id": "note_4b2e...",
-        "createdAt": "2026-05-20T10:35:00+00:00",
-        "createdBy": {
-          "id": "kursat@example.com",
-          "name": "Kursat Solmaz",
-          "source": "visualstudio-git"
-        },
-        "text": "Keep VARCHAR(255); external catalog rejects longer names."
-      }
-    ]
-  }
-}
-```
-
-Build the VSIX on Windows:
-
-```powershell
-dotnet build .\UmbrellaFrame.ModelSync.NotesExtension.Vsix\UmbrellaFrame.ModelSync.NotesExtension.Vsix.csproj -c Release
-```
-
-Install:
-
-```text
-UmbrellaFrame.ModelSync.NotesExtension.Vsix\bin\Release\net472\UmbrellaFrame.ModelSync.NotesExtension.Vsix.vsix
-```
-
-The VSIX package includes its own icon file:
-
-```text
-UmbrellaFrame.ModelSync.NotesExtension.Vsix\modelsync-notes.png
-```
-
-The default model detector shows notes only for classes ending with `Model`. You can customize this per solution:
-
-```json
-{
-  "modelClassSuffixes": [ "Model", "Entity" ],
-  "modelClassNames": [ "Product" ]
-}
-```
-
-Save that file as:
-
-```text
-<solution>\.modelsync\notes-settings.json
-```
-
 ### Development
 
 Run unit tests without external databases:
@@ -316,7 +242,7 @@ Run all solution build steps on Windows:
 .\scripts\build.ps1
 ```
 
-Package NuGet artifacts and the Notes VSIX:
+Package NuGet artifacts:
 
 ```powershell
 .\scripts\pack.ps1
@@ -357,7 +283,6 @@ Note: integration tests are intentionally opt-in. A fresh clone can run unit tes
 | [Architecture](docs/08-architecture.md) | Internal flow and extension points |
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
-| [Notes Extension](docs/11-notes-extension.md) | Optional Visual Studio notes/history extension |
 
 ### Articles and Examples
 
@@ -365,6 +290,8 @@ Note: integration tests are intentionally opt-in. A fresh clone can run unit tes
 |---|---|
 | [Articles](articles/README.md) | Three short publish-ready articles for introducing ModelSync |
 | [Examples](examples/README.md) | MySQL, SQL Server, SQLite, and destructive-operation examples |
+
+Start with the examples when evaluating the project. They show the recommended flow: generate SQL first, inspect it, and only then execute DDL against a live database.
 
 ### Why ModelSync?
 
@@ -404,6 +331,8 @@ Planlanan Faz 2 yonu:
 - dry-run SQL ciktisi vermek
 - riskli ve yikici islemleri siniflandirmak
 - veri kaybi olusturabilecek islemler icin acik onay istemek
+
+Database-first model scaffolding ve Visual Studio araclari bu runtime repodan bilincli olarak ayrilmalidir. Bu araclar ayni provider paketlerinden beslenebilir, fakat ModelSync reposu sema uretimine odakli kalmalidir.
 
 ### Kurulum
 
@@ -472,45 +401,6 @@ generator.DropTables(allow);
 
 SQLite `ALTER COLUMN TYPE` islemini dogrudan desteklemez. Destructive izin verilse bile SQLite saglayicisi `NotSupportedException` firlatir; tabloyu yeniden olusturup veriyi tasima stratejisi gerekir.
 
-### Visual Studio Notes
-
-Notes eklentisi core pakete dahil degildir. Ayrica kurulan VSIX, Visual Studio editorunde model class ve property satirlarinda kucuk history/notes ikonu gosterir.
-
-Notes icin iki farkli gorsel vardir:
-
-- VSIX ikonu: Visual Studio Extensions ekraninda gorunen `modelsync-notes.png`.
-- Editor ikonu: model class/property satirinin yaninda cikan kucuk tiklanabilir history butonu.
-
-Ornek model:
-
-```csharp
-[MySqlTableName("products")]
-public sealed class ProductModel
-{
-    [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
-    [MySqlColumnNotNull]
-    public string Name { get; set; } = string.Empty;
-}
-```
-
-`Name` satirindaki ikona tiklayinca `ProductModel.Name` icin not formu acilir. Kayit edilen not JSON olarak saklanir:
-
-```json
-{
-  "schemaVersion": 1,
-  "notes": {
-    "ProductModel.Name": [
-      {
-        "createdBy": { "name": "Kursat Solmaz" },
-        "text": "External catalog limit nedeniyle 255 karakter tutuldu."
-      }
-    ]
-  }
-}
-```
-
-Note: Bu dosya gelistirici notlari icindir; guvenli audit log yerine gecmez.
-
 ### Identifier Guvenligi
 
 ModelSync tablo, kolon, index ve veritabani adlarini quote etmeden once siki sekilde dogrular.
@@ -543,6 +433,8 @@ Bosluk, nokta, tirnak, koseli parantez, noktali virgul, tire ve benzeri karakter
 |---|---|
 | [Makaleler](articles/README.md) | ModelSync'i tanitmak icin hazir uc kisa yazi |
 | [Ornekler](examples/README.md) | MySQL, SQL Server, SQLite ve destructive-operation ornekleri |
+
+Projeyi degerlendirirken once orneklerden baslayin. Onerilen akis once SQL uretmek, SQL'i incelemek ve ancak sonra canli veritabaninda DDL calistirmaktir.
 
 ### Lisans
 

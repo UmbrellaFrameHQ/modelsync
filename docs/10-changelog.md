@@ -13,6 +13,13 @@ Versioning: Semantic Versioning.
 - Article drafts for introducing ModelSync.
 - Examples for MySQL, SQL Server, SQLite, and destructive-operation behavior.
 
+### Changed
+- Refocused the repository on ModelSync runtime packages, provider packages, analyzers, documentation, and examples.
+- Updated README and documentation to keep database-first scaffolding and Visual Studio tooling as separate-product directions.
+
+### Removed
+- Removed the experimental Visual Studio companion tooling projects, workflow, docs, icon, and tests from the main runtime repository.
+
 ---
 
 ## [1.0.4] - NuGet Links and Documentation Refresh
