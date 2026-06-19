@@ -9,6 +9,13 @@
 
 ModelSync is an attribute-based SQL schema generator for .NET. It lets you define database schema with plain C# classes and generate or execute DDL without Entity Framework or a heavy ORM.
 
+## What's New in 1.0.5
+
+- Composite primary keys generate table-level `PRIMARY KEY (col1, col2)` constraints.
+- SQL Server `IF OBJECT_ID` guards use validated object names correctly.
+- Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003` have unit test coverage.
+- Raw `DbColumnDefault` and `DbColumnCheck` safety guidance is stronger.
+
 ## Packages
 
 | Package | Purpose |

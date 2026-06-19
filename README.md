@@ -28,6 +28,14 @@ UmbrellaFrame.ModelSync.SQLite        -> SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
 ```
 
+### What's New in 1.0.5
+
+- Composite primary keys now generate table-level `PRIMARY KEY (col1, col2)` constraints.
+- SQL Server `IF OBJECT_ID` guards now use validated object names correctly.
+- Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003` now have unit test coverage.
+- Raw `DbColumnDefault` and `DbColumnCheck` safety guidance is stronger in docs and package README.
+- Repository hygiene was improved by removing tracked backup artifacts and cleaning encoding issues.
+
 ### Design Philosophy
 
 ModelSync v1 intentionally favors **explicit, developer-controlled schema operations** over automatic live-database mutation.
