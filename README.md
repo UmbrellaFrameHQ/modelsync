@@ -215,6 +215,8 @@ Cross-provider attributes:
 | `[DbColumnCheck("expr")]` | Add CHECK expression |
 | `[DbColumnIndex]` | Generate CREATE INDEX SQL via `GenerateIndexSql<T>()` |
 
+> Security note: `DbColumnDefault` and `DbColumnCheck` are raw SQL fragments by design. Never build these values from user input; keep them as reviewed, hard-coded schema expressions.
+
 ### Roslyn Analyzer
 
 | Rule | Severity | Description |
@@ -426,6 +428,8 @@ Bosluk, nokta, tirnak, koseli parantez, noktali virgul, tire ve benzeri karakter
 | `[DbColumnDefault("ifade")]` | DEFAULT ifadesi ekler |
 | `[DbColumnCheck("ifade")]` | CHECK ifadesi ekler |
 | `[DbColumnIndex]` | `GenerateIndexSql<T>()` ile index SQL'i uretir |
+
+> Guvenlik notu: `DbColumnDefault` ve `DbColumnCheck` bilerek raw SQL parcasi alir. Bu degerleri kullanici girdisinden uretmeyin; sadece incelenmis, sabit sema ifadeleri olarak kullanin.
 
 ### Makaleler ve Ornekler
 

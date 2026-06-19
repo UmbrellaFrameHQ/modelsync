@@ -287,6 +287,7 @@ using UmbrellaFrame.ModelSync.Core;
 | `defaultValue` | `string` | ✅ |
 
 > ⚠️ `defaultValue` boş veya null olamaz — `ArgumentException` fırlatır.
+> `defaultValue` raw SQL ifadesi olarak üretilir. Kullanıcı girdisinden veya dinamik metinden oluşturmayın; yalnızca incelenmiş, sabit şema ifadeleri kullanın.
 
 ---
 
@@ -305,6 +306,8 @@ using UmbrellaFrame.ModelSync.Core;
 | Parametre | Tip | Zorunlu |
 |---|---|:---:|
 | `expression` | `string` | ✅ |
+
+> ⚠️ `expression` raw SQL ifadesi olarak üretilir. Kullanıcı girdisinden veya dinamik metinden oluşturmayın; kolon adları ve sabit değerler geliştirici tarafından bilinçli yazılmalıdır.
 
 ---
 

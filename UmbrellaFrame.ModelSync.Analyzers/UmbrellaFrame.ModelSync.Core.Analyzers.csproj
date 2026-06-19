@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
@@ -20,7 +20,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Analyzers</PackageId>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>Roslyn analyzer for UmbrellaFrame.ModelSync - compile-time model attribute validation (MSYNC001, MSYNC002, MSYNC003).</Description>
     <PackageTags>roslyn analyzer sql schema generator attributes modelsync dotnet</PackageTags>
@@ -30,7 +30,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>NuGet README rendering cleanup, repository links moved to UmbrellaFrameHQ/modelsync, documentation download links refreshed, and integration test publishing workflow improvements.</PackageReleaseNotes>
+    <PackageReleaseNotes>Composite primary key SQL generation now uses table-level constraints, SQL Server IF OBJECT_ID guards use validated unquoted object names, analyzer diagnostics have unit test coverage, raw DEFAULT/CHECK expression safety guidance was strengthened, and repository hygiene was improved.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
     <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
@@ -51,3 +51,4 @@
   </ItemGroup>
 
 </Project>
+

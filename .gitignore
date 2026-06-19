@@ -10,13 +10,10 @@
 ## NuGet packages
 *.nupkg
 *.snupkg
+*.Backup.tmp
 
 ## VSIX artifacts
 *.vsix
-!UmbrellaFrame.ModelSync.NotesExtension.Vsix/
-!UmbrellaFrame.ModelSync.NotesExtension.Vsix/**
-UmbrellaFrame.ModelSync.NotesExtension.Vsix/bin/
-UmbrellaFrame.ModelSync.NotesExtension.Vsix/obj/
 artifacts/
 
 ## ModelSync runtime workspace data

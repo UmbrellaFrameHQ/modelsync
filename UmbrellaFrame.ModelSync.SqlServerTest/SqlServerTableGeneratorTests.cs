@@ -158,6 +158,17 @@ public class SqlServerTableGeneratorTests
     }
 
     [Test]
+    public void GenerateSqlTable_WithIfNotExists_UsesObjectIdWithoutQuotedIdentifier()
+    {
+        var sqlGenerator = new FakeSqlServerTableGenerator();
+
+        var sql = sqlGenerator.GenerateSqlTable<MockModel>(ifNotExists: true);
+
+        Assert.That(sql, Does.Contain("IF OBJECT_ID(N'SqlServerMockTable', N'U') IS NULL"));
+        Assert.That(sql, Does.Not.Contain("OBJECT_ID(N'[SqlServerMockTable]'"));
+    }
+
+    [Test]
     [Category("Integration")]
     public void GenerateCreateTableCommand1_Integration_CreateTables()
     {
@@ -201,7 +212,7 @@ public class SqlServerTableGeneratorTests
         using var conn = new Microsoft.Data.SqlClient.SqlConnection(cs);
         conn.Open();
         using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(
-            "IF OBJECT_ID(N'[SqlServerMockTable3]', N'U') IS NOT NULL DROP TABLE [SqlServerMockTable3];", conn))
+            "IF OBJECT_ID(N'SqlServerMockTable3', N'U') IS NOT NULL DROP TABLE [SqlServerMockTable3];", conn))
             cmd.ExecuteNonQuery();
 
         // Yeniden oluştur

@@ -48,6 +48,21 @@ public class SqlTableGeneratorFeatureTests
         public int ProductId { get; set; }
     }
 
+    [MySqlTableName("order_lines")]
+    private class CompositePrimaryKeyModel
+    {
+        [MySqlColumnType(MySqlColumnType.INT)]
+        [MySqlColumnPrimaryKey]
+        public int OrderId { get; set; }
+
+        [MySqlColumnType(MySqlColumnType.INT)]
+        [MySqlColumnPrimaryKey]
+        public int LineNo { get; set; }
+
+        [MySqlColumnType(MySqlColumnType.VARCHAR, "100")]
+        public string Sku { get; set; }
+    }
+
     private FakeMySqlTableGenerator _generator;
 
     [SetUp]
@@ -182,6 +197,18 @@ public class SqlTableGeneratorFeatureTests
     }
 
     // ── Missing attribute ────────────────────────────────────────────────────
+
+    [Test]
+    public void GenerateSqlTable_WithCompositePrimaryKey_UsesTableLevelConstraint()
+    {
+        var sql = _generator.GenerateSqlTable<CompositePrimaryKeyModel>();
+
+        Assert.That(sql, Does.Contain("PRIMARY KEY (`OrderId`, `LineNo`)"));
+        Assert.That(sql, Does.Contain("`OrderId` INT"));
+        Assert.That(sql, Does.Contain("`LineNo` INT"));
+        Assert.That(sql, Does.Not.Contain("`OrderId` INT PRIMARY KEY"));
+        Assert.That(sql, Does.Not.Contain("`LineNo` INT PRIMARY KEY"));
+    }
 
     [MySqlTableName("bad")]
     private class BadModel

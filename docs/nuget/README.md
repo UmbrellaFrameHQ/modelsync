@@ -92,6 +92,8 @@ generator.AlterColumnType<ProductModel>("Price", allow);
 generator.DropTables(allow);
 ```
 
+`DbColumnDefault` and `DbColumnCheck` accept raw SQL expressions by design. Do not build those expressions from user input; keep them as reviewed, hard-coded schema definitions.
+
 ## Analyzer Rules
 
 | Rule | Description |

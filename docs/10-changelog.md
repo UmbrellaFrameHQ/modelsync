@@ -6,16 +6,27 @@ Versioning: Semantic Versioning.
 
 ---
 
-## [Unreleased]
+## [1.0.5] - SQL Correctness and Repository Hardening
 
 ### Added
-- Comprehensive `docs/` directory.
-- Article drafts for introducing ModelSync.
-- Examples for MySQL, SQL Server, SQLite, and destructive-operation behavior.
+- Added analyzer unit tests for `MSYNC001`, `MSYNC002`, and `MSYNC003`.
+- Added SQL generation coverage for composite primary keys.
+- Added SQL Server `IF OBJECT_ID` guard coverage.
+- Added comprehensive `docs/` directory.
+- Added article drafts for introducing ModelSync.
+- Added examples for MySQL, SQL Server, SQLite, and destructive-operation behavior.
 
 ### Changed
+- Composite primary keys now generate a table-level `PRIMARY KEY (col1, col2)` constraint instead of multiple inline primary-key fragments.
+- Strengthened README, NuGet README, and attribute documentation warnings for raw `DbColumnDefault` and `DbColumnCheck` expressions.
 - Refocused the repository on ModelSync runtime packages, provider packages, analyzers, documentation, and examples.
 - Updated README and documentation to keep database-first scaffolding and Visual Studio tooling as separate-product directions.
+- Package versions were bumped to `1.0.5`.
+
+### Fixed
+- Fixed SQL Server `IF OBJECT_ID` guards to use validated object names instead of bracket-quoted identifiers inside the string literal.
+- Removed a tracked backup file and ignored future `*.Backup.tmp` files.
+- Cleaned corrupted separator comments in `ITableGenerator.cs`.
 
 ### Removed
 - Removed the experimental Visual Studio companion tooling projects, workflow, docs, icon, and tests from the main runtime repository.

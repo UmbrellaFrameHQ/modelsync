@@ -12,7 +12,8 @@ $projects = @(
     "UmbrellaFrame.ModelSync.MySqlTest\UmbrellaFrame.ModelSync.MySqlTest.csproj",
     "UmbrellaFrame.ModelSync.SqlServerTest\UmbrellaFrame.ModelSync.SqlServerTest.csproj",
     "UmbrellaFrame.ModelSync.PostgreSQLTest\UmbrellaFrame.ModelSync.PostgreSQLTest.csproj",
-    "UmbrellaFrame.ModelSync.SQLiteTest\UmbrellaFrame.ModelSync.SQLiteTest.csproj"
+    "UmbrellaFrame.ModelSync.SQLiteTest\UmbrellaFrame.ModelSync.SQLiteTest.csproj",
+    "UmbrellaFrame.ModelSync.AnalyzersTest\UmbrellaFrame.ModelSync.AnalyzersTest.csproj"
 )
 
 foreach ($project in $projects) {

@@ -134,8 +134,12 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             var createTableCommand = new StringBuilder();
             createTableCommand.AppendLine($"CREATE TABLE{ifNotExistsSql} {QuoteIdentifier(tableName)} (");
 
-            var foreignKeyConstraints = new StringBuilder();
-            var primaryKeyColumns = new List<string>();
+            var foreignKeyConstraints = new List<string>();
+            var primaryKeyColumns = properties
+                .Where(prop => propertyManager.GetAttribute<DbColumnPrimaryKeyAttribute>(prop.Key) != null)
+                .Select(prop => prop.Key)
+                .ToList();
+            var useTableLevelPrimaryKey = primaryKeyColumns.Count > 1;
 
             var columnLines = new List<string>();
 
@@ -160,8 +164,10 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                     switch (attr)
                     {
                         case DbColumnPrimaryKeyAttribute primaryKeyAttr:
-                            primaryKeyColumns.Add(columnName);
-                            columnDef.Append($" {primaryKeyAttr.GetSqlSnippet()}");
+                            if (!useTableLevelPrimaryKey)
+                            {
+                                columnDef.Append($" {primaryKeyAttr.GetSqlSnippet()}");
+                            }
                             break;
                         case DbColumnNotNullAttribute notNullAttr:
                             columnDef.Append($" {notNullAttr.GetSqlSnippet()}");
@@ -170,7 +176,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                             columnDef.Append($" {uniqueAttr.GetSqlSnippet()}");
                             break;
                         case DbColumnForeignKeyAttribute foreignKeyAttr:
-                            foreignKeyConstraints.AppendLine($"    {foreignKeyAttr.GetSqlSnippet()}");
+                            foreignKeyConstraints.Add($"    {foreignKeyAttr.GetSqlSnippet()}");
                             break;
                         case DbColumnDefaultAttribute defaultAttribute:
                             columnDef.Append($" DEFAULT {defaultAttribute.DefaultValue}");
@@ -189,10 +195,17 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
             createTableCommand.Append(string.Join($",{Environment.NewLine}", columnLines));
 
-            if (foreignKeyConstraints.Length > 0)
+            if (useTableLevelPrimaryKey)
+            {
+                var quotedPrimaryKeyColumns = string.Join(", ", primaryKeyColumns.Select(QuoteIdentifier));
+                createTableCommand.AppendLine(",");
+                createTableCommand.Append($"    PRIMARY KEY ({quotedPrimaryKeyColumns})");
+            }
+
+            if (foreignKeyConstraints.Count > 0)
             {
                 createTableCommand.AppendLine(",");
-                createTableCommand.Append(foreignKeyConstraints.ToString().TrimEnd());
+                createTableCommand.Append(string.Join($",{Environment.NewLine}", foreignKeyConstraints));
             }
 
             createTableCommand.AppendLine();

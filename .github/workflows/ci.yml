@@ -40,6 +40,7 @@ jobs:
           dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
           dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
           dotnet test UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test UmbrellaFrame.ModelSync.AnalyzersTest/UmbrellaFrame.ModelSync.AnalyzersTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

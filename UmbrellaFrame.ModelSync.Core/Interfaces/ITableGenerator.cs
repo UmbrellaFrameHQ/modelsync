@@ -13,7 +13,7 @@ namespace UmbrellaFrame.ModelSync.Core.Interfaces
     /// </summary>
     public interface ITableGenerator
     {
-        // ── SQL generation ──────────────────────────────────────────────────
+        // SQL generation
 
         /// <summary>Generates a CREATE TABLE SQL statement and stores it in the internal cache.</summary>
         /// <param name="ifNotExists">Emit IF NOT EXISTS guard.</param>
@@ -32,7 +32,7 @@ namespace UmbrellaFrame.ModelSync.Core.Interfaces
         /// <summary>Generates CREATE INDEX statements for all indexed properties.</summary>
         List<string> GenerateIndexSql<T>() where T : class, new();
 
-        // ── DDL execution ───────────────────────────────────────────────────
+        // DDL execution
 
         /// <summary>
         /// Creates the target database if it does not already exist.
@@ -61,7 +61,7 @@ namespace UmbrellaFrame.ModelSync.Core.Interfaces
         /// <summary>Async version of <see cref="DropTables(DestructiveOperationOptions)"/>.</summary>
         Task DropTablesAsync(DestructiveOperationOptions options, CancellationToken cancellationToken = default);
 
-        // ── ALTER TABLE ─────────────────────────────────────────────────────
+        // ALTER TABLE
 
         /// <summary>
         /// Adds a new column to the table mapped from <typeparamref name="T"/>.

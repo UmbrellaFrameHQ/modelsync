@@ -47,7 +47,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         /// <summary>
         /// SQL Server does not support inline IF NOT EXISTS on CREATE TABLE.
         /// When <paramref name="ifNotExists"/> is <c>true</c>, wraps the statement with
-        /// <c>IF OBJECT_ID(N'[table]', N'U') IS NULL BEGIN ... END</c>.
+        /// <c>IF OBJECT_ID(N'table', N'U') IS NULL BEGIN ... END</c>.
         /// </summary>
         public new string GenerateSqlTable<T>(bool ifNotExists = false) where T : class, new()
         {
@@ -58,9 +58,8 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             {
                 var pm = new Core.Helpers.DynamicPropertyManager<T>();
                 var tableName = GetTableName(pm);
-                var quotedTableName = QuoteIdentifier(tableName);
 
-                sql = $"IF OBJECT_ID(N'{quotedTableName}', N'U') IS NULL\nBEGIN\n{sql}\nEND";
+                sql = $"IF OBJECT_ID(N'{tableName}', N'U') IS NULL\nBEGIN\n{sql}\nEND";
 
                 // Update the cache with the guarded SQL
                 SqlCache[typeof(T)] = sql;
