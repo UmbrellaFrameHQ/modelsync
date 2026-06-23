@@ -80,6 +80,7 @@ dotnet add package UmbrellaFrame.ModelSync.Analyzers
 | Releases | [GitHub Releases](https://github.com/UmbrellaFrameHQ/modelsync/releases) |
 | Quick start tutorial | [docs/02-quickstart.md](docs/02-quickstart.md) |
 | Provider tutorials | [docs/04-providers.md](docs/04-providers.md) |
+| Stored procedure sync | [docs/11-stored-procedures.md](docs/11-stored-procedures.md) |
 | Examples | [examples/README.md](examples/README.md) |
 | NuGet README source | [docs/nuget/README.md](docs/nuget/README.md) |
 
@@ -190,6 +191,31 @@ Calling `DropColumn`, `AlterColumnType`, or `DropTables` without `DestructiveOpe
 
 SQLite does not support `ALTER COLUMN TYPE` directly. Even with destructive permission, SQLite throws `NotSupportedException`; use a create-copy-drop table rebuild strategy instead.
 
+### SQL Server Stored Procedures
+
+SQL Server procedures can be kept as project `.sql` files and synchronized with the database.
+
+```csharp
+using UmbrellaFrame.ModelSync.SqlServer;
+
+var procedures = new SqlServerStoredProcedureSynchronizer(connectionString);
+
+procedures.RegisterProcedureFile(
+    "Database/Procedures/SqlServer/dbo.usp_GetProducts.sql");
+
+var plans = await procedures.CompareRegisteredAsync();
+
+foreach (var plan in plans)
+{
+    Console.WriteLine($"{plan.Definition.Schema}.{plan.Definition.Name}: {plan.ChangeType}");
+}
+
+await procedures.SyncRegisteredAsync();
+```
+
+ModelSync creates missing procedures and alters changed procedures by using SQL Server `CREATE OR ALTER PROCEDURE`.
+Run `CompareRegisteredAsync()` first when you want to preview the SQL before applying it.
+
 ### Identifier Safety
 
 ModelSync uses strict identifier validation before quoting table, column, index, and database names.
@@ -293,13 +319,14 @@ Note: integration tests are intentionally opt-in. A fresh clone can run unit tes
 | [Architecture](docs/08-architecture.md) | Internal flow and extension points |
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
+| [Stored Procedure Sync](docs/11-stored-procedures.md) | SQL Server procedure file synchronization |
 
 ### Articles and Examples
 
 | Resource | Description |
 |---|---|
 | [Articles](articles/README.md) | Three short publish-ready articles for introducing ModelSync |
-| [Examples](examples/README.md) | MySQL, SQL Server, SQLite, and destructive-operation examples |
+| [Examples](examples/README.md) | MySQL, SQL Server, SQLite, destructive-operation, and stored-procedure examples |
 
 Start with the examples when evaluating the project. They show the recommended flow: generate SQL first, inspect it, and only then execute DDL against a live database.
 

@@ -18,6 +18,7 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [08 - Architecture](08-architecture.md) | Layer diagram, flow, extensibility |
 | [09 - Contributing](09-contributing.md) | Dev environment, PR process, code standards |
 | [10 - Changelog](10-changelog.md) | Version history |
+| [11 - Stored Procedure Sync](11-stored-procedures.md) | SQL Server stored procedure file synchronization |
 
 ### Downloads
 
@@ -45,6 +46,7 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [08 - Mimari](08-architecture.md) | Katman diyagrami, akis, genisletilebilirlik |
 | [09 - Katki Rehberi](09-contributing.md) | Gelistirme ortami, PR sureci, kod standartlari |
 | [10 - Changelog](10-changelog.md) | Surum gecmisi |
+| [11 - Stored Procedure Sync](11-stored-procedures.md) | SQL Server stored procedure dosyalarini senkronize etme |
 
 ### Indirme
 

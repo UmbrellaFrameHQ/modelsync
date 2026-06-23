@@ -8,6 +8,7 @@ This folder contains copy-friendly examples for trying ModelSync with different 
 |---|---|
 | [MySQL quickstart](mysql-quickstart.md) | Generate and execute MySQL/MariaDB table DDL from a C# model |
 | [SQL Server quickstart](sqlserver-quickstart.md) | Create SQL Server tables from attributes |
+| [SQL Server stored procedures](sqlserver-stored-procedures/README.md) | Keep procedure SQL files in the project and sync them with SQL Server |
 | [SQLite in-memory](sqlite-in-memory.md) | Use SQLite `:memory:` for tests and prototypes |
 | [DestructiveOperationOptions](destructive-operation-options.md) | Explicit opt-in for risky `DROP` and `ALTER` operations |
 

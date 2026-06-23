@@ -101,6 +101,22 @@ generator.DropTables(allow);
 
 `DbColumnDefault` and `DbColumnCheck` accept raw SQL expressions by design. Do not build those expressions from user input; keep them as reviewed, hard-coded schema definitions.
 
+## SQL Server Stored Procedures
+
+SQL Server stored procedures can be kept as project `.sql` files and synchronized with the database:
+
+```csharp
+using UmbrellaFrame.ModelSync.SqlServer;
+
+var procedures = new SqlServerStoredProcedureSynchronizer(connectionString);
+procedures.RegisterProcedureFile("Database/Procedures/SqlServer/dbo.usp_GetProducts.sql");
+
+var plans = await procedures.CompareRegisteredAsync();
+await procedures.SyncRegisteredAsync();
+```
+
+Missing procedures are created and changed procedures are altered using `CREATE OR ALTER PROCEDURE`.
+
 ## Analyzer Rules
 
 | Rule | Description |
@@ -114,6 +130,7 @@ generator.DropTables(allow);
 - Repository: https://github.com/UmbrellaFrameHQ/modelsync
 - Quick start: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/02-quickstart.md
 - Provider guides: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/04-providers.md
+- Stored procedure sync: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/11-stored-procedures.md
 - Examples: https://github.com/UmbrellaFrameHQ/modelsync/tree/main/examples
 
 ## Notes

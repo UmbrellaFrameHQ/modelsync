@@ -6,6 +6,16 @@ Versioning: Semantic Versioning.
 
 ---
 
+## [Unreleased]
+
+### Added
+- Added SQL Server stored procedure synchronization primitives.
+- Added project-file based stored procedure registration via `RegisterProcedureFile`.
+- Added dry-run plans for `Create`, `Alter`, and `None` stored procedure changes.
+- Added SQL Server stored procedure synchronization docs and examples.
+
+---
+
 ## [1.0.5] - SQL Correctness and Repository Hardening
 
 ### Added
