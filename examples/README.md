@@ -11,6 +11,7 @@ This folder contains copy-friendly examples for trying ModelSync with different 
 | [SQL Server stored procedures](sqlserver-stored-procedures/README.md) | Keep procedure SQL files in the project and sync them with SQL Server |
 | [MySQL stored procedures](mysql-stored-procedures/README.md) | Recreate changed MySQL/MariaDB procedures from project SQL files |
 | [PostgreSQL stored procedures](postgresql-stored-procedures/README.md) | Sync PostgreSQL procedures from project SQL files |
+| [Migration runner](migration-runner/README.md) | Apply ordered table, procedure, trigger, and seed scripts with history tracking |
 | [SQLite in-memory](sqlite-in-memory.md) | Use SQLite `:memory:` for tests and prototypes |
 | [DestructiveOperationOptions](destructive-operation-options.md) | Explicit opt-in for risky `DROP` and `ALTER` operations |
 

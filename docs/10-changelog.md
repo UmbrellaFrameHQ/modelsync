@@ -9,6 +9,15 @@ Versioning: Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- Added provider migration runners for SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite.
+- Added migration history tables for tables, stored procedures, triggers, and seeds.
+- Added ordered table/stored procedure/trigger/seed script execution.
+- Added embedded `.sql` resource discovery for migration runners.
+- Added migration dry-run plans and script hash tracking.
+- Added provider-specific batch execution, including SQL Server `GO` splitting.
+- Added optional destructive database reset guarded by `DestructiveOperationOptions.Allow()`.
+- Added schema creation for SQL Server and PostgreSQL migration runners.
+- Added missing-column repair from changed table scripts.
 - Added SQL Server stored procedure synchronization primitives.
 - Added MySQL/MariaDB stored procedure synchronization.
 - Added PostgreSQL stored procedure synchronization.

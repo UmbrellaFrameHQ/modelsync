@@ -8,6 +8,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $outputPath = Join-Path $root $Output
 
 New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
+Get-ChildItem -Path $outputPath -Filter "UmbrellaFrame.ModelSync.*.nupkg" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 $packages = @(
     "UmbrellaFrame.ModelSync.Core\UmbrellaFrame.ModelSync.Core.csproj",

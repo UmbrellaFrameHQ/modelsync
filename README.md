@@ -31,6 +31,10 @@ UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
 ### What's New
 
 - Stored procedure synchronization now supports SQL Server / Azure SQL, MySQL / MariaDB, and PostgreSQL.
+- Migration runners now support ordered table, stored procedure, trigger, and seed scripts with history tables.
+- Embedded `.sql` resources can be discovered and applied through provider migration runners.
+- SQL Server migration scripts support `GO` batch splitting.
+- Changed table scripts can repair missing columns additively.
 - SQLite has explicit stored procedure unsupported behavior because SQLite does not provide stored procedures.
 - Local Docker test databases and opt-in stored procedure integration smoke tests were added.
 - Composite primary keys now generate table-level `PRIMARY KEY (col1, col2)` constraints.
@@ -260,6 +264,44 @@ Run `CompareRegisteredAsync()` first when you want to preview the SQL before app
 
 See [docs/11-stored-procedures.md](docs/11-stored-procedures.md) for SQL file rules, provider behavior, and local integration test setup.
 
+### Migration Runner
+
+For full project setup scripts, use the provider migration runners:
+
+```csharp
+using UmbrellaFrame.ModelSync.SqlServer;
+
+var runner = new SqlServerMigrationRunner(connectionString);
+
+runner.RegisterScriptFile("Database/Scripts/Tables/001_CreateProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
+runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
+
+var plans = await runner.CompareRegisteredAsync();
+await runner.RunAsync();
+```
+
+Supported migration categories run in this order:
+
+```text
+Tables -> StoredProcedures -> Triggers -> Seeds
+```
+
+The runner creates migration history tables, stores script hashes, supports embedded `.sql` resources, and can add missing columns from changed table scripts. SQL Server also supports `GO` batch splitting.
+
+Optional database reset is destructive and requires:
+
+```csharp
+new MigrationRunnerOptions
+{
+    ResetDatabase = true,
+    DestructiveOptions = DestructiveOperationOptions.Allow()
+};
+```
+
+See [docs/12-migration-runner.md](docs/12-migration-runner.md) for provider support and behavior notes.
+
 ### Identifier Safety
 
 ModelSync uses strict identifier validation before quoting table, column, index, and database names.
@@ -372,6 +414,7 @@ Note: integration tests are intentionally opt-in. A fresh clone can run unit tes
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | SQL Server, MySQL/MariaDB, and PostgreSQL procedure file synchronization |
+| [Migration Runner](docs/12-migration-runner.md) | Ordered table, procedure, trigger, and seed SQL scripts with history tracking |
 
 ### Articles and Examples
 
@@ -518,6 +561,34 @@ await procedures.SyncRegisteredAsync();
 ```
 
 Canli veritabanina uygulamadan once `CompareRegisteredAsync()` ile dry-run planini inceleyin. Detaylar ve Docker test ortami icin [docs/11-stored-procedures.md](docs/11-stored-procedures.md) dosyasina bakin.
+
+### Migration Runner
+
+Tam proje kurulumu icin provider migration runner'lari kullanilabilir:
+
+```csharp
+using UmbrellaFrame.ModelSync.SqlServer;
+
+var runner = new SqlServerMigrationRunner(connectionString);
+
+runner.RegisterScriptFile("Database/Scripts/Tables/001_CreateProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
+runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
+
+var plans = await runner.CompareRegisteredAsync();
+await runner.RunAsync();
+```
+
+Script sirasi:
+
+```text
+Tables -> StoredProcedures -> Triggers -> Seeds
+```
+
+Runner history tablolari olusturur, script hash'i tutar, embedded `.sql` resource'larini okuyabilir ve degisen tablo scriptlerinden eksik kolonlari ekleyebilir. SQL Server icin `GO` batch ayrimi desteklenir.
+
+Detaylar icin [docs/12-migration-runner.md](docs/12-migration-runner.md) dosyasina bakin.
 
 ### Identifier Guvenligi
 

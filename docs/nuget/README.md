@@ -9,12 +9,14 @@
 
 ModelSync is an attribute-based SQL schema generator for .NET. It lets you define database schema with plain C# classes and generate or execute DDL without Entity Framework or a heavy ORM.
 
-## What's New in 1.0.5
+## What's New in 1.0.6
 
-- Composite primary keys generate table-level `PRIMARY KEY (col1, col2)` constraints.
-- SQL Server `IF OBJECT_ID` guards use validated object names correctly.
-- Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003` have unit test coverage.
-- Raw `DbColumnDefault` and `DbColumnCheck` safety guidance is stronger.
+- Provider migration runners can apply ordered table, stored procedure, trigger, and seed scripts.
+- Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
+- Embedded `.sql` resources can be discovered and applied.
+- SQL Server migration scripts support `GO` batch splitting.
+- Changed table scripts can repair missing columns additively.
+- Stored procedure synchronization supports SQL Server, MySQL/MariaDB, and PostgreSQL.
 
 ## Packages
 
@@ -123,6 +125,32 @@ Provider behavior:
 | MySQL / MariaDB | `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` |
 | PostgreSQL | `CREATE OR REPLACE PROCEDURE` |
 | SQLite | Not supported |
+
+## Migration Runner
+
+Provider migration runners can apply ordered project SQL scripts and record migration history:
+
+```csharp
+using UmbrellaFrame.ModelSync.SqlServer;
+
+var runner = new SqlServerMigrationRunner(connectionString);
+
+runner.RegisterScriptFile("Database/Scripts/Tables/001_CreateProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
+runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
+
+var plans = await runner.CompareRegisteredAsync();
+await runner.RunAsync();
+```
+
+Scripts run in this order:
+
+```text
+Tables -> StoredProcedures -> Triggers -> Seeds
+```
+
+Migration runners create history tables, store script hashes, support embedded `.sql` resources, and can add missing columns from changed table scripts. SQL Server supports `GO` batch splitting.
 
 ## Analyzer Rules
 
