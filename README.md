@@ -28,8 +28,11 @@ UmbrellaFrame.ModelSync.SQLite        -> SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
 ```
 
-### What's New in 1.0.5
+### What's New
 
+- Stored procedure synchronization now supports SQL Server / Azure SQL, MySQL / MariaDB, and PostgreSQL.
+- SQLite has explicit stored procedure unsupported behavior because SQLite does not provide stored procedures.
+- Local Docker test databases and opt-in stored procedure integration smoke tests were added.
 - Composite primary keys now generate table-level `PRIMARY KEY (col1, col2)` constraints.
 - SQL Server `IF OBJECT_ID` guards now use validated object names correctly.
 - Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003` now have unit test coverage.
@@ -195,6 +198,8 @@ SQLite does not support `ALTER COLUMN TYPE` directly. Even with destructive perm
 
 Stored procedures can be kept as project `.sql` files and synchronized with supported databases.
 
+SQL Server:
+
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
 
@@ -213,6 +218,34 @@ foreach (var plan in plans)
 await procedures.SyncRegisteredAsync();
 ```
 
+MySQL / MariaDB:
+
+```csharp
+using UmbrellaFrame.ModelSync.MySql;
+
+var procedures = new MySqlStoredProcedureSynchronizer(connectionString);
+
+procedures.RegisterProcedureFile(
+    "Database/Procedures/MySql/appdb.usp_GetProducts.sql");
+
+var plans = await procedures.CompareRegisteredAsync();
+await procedures.SyncRegisteredAsync();
+```
+
+PostgreSQL:
+
+```csharp
+using UmbrellaFrame.ModelSync.PostgreSQL;
+
+var procedures = new PostgresStoredProcedureSynchronizer(connectionString);
+
+procedures.RegisterProcedureFile(
+    "Database/Procedures/PostgreSQL/public.usp_get_products.sql");
+
+var plans = await procedures.CompareRegisteredAsync();
+await procedures.SyncRegisteredAsync();
+```
+
 Supported providers:
 
 | Provider | Stored Procedure Sync |
@@ -224,6 +257,8 @@ Supported providers:
 
 ModelSync creates missing procedures and updates changed procedures according to provider capabilities.
 Run `CompareRegisteredAsync()` first when you want to preview the SQL before applying it.
+
+See [docs/11-stored-procedures.md](docs/11-stored-procedures.md) for SQL file rules, provider behavior, and local integration test setup.
 
 ### Identifier Safety
 
@@ -312,6 +347,14 @@ $env:MODELSYNC_RUN_MYSQL_INTEGRATION = "1"
 $env:MODELSYNC_MYSQL_CONNECTION_STRING = "Server=localhost;Port=3306;Database=appdb;User ID=root;Password=rootpass;"
 ```
 
+Stored procedure integration tests can use the provided Docker test environment:
+
+```powershell
+.\scripts\start-test-databases.ps1
+$env:MODELSYNC_RUN_SP_INTEGRATION = "1"
+dotnet test ModelSync.sln -c Release --filter "Category=Integration"
+```
+
 Note: integration tests are intentionally opt-in. A fresh clone can run unit tests without installing MySQL, PostgreSQL, SQL Server, or MariaDB.
 
 ### Documentation
@@ -328,14 +371,14 @@ Note: integration tests are intentionally opt-in. A fresh clone can run unit tes
 | [Architecture](docs/08-architecture.md) | Internal flow and extension points |
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
-| [Stored Procedure Sync](docs/11-stored-procedures.md) | SQL Server procedure file synchronization |
+| [Stored Procedure Sync](docs/11-stored-procedures.md) | SQL Server, MySQL/MariaDB, and PostgreSQL procedure file synchronization |
 
 ### Articles and Examples
 
 | Resource | Description |
 |---|---|
 | [Articles](articles/README.md) | Three short publish-ready articles for introducing ModelSync |
-| [Examples](examples/README.md) | MySQL, SQL Server, SQLite, destructive-operation, and stored-procedure examples |
+| [Examples](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive-operation, and stored-procedure examples |
 
 Start with the examples when evaluating the project. They show the recommended flow: generate SQL first, inspect it, and only then execute DDL against a live database.
 
@@ -447,6 +490,35 @@ generator.DropTables(allow);
 
 SQLite `ALTER COLUMN TYPE` islemini dogrudan desteklemez. Destructive izin verilse bile SQLite saglayicisi `NotSupportedException` firlatir; tabloyu yeniden olusturup veriyi tasima stratejisi gerekir.
 
+### Stored Procedure Senkronizasyonu
+
+Stored procedure dosyalari proje icinde `.sql` olarak tutulabilir ve desteklenen veritabanlariyla senkronize edilebilir.
+
+Destek durumu:
+
+| Saglayici | Stored Procedure Sync |
+|---|---|
+| SQL Server / Azure SQL | Evet, `CREATE OR ALTER PROCEDURE` ile |
+| MySQL / MariaDB | Evet, `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` ile |
+| PostgreSQL | Evet, `CREATE OR REPLACE PROCEDURE` ile |
+| SQLite | Desteklenmez |
+
+Ornek:
+
+```csharp
+using UmbrellaFrame.ModelSync.SqlServer;
+
+var procedures = new SqlServerStoredProcedureSynchronizer(connectionString);
+
+procedures.RegisterProcedureFile(
+    "Database/Procedures/SqlServer/dbo.usp_GetProducts.sql");
+
+var plans = await procedures.CompareRegisteredAsync();
+await procedures.SyncRegisteredAsync();
+```
+
+Canli veritabanina uygulamadan once `CompareRegisteredAsync()` ile dry-run planini inceleyin. Detaylar ve Docker test ortami icin [docs/11-stored-procedures.md](docs/11-stored-procedures.md) dosyasina bakin.
+
 ### Identifier Guvenligi
 
 ModelSync tablo, kolon, index ve veritabani adlarini quote etmeden once siki sekilde dogrular.
@@ -480,7 +552,7 @@ Bosluk, nokta, tirnak, koseli parantez, noktali virgul, tire ve benzeri karakter
 | Kaynak | Aciklama |
 |---|---|
 | [Makaleler](articles/README.md) | ModelSync'i tanitmak icin hazir uc kisa yazi |
-| [Ornekler](examples/README.md) | MySQL, SQL Server, SQLite ve destructive-operation ornekleri |
+| [Ornekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive-operation ve stored procedure ornekleri |
 
 Projeyi degerlendirirken once orneklerden baslayin. Onerilen akis once SQL uretmek, SQL'i incelemek ve ancak sonra canli veritabaninda DDL calistirmaktir.
 
