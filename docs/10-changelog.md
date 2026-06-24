@@ -10,9 +10,14 @@ Versioning: Semantic Versioning.
 
 ### Added
 - Added SQL Server stored procedure synchronization primitives.
+- Added MySQL/MariaDB stored procedure synchronization.
+- Added PostgreSQL stored procedure synchronization.
+- Added explicit SQLite stored procedure unsupported behavior.
 - Added project-file based stored procedure registration via `RegisterProcedureFile`.
 - Added dry-run plans for `Create`, `Alter`, and `None` stored procedure changes.
 - Added SQL Server stored procedure synchronization docs and examples.
+- Added Docker Compose based local test database environment for SQL Server, MySQL, and PostgreSQL.
+- Added opt-in stored procedure integration smoke tests for SQL Server, MySQL/MariaDB, and PostgreSQL.
 
 ---
 

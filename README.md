@@ -191,9 +191,9 @@ Calling `DropColumn`, `AlterColumnType`, or `DropTables` without `DestructiveOpe
 
 SQLite does not support `ALTER COLUMN TYPE` directly. Even with destructive permission, SQLite throws `NotSupportedException`; use a create-copy-drop table rebuild strategy instead.
 
-### SQL Server Stored Procedures
+### Stored Procedures
 
-SQL Server procedures can be kept as project `.sql` files and synchronized with the database.
+Stored procedures can be kept as project `.sql` files and synchronized with supported databases.
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -213,7 +213,16 @@ foreach (var plan in plans)
 await procedures.SyncRegisteredAsync();
 ```
 
-ModelSync creates missing procedures and alters changed procedures by using SQL Server `CREATE OR ALTER PROCEDURE`.
+Supported providers:
+
+| Provider | Stored Procedure Sync |
+|---|---|
+| SQL Server / Azure SQL | Yes, via `CREATE OR ALTER PROCEDURE` |
+| MySQL / MariaDB | Yes, via `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` |
+| PostgreSQL | Yes, via `CREATE OR REPLACE PROCEDURE` |
+| SQLite | Not supported |
+
+ModelSync creates missing procedures and updates changed procedures according to provider capabilities.
 Run `CompareRegisteredAsync()` first when you want to preview the SQL before applying it.
 
 ### Identifier Safety

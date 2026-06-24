@@ -101,9 +101,9 @@ generator.DropTables(allow);
 
 `DbColumnDefault` and `DbColumnCheck` accept raw SQL expressions by design. Do not build those expressions from user input; keep them as reviewed, hard-coded schema definitions.
 
-## SQL Server Stored Procedures
+## Stored Procedures
 
-SQL Server stored procedures can be kept as project `.sql` files and synchronized with the database:
+Stored procedures can be kept as project `.sql` files and synchronized with SQL Server, MySQL/MariaDB, and PostgreSQL:
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -115,7 +115,14 @@ var plans = await procedures.CompareRegisteredAsync();
 await procedures.SyncRegisteredAsync();
 ```
 
-Missing procedures are created and changed procedures are altered using `CREATE OR ALTER PROCEDURE`.
+Provider behavior:
+
+| Provider | Strategy |
+|---|---|
+| SQL Server / Azure SQL | `CREATE OR ALTER PROCEDURE` |
+| MySQL / MariaDB | `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` |
+| PostgreSQL | `CREATE OR REPLACE PROCEDURE` |
+| SQLite | Not supported |
 
 ## Analyzer Rules
 

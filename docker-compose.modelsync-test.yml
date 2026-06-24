@@ -1,0 +1,27 @@
+services:
+  modelsync-sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: modelsync-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "ModelSync_Pass123"
+    ports:
+      - "14333:1433"
+
+  modelsync-mysql:
+    image: mysql:8.4
+    container_name: modelsync-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "ModelSync_Pass123"
+      MYSQL_DATABASE: "modelsync_sp"
+    ports:
+      - "3307:3306"
+
+  modelsync-postgres:
+    image: postgres:16
+    container_name: modelsync-postgres
+    environment:
+      POSTGRES_PASSWORD: "ModelSync_Pass123"
+      POSTGRES_DB: "modelsync_sp"
+    ports:
+      - "5433:5432"
