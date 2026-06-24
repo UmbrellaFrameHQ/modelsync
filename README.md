@@ -37,6 +37,7 @@ UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
 - Changed table scripts can repair missing columns additively.
 - SQLite has explicit stored procedure unsupported behavior because SQLite does not provide stored procedures.
 - Local Docker test databases and opt-in stored procedure integration smoke tests were added.
+- Documentation clarifies the difference between explicit model operations and script-based migration repair.
 - Composite primary keys now generate table-level `PRIMARY KEY (col1, col2)` constraints.
 - SQL Server `IF OBJECT_ID` guards now use validated object names correctly.
 - Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003` now have unit test coverage.
@@ -289,6 +290,10 @@ Tables -> StoredProcedures -> Triggers -> Seeds
 ```
 
 The runner creates migration history tables, stores script hashes, supports embedded `.sql` resources, and can add missing columns from changed table scripts. SQL Server also supports `GO` batch splitting.
+
+Important scope note: adding a new C# property to a model does not yet trigger automatic live database diffing. Use explicit model operations such as `AddColumn<T>("PropertyName")`, or use migration runner SQL scripts as the source of truth. Missing-column repair in the migration runner is based on changed `CREATE TABLE` scripts and migration history hashes, not direct model-property comparison.
+
+History tables are used because a live database catalog can show whether an object exists, but it cannot reliably show which script version was applied, whether a seed already ran, or which SQL hash was last deployed.
 
 Optional database reset is destructive and requires:
 
@@ -587,6 +592,10 @@ Tables -> StoredProcedures -> Triggers -> Seeds
 ```
 
 Runner history tablolari olusturur, script hash'i tutar, embedded `.sql` resource'larini okuyabilir ve degisen tablo scriptlerinden eksik kolonlari ekleyebilir. SQL Server icin `GO` batch ayrimi desteklenir.
+
+Onemli kapsam notu: modele yeni C# property eklemek henuz otomatik live database diff calistirmaz. Bunun icin `AddColumn<T>("PropertyName")` gibi acik operasyon kullanilir veya migration runner tarafinda SQL scriptleri kaynak kabul edilir. Migration runner'daki eksik kolon tamiri model property karsilastirmasindan degil, degisen `CREATE TABLE` scriptinden ve history hash bilgisinden gelir.
+
+History tablolari gereklidir cunku live database kataloglari nesnenin var olup olmadigini gosterir, fakat hangi script versiyonunun uygulandigini, seed'in daha once calisip calismadigini veya son SQL hash'ini guvenilir sekilde tutmaz.
 
 Detaylar icin [docs/12-migration-runner.md](docs/12-migration-runner.md) dosyasina bakin.
 

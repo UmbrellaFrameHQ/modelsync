@@ -9,6 +9,9 @@ Versioning: Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- Clarified migration runner scope in README, NuGet README, and migration runner documentation.
+- Documented that C# model property changes do not yet trigger automatic live database diffing.
+- Documented why migration history tables are used alongside provider catalog checks.
 - Added provider migration runners for SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite.
 - Added migration history tables for tables, stored procedures, triggers, and seeds.
 - Added ordered table/stored procedure/trigger/seed script execution.

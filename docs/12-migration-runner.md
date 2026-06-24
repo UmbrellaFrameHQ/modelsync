@@ -100,6 +100,19 @@ When an already-applied table script changes, ModelSync parses simple `CREATE TA
 
 This is intentionally additive only. It does not automatically drop columns, rename columns, rewrite constraints, or change existing column types.
 
+This repair is script-based. Adding a new property to a C# model does not yet trigger automatic live database diffing. Use explicit model operations such as `AddColumn<T>("PropertyName")`, or keep table SQL scripts as the migration runner source of truth.
+
+## Why History Tables?
+
+ModelSync uses history tables because catalog checks alone cannot describe migration state.
+
+Provider catalogs can tell whether an object exists. They cannot reliably tell which script version was applied, whether a seed script already ran, when a script was last updated, or which SQL hash was deployed.
+
+ModelSync therefore combines:
+
+- history tables for script state and hashes
+- provider catalog checks for live verification, such as missing-column repair
+
 ## Optional Database Reset
 
 Database reset is destructive and requires explicit opt-in:

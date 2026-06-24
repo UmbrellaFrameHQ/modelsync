@@ -18,7 +18,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.PostgreSQL</PackageId>
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>PostgreSQL provider for UmbrellaFrame.ModelSync - attribute-based schema generator.</Description>
     <PackageTags>postgresql postgres sql schema generator orm-free attributes dotnet</PackageTags>
@@ -28,7 +28,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Added provider migration runners with ordered table/stored procedure/trigger/seed scripts, migration history tables, embedded SQL resource discovery, dry-run plans, provider batch execution, optional destructive database reset, schema creation where supported, missing-column repair from table scripts, and expanded stored procedure support for SQL Server, MySQL/MariaDB, and PostgreSQL.</PackageReleaseNotes>
+    <PackageReleaseNotes>Clarified migration runner behavior: model-property changes do not yet trigger automatic live database diffing, script-based migration repair uses SQL script hashes and history tables, and history tables are documented as the source of applied script state alongside provider catalog checks. Includes provider migration runners for ordered table/stored procedure/trigger/seed scripts.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 

@@ -9,7 +9,7 @@
 
 ModelSync is an attribute-based SQL schema generator for .NET. It lets you define database schema with plain C# classes and generate or execute DDL without Entity Framework or a heavy ORM.
 
-## What's New in 1.0.6
+## What's New in 1.0.7
 
 - Provider migration runners can apply ordered table, stored procedure, trigger, and seed scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -17,6 +17,8 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 - SQL Server migration scripts support `GO` batch splitting.
 - Changed table scripts can repair missing columns additively.
 - Stored procedure synchronization supports SQL Server, MySQL/MariaDB, and PostgreSQL.
+- Documentation now clarifies that model-property-to-live-database automatic diff is not enabled yet.
+- Migration runners explain why history tables are used instead of relying only on live catalog checks.
 
 ## Packages
 
@@ -103,6 +105,20 @@ generator.DropTables(allow);
 
 `DbColumnDefault` and `DbColumnCheck` accept raw SQL expressions by design. Do not build those expressions from user input; keep them as reviewed, hard-coded schema definitions.
 
+## Model Diff Scope
+
+ModelSync does not silently compare C# model properties with a live database and mutate the database by itself.
+
+If you add a new property to a model, the current attribute-based API still expects an explicit operation:
+
+```csharp
+generator.AddColumn<ProductModel>("Stock");
+```
+
+This is intentional. Live schema changes can be expensive and destructive, so automatic model-to-database diffing is planned as a separate dry-run-first feature.
+
+The migration runner has a different source of truth: SQL scripts. If an already-applied table script changes, ModelSync compares the script hash from the history table and can add missing columns from the changed `CREATE TABLE` script. That additive repair is script-based, not model-property-based.
+
 ## Stored Procedures
 
 Stored procedures can be kept as project `.sql` files and synchronized with SQL Server, MySQL/MariaDB, and PostgreSQL:
@@ -151,6 +167,26 @@ Tables -> StoredProcedures -> Triggers -> Seeds
 ```
 
 Migration runners create history tables, store script hashes, support embedded `.sql` resources, and can add missing columns from changed table scripts. SQL Server supports `GO` batch splitting.
+
+### Why History Tables?
+
+ModelSync uses migration history tables because live catalog checks alone cannot answer every migration question.
+
+A database catalog can tell whether a table, column, procedure, trigger, or seed target exists. It cannot reliably tell:
+
+- which script version was applied
+- whether the script text changed
+- when it was applied
+- whether a seed script already ran
+- whether a procedure or trigger was updated from the current project file
+- what hash was used for the last applied script
+
+For that reason, ModelSync combines two ideas:
+
+- history tables track applied script state and hashes
+- provider catalog checks are used where live verification is needed, such as missing-column repair
+
+SQL Server and PostgreSQL store history tables under the `sec` schema. MySQL/MariaDB and SQLite store them in the current database.
 
 ## Analyzer Rules
 
