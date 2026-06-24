@@ -18,6 +18,53 @@ public class SqlServerStoredProcedureSynchronizerTests
     }
 
     [Test]
+    public void BuildCreateOrAlterSql_WithBracketedProcedureName_AllowsMatchingDefinition()
+    {
+        var sync = CreateSynchronizer();
+        var definition = StoredProcedureDefinition.Create(
+            "usp_GetProducts",
+            "CREATE PROCEDURE [dbo].[usp_GetProducts] AS BEGIN SELECT 1; END");
+
+        var sql = sync.BuildCreateOrAlterSql(definition);
+
+        Assert.That(sql, Does.StartWith("CREATE OR ALTER PROCEDURE [dbo].[usp_GetProducts]"));
+    }
+
+    [Test]
+    public void BuildCreateOrAlterSql_WhenSqlNameDiffersFromDefinition_Throws()
+    {
+        var sync = CreateSynchronizer();
+        var definition = StoredProcedureDefinition.Create(
+            "usp_GetProducts",
+            "CREATE PROCEDURE dbo.usp_UpdateProducts AS BEGIN SELECT 1; END");
+
+        Assert.Throws<InvalidOperationException>(() => sync.BuildCreateOrAlterSql(definition));
+    }
+
+    [Test]
+    public void BuildCreateOrAlterSql_WhenSqlSchemaDiffersFromDefinition_Throws()
+    {
+        var sync = CreateSynchronizer();
+        var definition = StoredProcedureDefinition.Create(
+            "usp_GetProducts",
+            "CREATE PROCEDURE admin.usp_GetProducts AS BEGIN SELECT 1; END",
+            schema: "dbo");
+
+        Assert.Throws<InvalidOperationException>(() => sync.BuildCreateOrAlterSql(definition));
+    }
+
+    [Test]
+    public void BuildCreateOrAlterSql_WithGoBatchSeparator_Throws()
+    {
+        var sync = CreateSynchronizer();
+        var definition = StoredProcedureDefinition.Create(
+            "usp_GetProducts",
+            "CREATE PROCEDURE dbo.usp_GetProducts AS BEGIN SELECT 1; END\r\nGO");
+
+        Assert.Throws<InvalidOperationException>(() => sync.BuildCreateOrAlterSql(definition));
+    }
+
+    [Test]
     public void BuildPlan_WhenProcedureDoesNotExist_ReturnsCreatePlan()
     {
         var sync = CreateSynchronizer();

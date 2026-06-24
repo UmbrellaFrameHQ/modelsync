@@ -22,7 +22,15 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
 
         private static readonly Regex ProcedureHeaderPattern =
-            new Regex(@"^\s*(CREATE\s+OR\s+ALTER|CREATE|ALTER)\s+(PROC|PROCEDURE)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            new Regex(@"^\s*(CREATE\s+OR\s+ALTER|CREATE|ALTER)\s+(PROCEDURE|PROC)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex ProcedureNamePattern =
+            new Regex(
+                @"^\s*(?:CREATE\s+OR\s+ALTER|CREATE|ALTER)\s+(?:PROCEDURE|PROC)\s+(?:(?:\[(?<schemaBracket>[^\]]+)\]|(?<schemaBare>[A-Za-z_][A-Za-z0-9_]*))\s*\.\s*)?(?:\[(?<nameBracket>[^\]]+)\]|(?<nameBare>[A-Za-z_][A-Za-z0-9_]*))(?=\s|\(|$)",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex BatchSeparatorPattern =
+            new Regex(@"^\s*GO\s*(?:--.*)?$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
         private readonly string _connectionString;
         private readonly ILogger<SqlServerStoredProcedureSynchronizer> _logger;
@@ -155,6 +163,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         public string BuildCreateOrAlterSql(StoredProcedureDefinition definition)
         {
             ValidateDefinition(definition);
+            ValidateSqlMatchesDefinition(definition);
             return ToCreateOrAlterSql(definition.Sql);
         }
 
@@ -190,6 +199,12 @@ WHERE o.type = 'P'
             if (string.IsNullOrWhiteSpace(sql))
                 throw new ArgumentException("Procedure SQL cannot be empty.", nameof(sql));
 
+            if (BatchSeparatorPattern.IsMatch(sql))
+            {
+                throw new InvalidOperationException(
+                    "Stored procedure SQL files must not contain GO batch separators. Keep one procedure definition per file.");
+            }
+
             if (!ProcedureHeaderPattern.IsMatch(sql))
             {
                 throw new InvalidOperationException(
@@ -207,6 +222,42 @@ WHERE o.type = 'P'
             ValidateIdentifier(definition.Name, nameof(definition.Name));
             if (string.IsNullOrWhiteSpace(definition.Sql))
                 throw new ArgumentException("Procedure SQL cannot be empty.", nameof(definition));
+        }
+
+        private static void ValidateSqlMatchesDefinition(StoredProcedureDefinition definition)
+        {
+            var match = ProcedureNamePattern.Match(definition.Sql ?? string.Empty);
+            if (!match.Success)
+            {
+                throw new InvalidOperationException(
+                    "Stored procedure SQL must include a procedure name after CREATE/ALTER PROCEDURE.");
+            }
+
+            var schema = FirstGroupValue(match, "schemaBracket", "schemaBare");
+            var name = FirstGroupValue(match, "nameBracket", "nameBare");
+
+            if (!string.IsNullOrWhiteSpace(schema) &&
+                !string.Equals(schema, definition.Schema, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Stored procedure SQL schema '{schema}' does not match registered schema '{definition.Schema}'.");
+            }
+
+            if (!string.Equals(name, definition.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Stored procedure SQL name '{name}' does not match registered name '{definition.Name}'.");
+            }
+        }
+
+        private static string FirstGroupValue(Match match, string firstName, string secondName)
+        {
+            var first = match.Groups[firstName];
+            if (first.Success)
+                return first.Value;
+
+            var second = match.Groups[secondName];
+            return second.Success ? second.Value : string.Empty;
         }
 
         private static void ValidateIdentifier(string identifier, string parameterName)
