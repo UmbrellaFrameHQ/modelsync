@@ -6,6 +6,7 @@ namespace UmbrellaFrame.ModelSync.Core
         Tables = 0,
         StoredProcedures = 1,
         Triggers = 2,
-        Seeds = 3
+        Seeds = 3,
+        CustomSql = 4
     }
 }

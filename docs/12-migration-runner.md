@@ -8,6 +8,7 @@ Use this when a project needs full setup scripts, not only attribute-generated t
 - stored procedure scripts
 - trigger scripts
 - seed scripts
+- custom SQL scripts
 - migration history tables
 - dry-run plans
 - provider-specific batch execution
@@ -16,12 +17,12 @@ Use this when a project needs full setup scripts, not only attribute-generated t
 
 ## Provider Support
 
-| Provider | Tables | Stored Procedures | Triggers | Seeds | History | Reset | Batch Split |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|---|
-| SQL Server / Azure SQL | Yes | Yes | Yes | Yes | `sec.SchemaMigration_*` | Yes | `GO` |
-| MySQL / MariaDB | Yes | Yes | Yes | Yes | `SchemaMigration_*` | Yes | Single statement |
-| PostgreSQL | Yes | Yes | Yes | Yes | `sec.SchemaMigration_*` | Yes | Single statement |
-| SQLite | Yes | No | Yes | Yes | `SchemaMigration_*` | No | Single statement |
+| Provider | Tables | Stored Procedures | Triggers | Seeds | CustomSql | History | Reset | Batch Split |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
+| SQL Server / Azure SQL | Yes | Yes | Yes | Yes | Yes | `sec.SchemaMigration_*` | Yes | `GO` |
+| MySQL / MariaDB | Yes | Yes | Yes | Yes | Yes | `SchemaMigration_*` | Yes | Single statement |
+| PostgreSQL | Yes | Yes | Yes | Yes | Yes | `sec.SchemaMigration_*` | Yes | Single statement |
+| SQLite | Yes | No | Yes | Yes | Yes | `SchemaMigration_*` | No | Single statement |
 
 SQLite does not support stored procedures. Applying a stored procedure script with `SQLiteMigrationRunner` throws `NotSupportedException`.
 
@@ -38,12 +39,14 @@ Database/
       020_ProductAudit.sql
     Seeds/
       030_DefaultProducts.sql
+    CustomSql/
+      999_AfterSetup.sql
 ```
 
 Scripts run in this category order:
 
 ```text
-Tables -> StoredProcedures -> Triggers -> Seeds
+Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 ```
 
 Within a category, numeric prefixes run in ascending order.
@@ -59,6 +62,7 @@ runner.RegisterScriptFile("Database/Scripts/Tables/001_CreateProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
 runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/CustomSql/999_AfterSetup.sql");
 
 var plans = await runner.CompareRegisteredAsync();
 await runner.RunAsync();
@@ -90,6 +94,7 @@ SchemaMigration_Tables
 SchemaMigration_StoredProcedures
 SchemaMigration_Triggers
 SchemaMigration_Seeds
+SchemaMigration_CustomSql
 ```
 
 Each row stores `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -100,7 +105,7 @@ When an already-applied table script changes, ModelSync parses simple `CREATE TA
 
 This is intentionally additive only. It does not automatically drop columns, rename columns, rewrite constraints, or change existing column types.
 
-This repair is script-based. Adding a new property to a C# model does not yet trigger automatic live database diffing. Use explicit model operations such as `AddColumn<T>("PropertyName")`, or keep table SQL scripts as the migration runner source of truth.
+This repair is script-based. For attribute-model-to-live-database diffing, use provider model synchronizers described in [14 - Model Synchronizer](14-model-synchronizer.md).
 
 ## Why History Tables?
 

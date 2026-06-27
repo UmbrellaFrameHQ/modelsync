@@ -9,15 +9,15 @@
 
 ModelSync is an attribute-based SQL schema generator for .NET. It lets you define database schema with plain C# classes and generate or execute DDL without Entity Framework or a heavy ORM.
 
-## What's New in 1.0.7
+## What's New in 1.0.8
 
-- Provider migration runners can apply ordered table, stored procedure, trigger, and seed scripts.
+- Provider migration runners can apply ordered table, stored procedure, trigger, seed, and custom SQL scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
 - Embedded `.sql` resources can be discovered and applied.
 - SQL Server migration scripts support `GO` batch splitting.
 - Changed table scripts can repair missing columns additively.
 - Stored procedure synchronization supports SQL Server, MySQL/MariaDB, and PostgreSQL.
-- Documentation now clarifies that model-property-to-live-database automatic diff is not enabled yet.
+- Provider model synchronizers can compare attribute models with a live database and apply only safe additive changes.
 - Migration runners explain why history tables are used instead of relying only on live catalog checks.
 
 ## Packages
@@ -105,17 +105,38 @@ generator.DropTables(allow);
 
 `DbColumnDefault` and `DbColumnCheck` accept raw SQL expressions by design. Do not build those expressions from user input; keep them as reviewed, hard-coded schema definitions.
 
-## Model Diff Scope
+## Live Model Synchronization
 
-ModelSync does not silently compare C# model properties with a live database and mutate the database by itself.
+ModelSync can compare C# attribute models with a live database and build a dry-run plan before applying changes.
 
-If you add a new property to a model, the current attribute-based API still expects an explicit operation:
+Only safe additive changes are applied automatically. Destructive or risky operations are reported and blocked.
+
+If you want a direct explicit column operation, you can still use:
 
 ```csharp
 generator.AddColumn<ProductModel>("Stock");
 ```
 
-This is intentional. Live schema changes can be expensive and destructive, so automatic model-to-database diffing is planned as a separate dry-run-first feature.
+The provider synchronizers are dry-run-first:
+
+```csharp
+var options = new SqlServerModelSyncOptions
+{
+    ConnectionString = connectionString,
+    HistorySchema = "sec",
+    DefaultSchema = "app",
+    AllowDestructiveChanges = false,
+    ApplyStoredProceduresOnEveryRun = true,
+    ApplyTriggersOnEveryRun = true
+};
+
+var result = await SqlServerModelSynchronizer
+    .FromAssemblies(options, typeof(ProductModel).Assembly)
+    .CompareAsync();
+
+await result.ThrowIfUnsupportedOrDestructiveAsync();
+await result.ApplyAsync();
+```
 
 The migration runner has a different source of truth: SQL scripts. If an already-applied table script changes, ModelSync compares the script hash from the history table and can add missing columns from the changed `CREATE TABLE` script. That additive repair is script-based, not model-property-based.
 
@@ -155,6 +176,7 @@ runner.RegisterScriptFile("Database/Scripts/Tables/001_CreateProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
 runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/CustomSql/999_AfterSetup.sql");
 
 var plans = await runner.CompareRegisteredAsync();
 await runner.RunAsync();
@@ -163,7 +185,7 @@ await runner.RunAsync();
 Scripts run in this order:
 
 ```text
-Tables -> StoredProcedures -> Triggers -> Seeds
+Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 ```
 
 Migration runners create history tables, store script hashes, support embedded `.sql` resources, and can add missing columns from changed table scripts. SQL Server supports `GO` batch splitting.
@@ -205,6 +227,7 @@ SQL Server and PostgreSQL store history tables under the `sec` schema. MySQL/Mar
 - Provider guides: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/04-providers.md
 - Stored procedure sync: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/11-stored-procedures.md
 - Migration runner: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/12-migration-runner.md
+- Model synchronizer: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/14-model-synchronizer.md
 - Examples: https://github.com/UmbrellaFrameHQ/modelsync/tree/main/examples
 
 ## Notes

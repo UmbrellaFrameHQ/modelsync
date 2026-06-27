@@ -30,7 +30,7 @@ UmbrellaFrame.ModelSync.SQLite        SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer package
 ```
 
-Current package version: `1.0.7`
+Current package version: `1.0.8`
 
 ### What ModelSync Does
 
@@ -41,6 +41,7 @@ Current package version: `1.0.7`
 - Supports SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite table generation.
 - Synchronizes stored procedures for SQL Server, MySQL/MariaDB, and PostgreSQL.
 - Runs ordered SQL migration scripts for tables, stored procedures, triggers, and seed data.
+- Compares attribute models with live databases and applies only safe additive synchronization plans.
 - Tracks applied migration scripts with history tables and SQL hashes.
 - Provides Roslyn analyzer warnings for missing table, primary key, and column type attributes.
 
@@ -48,9 +49,7 @@ Current package version: `1.0.7`
 
 ModelSync is intentionally not an ORM. It does not track entities, generate LINQ queries, manage change tracking, lazy-load relations, or replace Dapper/ADO.NET/EF Core for runtime data access.
 
-It is also not an automatic live database diff engine in v1. ModelSync generates SQL and provides explicit operations, but it does not silently compare every model property with a production database and mutate the schema on application startup.
-
-This design is deliberate: schema changes can delete data, break deployments, or invalidate existing application assumptions. ModelSync favors reviewable SQL and explicit execution over hidden database mutation.
+It is also not a silent production mutation engine. Live model synchronization is dry-run-first: ModelSync can apply safe additive operations, but destructive or risky operations are reported and blocked instead of being silently executed.
 
 ### Installation
 
@@ -171,6 +170,8 @@ runner.RegisterScriptFile("Database/Scripts/Tables/001_CreateProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
 runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
+runner.RegisterScriptFile("Database/Scripts/CustomSql/999_AfterSetup.sql");
+runner.RegisterScriptFile("Database/Scripts/CustomSql/999_AfterSetup.sql");
 
 var plans = await runner.CompareRegisteredAsync(cancellationToken);
 await runner.RunAsync(cancellationToken);
@@ -179,7 +180,7 @@ await runner.RunAsync(cancellationToken);
 Execution order:
 
 ```text
-Tables -> StoredProcedures -> Triggers -> Seeds
+Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 ```
 
 The runner creates history tables, stores script hashes, supports embedded `.sql` resources, and can repair missing columns additively from changed `CREATE TABLE` scripts.
@@ -196,6 +197,35 @@ var options = new MigrationRunnerOptions
 };
 ```
 
+### Live Model Synchronization
+
+ModelSync can compare attribute models with a live database and produce a reviewable dry-run plan. Only additive/update-safe operations are applied automatically; destructive or risky operations are reported and blocked.
+
+```csharp
+var options = new SqlServerModelSyncOptions
+{
+    ConnectionString = connectionString,
+    HistorySchema = "sec",
+    DefaultSchema = "app",
+    AllowDestructiveChanges = false,
+    ApplyStoredProceduresOnEveryRun = true,
+    ApplyTriggersOnEveryRun = true,
+    ApplySeedsWithHashTracking = true
+};
+
+var result = await SqlServerModelSynchronizer
+    .FromAssemblies(options, typeof(Product).Assembly)
+    .AddSqlScriptsFromEmbeddedResources(
+        typeof(Product).Assembly,
+        "MyApp.Database.Scripts")
+    .CompareAsync(cancellationToken);
+
+await result.ThrowIfUnsupportedOrDestructiveAsync();
+await result.ApplyAsync(cancellationToken);
+```
+
+Safe automatic operations include missing tables, safe missing columns, indexes, and supported constraints. Drop, rename, type changes, and nullable-to-not-null changes are never silently applied.
+
 ### Provider Support Matrix
 
 | Feature | SQL Server | MySQL / MariaDB | PostgreSQL | SQLite |
@@ -208,6 +238,7 @@ var options = new MigrationRunnerOptions
 | Truncate table | Yes | Yes | Yes | Emulated with `DELETE FROM` |
 | Stored procedure sync | Yes | Yes | Yes | No |
 | Migration runner | Yes | Yes | Yes | Yes |
+| Live model synchronization | Yes | Yes | Yes | Yes |
 | `GO` batch splitting | Yes | Not applicable | Not applicable | Not applicable |
 | Reset database | Yes | Yes | Yes | Yes |
 
@@ -216,7 +247,7 @@ var options = new MigrationRunnerOptions
 | Feature | Status | Why |
 |---|---|---|
 | Runtime ORM behavior | Not supported | ModelSync is a schema/script tool. Data access should remain in Dapper, ADO.NET, EF Core, or your own repository layer. |
-| Automatic live database diff from models | Planned, not in v1 | Safe diffing needs operation classification, reviewable plans, and destructive-operation handling. Silent production mutation is intentionally avoided. |
+| Silent destructive model diff apply | Not supported | Drop, rename, type changes, and nullable-to-not-null changes are reported but not automatically applied. |
 | Database-first model scaffolding | Out of scope for this repository | Scaffolding is a tooling concern and should live separately from the runtime schema package. |
 | Visual Studio designer/tooling | Out of scope for this repository | IDE tooling has different packaging and UX requirements. The runtime library stays small and provider-focused. |
 | SQLite stored procedures | Not supported | SQLite does not implement stored procedures. ModelSync throws explicit unsupported behavior instead of pretending support exists. |
@@ -333,6 +364,7 @@ dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 | [Changelog](docs/10-changelog.md) | Version history |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | Procedure synchronization |
 | [Migration Runner](docs/12-migration-runner.md) | Ordered SQL scripts and history |
+| [Model Synchronizer](docs/14-model-synchronizer.md) | Live database diff from attribute models |
 | [Full Usage Guide](docs/13-full-usage-guide-en.md) | Complete English guide |
 | [Examples](examples/README.md) | Example projects and snippets |
 | [NuGet README Source](docs/nuget/README.md) | Package README source |
@@ -374,7 +406,7 @@ UmbrellaFrame.ModelSync.SQLite        SQLite sağlayıcısı
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer paketi
 ```
 
-Güncel paket sürümü: `1.0.7`
+Güncel paket sürümü: `1.0.8`
 
 ### ModelSync Ne Yapar?
 
@@ -385,6 +417,7 @@ Güncel paket sürümü: `1.0.7`
 - SQL Server, MySQL/MariaDB, PostgreSQL ve SQLite için tablo üretimini destekler.
 - SQL Server, MySQL/MariaDB ve PostgreSQL için stored procedure senkronizasyonu yapar.
 - Table, stored procedure, trigger ve seed scriptlerini sıralı şekilde çalıştırır.
+- Attribute modellerini canlı veritabanıyla karşılaştırıp güvenli dry-run senkronizasyon planı üretir.
 - Uygulanan migration scriptlerini history tabloları ve SQL hash bilgisiyle takip eder.
 - Eksik tablo adı, primary key ve kolon tipi için Roslyn analyzer uyarıları verir.
 
@@ -392,9 +425,7 @@ Güncel paket sürümü: `1.0.7`
 
 ModelSync bilinçli olarak ORM değildir. Entity tracking, LINQ query üretimi, change tracking, lazy loading veya runtime data access görevi üstlenmez. Dapper, ADO.NET, EF Core veya kendi repository katmanınızın yerine geçmez.
 
-ModelSync v1 aynı zamanda otomatik canlı veritabanı diff motoru değildir. SQL üretir ve açık operasyonlar sunar; fakat her model property’sini production veritabanıyla sessizce karşılaştırıp uygulama açılışında şemayı kendiliğinden değiştirmez.
-
-Bu tercih bilinçlidir: şema değişiklikleri veri silebilir, deployment bozabilir veya mevcut uygulama varsayımlarını geçersiz kılabilir. ModelSync gizli veritabanı değişikliği yerine incelenebilir SQL ve açık çalıştırma adımlarını tercih eder.
+ModelSync sessiz ve kontrolsüz bir production mutasyon motoru değildir. Canlı model senkronizasyonu dry-run-first çalışır; eksik tablo, güvenli eksik kolon, indeks ve desteklenen constraint gibi additive işlemleri uygulayabilir, fakat drop, rename, tip değişikliği ve nullable-to-not-null gibi riskli işlemleri raporlar ve otomatik uygulamaz.
 
 ### Kurulum
 
@@ -523,7 +554,7 @@ await runner.RunAsync(cancellationToken);
 Çalışma sırası:
 
 ```text
-Tables -> StoredProcedures -> Triggers -> Seeds
+Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 ```
 
 Runner history tabloları oluşturur, script hash'i tutar, embedded `.sql` resource'larını destekler ve değişen `CREATE TABLE` scriptlerinden eksik kolonları eklemeli şekilde tamir edebilir.
@@ -540,6 +571,35 @@ var options = new MigrationRunnerOptions
 };
 ```
 
+### Canlı Model Senkronizasyonu
+
+ModelSync attribute modellerini canlı veritabanıyla karşılaştırıp incelenebilir dry-run planı üretebilir. Yalnız additive/update-safe işlemler otomatik uygulanır; destructive veya riskli işlemler raporlanır ve engellenir.
+
+```csharp
+var options = new SqlServerModelSyncOptions
+{
+    ConnectionString = connectionString,
+    HistorySchema = "sec",
+    DefaultSchema = "app",
+    AllowDestructiveChanges = false,
+    ApplyStoredProceduresOnEveryRun = true,
+    ApplyTriggersOnEveryRun = true,
+    ApplySeedsWithHashTracking = true
+};
+
+var result = await SqlServerModelSynchronizer
+    .FromAssemblies(options, typeof(Product).Assembly)
+    .AddSqlScriptsFromEmbeddedResources(
+        typeof(Product).Assembly,
+        "MyApp.Database.Scripts")
+    .CompareAsync(cancellationToken);
+
+await result.ThrowIfUnsupportedOrDestructiveAsync();
+await result.ApplyAsync(cancellationToken);
+```
+
+Eksik tablo, güvenli eksik kolon, indeks ve desteklenen constraint eklemeleri otomatik uygulanabilir. Drop, rename, tip değişikliği ve nullable-to-not-null işlemleri sessiz uygulanmaz.
+
 ### Sağlayıcı Destek Matrisi
 
 | Özellik | SQL Server | MySQL / MariaDB | PostgreSQL | SQLite |
@@ -552,6 +612,7 @@ var options = new MigrationRunnerOptions
 | Tablo boşaltma | Var | Var | Var | `DELETE FROM` ile taklit edilir |
 | Stored procedure senkronizasyonu | Var | Var | Var | Yok |
 | Migration runner | Var | Var | Var | Var |
+| Canlı model senkronizasyonu | Var | Var | Var | Var |
 | `GO` batch ayrımı | Var | Uygulanmaz | Uygulanmaz | Uygulanmaz |
 | Veritabanı reset | Var | Var | Var | Var |
 
@@ -560,7 +621,7 @@ var options = new MigrationRunnerOptions
 | Özellik | Durum | Neden |
 |---|---|---|
 | Runtime ORM davranışı | Desteklenmez | ModelSync bir şema/script aracıdır. Veri erişimi Dapper, ADO.NET, EF Core veya kendi repository katmanınızda kalmalıdır. |
-| Modellerden otomatik canlı veritabanı diff | Planlanıyor, v1'de yok | Güvenli diff için operasyon sınıflandırması, incelenebilir planlar ve yıkıcı işlem yönetimi gerekir. Sessiz production değişikliği bilinçli olarak engellenir. |
+| Sessiz yıkıcı model diff uygulama | Desteklenmez | Drop, rename, tip değişikliği ve nullable-to-not-null işlemleri raporlanır fakat otomatik uygulanmaz. |
 | Database-first model scaffolding | Bu repo kapsamı dışında | Scaffolding bir tooling konusudur ve runtime şema paketinden ayrı tutulmalıdır. |
 | Visual Studio designer/tooling | Bu repo kapsamı dışında | IDE tooling farklı paketleme ve kullanıcı deneyimi ister. Runtime kütüphanesi küçük ve sağlayıcı odaklı kalır. |
 | SQLite stored procedure | Desteklenmez | SQLite stored procedure implementasyonu sunmaz. ModelSync sahte destek vermek yerine açık unsupported davranışı üretir. |
@@ -698,7 +759,7 @@ dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 | Async DDL çalıştırma | Var | Var | Sınırlı | Var |
 | Analyzer desteği | Var | Yok | Yok | Yok |
 | Açık yıkıcı işlem koruması | Var | Kısmi | Manuel | Manuel |
-| Otomatik canlı DB model diff | Planlanıyor | Var | Yok | Yok |
+| Dry-run-first canlı DB model diff | Var | Var | Yok | Yok |
 | Script migration runner | Var | Var | Var | Var |
 | Stored procedure senkronizasyonu | Var | Manuel | Manuel | Script tabanlı |
 

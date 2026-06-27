@@ -22,6 +22,7 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [12 - Migration Runner](12-migration-runner.md) | Ordered table, procedure, trigger, and seed scripts with history tracking |
 | [13 - Full Usage Guide](13-full-usage-guide-en.md) | Complete English NuGet usage guide for ModelSync 1.0.7 |
 | [13 - Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) | Complete Turkish NuGet usage guide for ModelSync 1.0.7 |
+| [14 - Model Synchronizer](14-model-synchronizer.md) | Live database diff from attribute models with safe apply plans |
 
 ### Downloads
 
@@ -53,6 +54,7 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [12 - Migration Runner](12-migration-runner.md) | Sirali table, procedure, trigger ve seed scriptleri icin history takipli runner |
 | [13 - Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) | ModelSync 1.0.7 icin eksiksiz Turkce NuGet kullanim kilavuzu |
 | [13 - Full Usage Guide](13-full-usage-guide-en.md) | ModelSync 1.0.7 icin eksiksiz Ingilizce NuGet kullanim kilavuzu |
+| [14 - Model Synchronizer](14-model-synchronizer.md) | Attribute modellerinden canli veritabani diff plani ve guvenli uygulama |
 
 ### Indirme
 

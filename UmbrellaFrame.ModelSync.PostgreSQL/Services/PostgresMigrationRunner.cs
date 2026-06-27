@@ -68,7 +68,8 @@ CREATE SCHEMA IF NOT EXISTS ""sec"";
 CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Tables""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
 CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_StoredProcedures""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
 CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Triggers""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Seeds""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);";
+CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Seeds""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
+CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_CustomSql""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);";
             await ExecuteSqlAsync(sql, cancellationToken).ConfigureAwait(false);
         }
 
@@ -165,6 +166,7 @@ ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = E
                 case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
                 case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
                 case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
+                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
                 default: return "SchemaMigration_Tables";
             }
         }

@@ -6,7 +6,7 @@ namespace UmbrellaFrame.ModelSync.Core
     public sealed class MigrationRunnerOptions
     {
         public bool ResetDatabase { get; set; }
-        public DestructiveOperationOptions DestructiveOptions { get; set; }
+        public DestructiveOperationOptions? DestructiveOptions { get; set; }
         public bool EnsureHistoryTables { get; set; } = true;
         public bool AutoAddMissingColumnsFromTableScripts { get; set; } = true;
         public IList<string> Schemas { get; } = new List<string>();

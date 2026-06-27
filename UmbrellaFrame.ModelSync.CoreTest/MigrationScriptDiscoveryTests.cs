@@ -13,12 +13,13 @@ public class MigrationScriptDiscoveryTests
             MigrationScriptDefinition.Create("020", "Seed", MigrationScriptCategory.Seeds, "SELECT 1;"),
             MigrationScriptDefinition.Create("002", "Users", MigrationScriptCategory.Tables, "CREATE TABLE Users(Id INT);"),
             MigrationScriptDefinition.Create("001", "Products", MigrationScriptCategory.Tables, "CREATE TABLE Products(Id INT);"),
-            MigrationScriptDefinition.Create("010", "Proc", MigrationScriptCategory.StoredProcedures, "CREATE PROCEDURE p AS SELECT 1;")
+            MigrationScriptDefinition.Create("010", "Proc", MigrationScriptCategory.StoredProcedures, "CREATE PROCEDURE p AS SELECT 1;"),
+            MigrationScriptDefinition.Create("999", "Custom", MigrationScriptCategory.CustomSql, "SELECT 2;")
         };
 
         var ordered = MigrationScriptDiscovery.Order(definitions).ToList();
 
-        Assert.That(ordered.Select(x => x.Id), Is.EqualTo(new[] { "001", "002", "010", "020" }));
+        Assert.That(ordered.Select(x => x.Id), Is.EqualTo(new[] { "001", "002", "010", "020", "999" }));
     }
 
     [Test]
@@ -28,6 +29,7 @@ public class MigrationScriptDiscoveryTests
         Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.StoredProcedures.010_GetUsers.sql"), Is.EqualTo(MigrationScriptCategory.StoredProcedures));
         Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Triggers.020_Audit.sql"), Is.EqualTo(MigrationScriptCategory.Triggers));
         Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Seeds.030_Roles.sql"), Is.EqualTo(MigrationScriptCategory.Seeds));
+        Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.CustomSql.999_AfterSetup.sql"), Is.EqualTo(MigrationScriptCategory.CustomSql));
     }
 
     [Test]

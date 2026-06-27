@@ -38,7 +38,8 @@ namespace UmbrellaFrame.ModelSync.SQLite
 CREATE TABLE IF NOT EXISTS SchemaMigration_Tables(Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, SqlHash TEXT NULL, AppliedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UpdateAt TEXT NULL);
 CREATE TABLE IF NOT EXISTS SchemaMigration_StoredProcedures(Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, SqlHash TEXT NULL, AppliedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UpdateAt TEXT NULL);
 CREATE TABLE IF NOT EXISTS SchemaMigration_Triggers(Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, SqlHash TEXT NULL, AppliedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UpdateAt TEXT NULL);
-CREATE TABLE IF NOT EXISTS SchemaMigration_Seeds(Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, SqlHash TEXT NULL, AppliedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UpdateAt TEXT NULL);";
+CREATE TABLE IF NOT EXISTS SchemaMigration_Seeds(Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, SqlHash TEXT NULL, AppliedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UpdateAt TEXT NULL);
+CREATE TABLE IF NOT EXISTS SchemaMigration_CustomSql(Id TEXT NOT NULL PRIMARY KEY, Name TEXT NOT NULL, SqlHash TEXT NULL, AppliedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UpdateAt TEXT NULL);";
             await ExecuteSqlAsync(sql, cancellationToken).ConfigureAwait(false);
         }
 
@@ -141,6 +142,7 @@ ON CONFLICT(Id) DO UPDATE SET Name = excluded.Name, SqlHash = excluded.SqlHash, 
                 case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
                 case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
                 case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
+                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
                 default: return "SchemaMigration_Tables";
             }
         }

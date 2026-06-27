@@ -60,6 +60,8 @@ namespace UmbrellaFrame.ModelSync.Core
                 return MigrationScriptCategory.Triggers;
             if (ContainsSegment(source, "Seeds"))
                 return MigrationScriptCategory.Seeds;
+            if (ContainsSegment(source, "CustomSql") || ContainsSegment(source, "Custom"))
+                return MigrationScriptCategory.CustomSql;
             return MigrationScriptCategory.Tables;
         }
 

@@ -115,6 +115,15 @@ CREATE TABLE sec.SchemaMigration_Seeds(
     [SqlHash] NVARCHAR(128) NULL,
     [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_Seeds_AppliedAt DEFAULT SYSUTCDATETIME(),
     [UpdateAt] DATETIME2 NULL
+);
+
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_CustomSql' AND schema_id = SCHEMA_ID('sec'))
+CREATE TABLE sec.SchemaMigration_CustomSql(
+    [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
+    [Name] NVARCHAR(256) NOT NULL,
+    [SqlHash] NVARCHAR(128) NULL,
+    [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_CustomSql_AppliedAt DEFAULT SYSUTCDATETIME(),
+    [UpdateAt] DATETIME2 NULL
 );";
 
             await ExecuteSqlAsync(sql, cancellationToken).ConfigureAwait(false);
@@ -228,6 +237,7 @@ WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source
                 case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
                 case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
                 case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
+                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
                 default: return "SchemaMigration_Tables";
             }
         }

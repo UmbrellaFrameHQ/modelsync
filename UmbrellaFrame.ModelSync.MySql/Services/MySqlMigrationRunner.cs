@@ -76,6 +76,13 @@ CREATE TABLE IF NOT EXISTS `SchemaMigration_Seeds`(
     `SqlHash` VARCHAR(128) NULL,
     `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `UpdateAt` DATETIME NULL
+);
+CREATE TABLE IF NOT EXISTS `SchemaMigration_CustomSql`(
+    `Id` VARCHAR(128) NOT NULL PRIMARY KEY,
+    `Name` VARCHAR(256) NOT NULL,
+    `SqlHash` VARCHAR(128) NULL,
+    `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `UpdateAt` DATETIME NULL
 );";
             foreach (var statement in sql.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                 await ExecuteSqlAsync(statement, cancellationToken).ConfigureAwait(false);
@@ -166,6 +173,7 @@ ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`), `SqlHash` = VALUES(`SqlHash`), 
                 case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
                 case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
                 case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
+                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
                 default: return "SchemaMigration_Tables";
             }
         }

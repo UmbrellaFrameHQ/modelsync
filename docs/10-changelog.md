@@ -8,11 +8,22 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
+No changes yet.
+
+---
+
+## [1.0.8] - Model Synchronizer and Custom SQL Scripts
+
 ### Added
+- Added provider model synchronizers for SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite.
+- Added live schema introspection and safe model-to-database diff plans.
+- Added automatic safe apply for missing tables, additive columns, indexes, and supported constraints.
+- Added blocked reporting for destructive/risky operations such as drop, rename, type changes, and nullable-to-not-null changes.
+- Added `CustomSql` migration script category and `SchemaMigration_CustomSql` history tracking.
+- Added explicit `FromTypes` synchronizer APIs for precise model selection.
 - Added complete English and Turkish NuGet usage guides for ModelSync 1.0.7.
 - Added a language selector page for the full usage guide.
 - Clarified migration runner scope in README, NuGet README, and migration runner documentation.
-- Documented that C# model property changes do not yet trigger automatic live database diffing.
 - Documented why migration history tables are used alongside provider catalog checks.
 - Added provider migration runners for SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite.
 - Added migration history tables for tables, stored procedures, triggers, and seeds.
