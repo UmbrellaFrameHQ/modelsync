@@ -9,6 +9,7 @@ Versioning: Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- Added a complete Turkish NuGet usage guide for ModelSync 1.0.7.
 - Clarified migration runner scope in README, NuGet README, and migration runner documentation.
 - Documented that C# model property changes do not yet trigger automatic live database diffing.
 - Documented why migration history tables are used alongside provider catalog checks.

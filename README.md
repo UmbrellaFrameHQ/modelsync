@@ -89,6 +89,7 @@ dotnet add package UmbrellaFrame.ModelSync.Analyzers
 | Quick start tutorial | [docs/02-quickstart.md](docs/02-quickstart.md) |
 | Provider tutorials | [docs/04-providers.md](docs/04-providers.md) |
 | Stored procedure sync | [docs/11-stored-procedures.md](docs/11-stored-procedures.md) |
+| Full usage guide | [docs/13-full-usage-guide.md](docs/13-full-usage-guide.md) |
 | Examples | [examples/README.md](examples/README.md) |
 | NuGet README source | [docs/nuget/README.md](docs/nuget/README.md) |
 
@@ -420,6 +421,7 @@ Note: integration tests are intentionally opt-in. A fresh clone can run unit tes
 | [Changelog](docs/10-changelog.md) | Version history |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | SQL Server, MySQL/MariaDB, and PostgreSQL procedure file synchronization |
 | [Migration Runner](docs/12-migration-runner.md) | Ordered table, procedure, trigger, and seed SQL scripts with history tracking |
+| [Full Usage Guide](docs/13-full-usage-guide.md) | Complete Turkish NuGet usage guide for ModelSync 1.0.7 |
 
 ### Articles and Examples
 
@@ -633,6 +635,7 @@ Bosluk, nokta, tirnak, koseli parantez, noktali virgul, tire ve benzeri karakter
 |---|---|
 | [Makaleler](articles/README.md) | ModelSync'i tanitmak icin hazir uc kisa yazi |
 | [Ornekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive-operation ve stored procedure ornekleri |
+| [Tam Kullanim Kilavuzu](docs/13-full-usage-guide.md) | ModelSync 1.0.7 icin eksiksiz NuGet kullanim kilavuzu |
 
 Projeyi degerlendirirken once orneklerden baslayin. Onerilen akis once SQL uretmek, SQL'i incelemek ve ancak sonra canli veritabaninda DDL calistirmaktir.
 

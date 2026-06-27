@@ -199,9 +199,11 @@ SQL Server and PostgreSQL store history tables under the `sec` schema. MySQL/Mar
 ## Documentation
 
 - Repository: https://github.com/UmbrellaFrameHQ/modelsync
+- Full usage guide: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/13-full-usage-guide.md
 - Quick start: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/02-quickstart.md
 - Provider guides: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/04-providers.md
 - Stored procedure sync: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/11-stored-procedures.md
+- Migration runner: https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/12-migration-runner.md
 - Examples: https://github.com/UmbrellaFrameHQ/modelsync/tree/main/examples
 
 ## Notes
