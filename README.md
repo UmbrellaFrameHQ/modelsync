@@ -8,61 +8,53 @@
 [![.NET Standard 2.0](https://img.shields.io/badge/.NET%20Standard-2.0-purple?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
 [![Views](https://hits.sh/github.com/UmbrellaFrameHQ/modelsync.svg?style=flat-square&label=views&color=blue)](https://hits.sh/github.com/UmbrellaFrameHQ/modelsync/)
 
-**Language / Dil:** [English](#english) - [Turkce](#turkce)
+**Language:** [English](#english)  
+**Dil:** [Türkçe](#türkçe)
 
 ---
 
 ## English
 
-**Attribute-based SQL schema generator for .NET**  
-Zero ORM dependency - 4 database providers - explicit destructive-operation safety.
+ModelSync is an attribute-based SQL schema and script management toolkit for .NET. It lets you define database tables with plain C# classes, generate provider-specific SQL, execute explicit DDL operations, synchronize stored procedures, and run ordered migration scripts without introducing an ORM.
 
-ModelSync lets you decorate plain C# classes with attributes and generate or execute SQL DDL for `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`, `TRUNCATE TABLE`, and `CREATE INDEX` without Entity Framework or a heavy ORM.
+ModelSync is built for teams that want Dapper, ADO.NET, or hand-written SQL, but still want repeatable schema generation, safety checks, and provider-specific SQL output.
+
+### Packages
 
 ```text
-UmbrellaFrame.ModelSync.Core          -> Attributes, interfaces, SQL builder
-UmbrellaFrame.ModelSync.SqlServer     -> SQL Server / Azure SQL provider
-UmbrellaFrame.ModelSync.MySql         -> MySQL / MariaDB provider
-UmbrellaFrame.ModelSync.PostgreSQL    -> PostgreSQL provider
-UmbrellaFrame.ModelSync.SQLite        -> SQLite provider
-UmbrellaFrame.ModelSync.Analyzers     -> Roslyn compile-time checks
+UmbrellaFrame.ModelSync.Core          Attributes, interfaces, shared SQL generation
+UmbrellaFrame.ModelSync.SqlServer     SQL Server / Azure SQL provider
+UmbrellaFrame.ModelSync.MySql         MySQL / MariaDB provider
+UmbrellaFrame.ModelSync.PostgreSQL    PostgreSQL provider
+UmbrellaFrame.ModelSync.SQLite        SQLite provider
+UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer package
 ```
 
-### What's New
+Current package version: `1.0.7`
 
-- Stored procedure synchronization now supports SQL Server / Azure SQL, MySQL / MariaDB, and PostgreSQL.
-- Migration runners now support ordered table, stored procedure, trigger, and seed scripts with history tables.
-- Embedded `.sql` resources can be discovered and applied through provider migration runners.
-- SQL Server migration scripts support `GO` batch splitting.
-- Changed table scripts can repair missing columns additively.
-- SQLite has explicit stored procedure unsupported behavior because SQLite does not provide stored procedures.
-- Local Docker test databases and opt-in stored procedure integration smoke tests were added.
-- Documentation clarifies the difference between explicit model operations and script-based migration repair.
-- Composite primary keys now generate table-level `PRIMARY KEY (col1, col2)` constraints.
-- SQL Server `IF OBJECT_ID` guards now use validated object names correctly.
-- Analyzer rules `MSYNC001`, `MSYNC002`, and `MSYNC003` now have unit test coverage.
-- Raw `DbColumnDefault` and `DbColumnCheck` safety guidance is stronger in docs and package README.
-- Repository hygiene was improved by removing tracked backup artifacts and cleaning encoding issues.
+### What ModelSync Does
 
-### Design Philosophy
+- Generates `CREATE TABLE` SQL from attributed C# models.
+- Generates `CREATE INDEX`, `DROP TABLE`, `TRUNCATE TABLE`, `ADD COLUMN`, `DROP COLUMN`, and `ALTER COLUMN TYPE` SQL where the provider supports it.
+- Executes generated DDL through explicit method calls.
+- Requires explicit opt-in for destructive operations.
+- Supports SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite table generation.
+- Synchronizes stored procedures for SQL Server, MySQL/MariaDB, and PostgreSQL.
+- Runs ordered SQL migration scripts for tables, stored procedures, triggers, and seed data.
+- Tracks applied migration scripts with history tables and SQL hashes.
+- Provides Roslyn analyzer warnings for missing table, primary key, and column type attributes.
 
-ModelSync v1 intentionally favors **explicit, developer-controlled schema operations** over automatic live-database mutation.
+### What ModelSync Is Not
 
-Schema changes can be destructive. Dropping columns, changing column types, truncating tables, or dropping tables can cause data loss if applied automatically. For that reason, ModelSync v1 generates SQL and provides explicit DDL methods, but it does not silently synchronize a live database.
+ModelSync is intentionally not an ORM. It does not track entities, generate LINQ queries, manage change tracking, lazy-load relations, or replace Dapper/ADO.NET/EF Core for runtime data access.
 
-Planned Phase 2 direction:
+It is also not an automatic live database diff engine in v1. ModelSync generates SQL and provides explicit operations, but it does not silently compare every model property with a production database and mutate the schema on application startup.
 
-- compare model attributes with the live database schema
-- generate an ALTER TABLE plan before applying it
-- support dry-run SQL output
-- classify risky and destructive operations
-- require explicit opt-in before data-loss operations
-
-Database-first model scaffolding and Visual Studio tooling are intentionally kept out of this runtime repository. Those tools can build on the same provider packages, but they should live in separate repositories so ModelSync stays focused on schema generation.
+This design is deliberate: schema changes can delete data, break deployments, or invalidate existing application assumptions. ModelSync favors reviewable SQL and explicit execution over hidden database mutation.
 
 ### Installation
 
-Install only the provider you need:
+Install the provider package you need:
 
 ```bash
 dotnet add package UmbrellaFrame.ModelSync.SqlServer
@@ -71,140 +63,77 @@ dotnet add package UmbrellaFrame.ModelSync.PostgreSQL
 dotnet add package UmbrellaFrame.ModelSync.SQLite
 ```
 
-Each provider package pulls `UmbrellaFrame.ModelSync.Core` as a dependency.
+Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
 
-Optionally add the analyzer package:
+Analyzer package:
 
 ```bash
 dotnet add package UmbrellaFrame.ModelSync.Analyzers
 ```
 
-### Downloads and Tutorials
-
-| Resource | Link |
-|---|---|
-| GitHub repository | [UmbrellaFrameHQ/modelsync](https://github.com/UmbrellaFrameHQ/modelsync) |
-| Latest source download | [Download ZIP](https://github.com/UmbrellaFrameHQ/modelsync/archive/refs/heads/main.zip) |
-| Releases | [GitHub Releases](https://github.com/UmbrellaFrameHQ/modelsync/releases) |
-| Quick start tutorial | [docs/02-quickstart.md](docs/02-quickstart.md) |
-| Provider tutorials | [docs/04-providers.md](docs/04-providers.md) |
-| Stored procedure sync | [docs/11-stored-procedures.md](docs/11-stored-procedures.md) |
-| Full usage guide | [English](docs/13-full-usage-guide-en.md) / [Turkce](docs/13-full-usage-guide-tr.md) |
-| Examples | [examples/README.md](examples/README.md) |
-| NuGet README source | [docs/nuget/README.md](docs/nuget/README.md) |
-
 ### Quick Start
 
 ```csharp
 using UmbrellaFrame.ModelSync.Core;
-using UmbrellaFrame.ModelSync.MySql;
+using UmbrellaFrame.ModelSync.SqlServer;
 
-[MySqlTableName("products")]
-public class Product
+[SqlServerTableName("Products")]
+public sealed class Product
 {
-    [MySqlColumnType(MySqlColumnType.INT)]
-    [MySqlColumnPrimaryKey(isAutoIncrement: true)]
+    [SqlServerColumnType(SqlServerColumnType.INT)]
+    [SqlServerColumnPrimaryKey(isAutoIncrement: true)]
     public int Id { get; set; }
 
-    [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
-    [MySqlColumnNotNull]
-    public string Name { get; set; }
+    [SqlServerColumnType(SqlServerColumnType.NVARCHAR, "200")]
+    [SqlServerColumnNotNull]
+    [DbColumnIndex("IX_Products_Name")]
+    public string Name { get; set; } = string.Empty;
 
-    [MySqlColumnType(MySqlColumnType.DECIMAL, "10,2")]
-    [DbColumnDefault("0.00")]
+    [SqlServerColumnType(SqlServerColumnType.DECIMAL, "18,2")]
+    [DbColumnDefault("0")]
     [DbColumnCheck("Price >= 0")]
     public decimal Price { get; set; }
 }
 
-var generator = new MySqlTableGenerator(
-    "Server=localhost;Database=mydb;User=root;Password=pass;"
-);
+var generator = new SqlServerTableGenerator(
+    "Server=localhost;Database=AppDb;Integrated Security=True;TrustServerCertificate=True;");
 
-generator.CreateDatabase();
-generator.GenerateMySqlTable<Product>(ifNotExists: true);
-await generator.CreateTablesAsync(cancellationToken);
-```
+var sql = generator.GenerateSqlServerTable<Product>(ifNotExists: true);
+var indexes = generator.GenerateIndexSql<Product>();
 
-Generated SQL:
-
-```sql
-CREATE TABLE IF NOT EXISTS `products` (
-    `Id` INT PRIMARY KEY AUTO_INCREMENT,
-    `Name` VARCHAR(255) NOT NULL,
-    `Price` DECIMAL(10,2) DEFAULT 0.00 CHECK (Price >= 0)
-);
-```
-
-### Complete Example with Index and Default
-
-```csharp
-using UmbrellaFrame.ModelSync.Core;
-using UmbrellaFrame.ModelSync.PostgreSQL;
-
-[PostgresTableName("customers")]
-public sealed class CustomerModel
-{
-    [PostgresColumnType(PostgresColumnType.INTEGER)]
-    [PostgresColumnPrimaryKey]
-    public int Id { get; set; }
-
-    [PostgresColumnType(PostgresColumnType.VARCHAR, "160")]
-    [PostgresColumnNotNull]
-    [DbColumnIndex("idx_customers_email", isUnique: true)]
-    public string Email { get; set; } = string.Empty;
-
-    [PostgresColumnType(PostgresColumnType.TIMESTAMP)]
-    [DbColumnDefault("CURRENT_TIMESTAMP")]
-    public DateTime CreatedAt { get; set; }
-}
-
-var generator = new PostgresTableGenerator(
-    "Host=localhost;Database=appdb;Username=postgres;Password=pass;");
-
-var tableSql = generator.GeneratePostgresTable<CustomerModel>(ifNotExists: true);
-var indexes = generator.GenerateIndexSql<CustomerModel>();
-
-Console.WriteLine(tableSql);
+Console.WriteLine(sql);
 foreach (var indexSql in indexes)
 {
     Console.WriteLine(indexSql);
 }
+
+await generator.CreateTablesAsync(cancellationToken);
 ```
 
-This prints both table DDL and index DDL before anything is executed.
+Recommended workflow:
 
-### ALTER TABLE Operations
+1. Generate SQL.
+2. Review SQL.
+3. Commit generated or hand-written scripts when needed.
+4. Execute against live databases only through explicit deployment steps.
 
-Safe additive operations can run directly:
+### Destructive Operation Safety
 
-```csharp
-generator.AddColumn<Product>("Stock");
-await generator.AddColumnAsync<Product>("Stock", cancellationToken);
-```
-
-Destructive or risky operations require explicit opt-in:
+Operations that may cause data loss require `DestructiveOperationOptions.Allow()`:
 
 ```csharp
 var allow = DestructiveOperationOptions.Allow();
 
 generator.DropColumn<Product>("LegacyCode", allow);
 generator.AlterColumnType<Product>("Price", allow);
-generator.DropTables(allow);
-
-await generator.DropColumnAsync<Product>("LegacyCode", allow, cancellationToken);
-await generator.AlterColumnTypeAsync<Product>("Price", allow, cancellationToken);
 await generator.DropTablesAsync(allow, cancellationToken);
 ```
 
-Calling `DropColumn`, `AlterColumnType`, or `DropTables` without `DestructiveOperationOptions.Allow()` throws an exception by design.
+Calling destructive methods without explicit options throws by design. This makes dangerous schema operations visible in code review and prevents accidental production data loss.
 
-SQLite does not support `ALTER COLUMN TYPE` directly. Even with destructive permission, SQLite throws `NotSupportedException`; use a create-copy-drop table rebuild strategy instead.
+### Stored Procedure Synchronization
 
-### Stored Procedures
-
-Stored procedures can be kept as project `.sql` files and synchronized with supported databases.
-
-SQL Server:
+Stored procedures can be stored as `.sql` files and synchronized with supported providers.
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -214,61 +143,24 @@ var procedures = new SqlServerStoredProcedureSynchronizer(connectionString);
 procedures.RegisterProcedureFile(
     "Database/Procedures/SqlServer/dbo.usp_GetProducts.sql");
 
-var plans = await procedures.CompareRegisteredAsync();
-
-foreach (var plan in plans)
-{
-    Console.WriteLine($"{plan.Definition.Schema}.{plan.Definition.Name}: {plan.ChangeType}");
-}
-
-await procedures.SyncRegisteredAsync();
+var plans = await procedures.CompareRegisteredAsync(cancellationToken);
+await procedures.SyncRegisteredAsync(cancellationToken);
 ```
 
-MySQL / MariaDB:
+Provider behavior:
 
-```csharp
-using UmbrellaFrame.ModelSync.MySql;
+| Provider | Support | Strategy |
+|---|---:|---|
+| SQL Server / Azure SQL | Yes | `CREATE OR ALTER PROCEDURE` |
+| MySQL / MariaDB | Yes | `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` |
+| PostgreSQL | Yes | `CREATE OR REPLACE PROCEDURE` |
+| SQLite | No | SQLite has no stored procedure feature |
 
-var procedures = new MySqlStoredProcedureSynchronizer(connectionString);
-
-procedures.RegisterProcedureFile(
-    "Database/Procedures/MySql/appdb.usp_GetProducts.sql");
-
-var plans = await procedures.CompareRegisteredAsync();
-await procedures.SyncRegisteredAsync();
-```
-
-PostgreSQL:
-
-```csharp
-using UmbrellaFrame.ModelSync.PostgreSQL;
-
-var procedures = new PostgresStoredProcedureSynchronizer(connectionString);
-
-procedures.RegisterProcedureFile(
-    "Database/Procedures/PostgreSQL/public.usp_get_products.sql");
-
-var plans = await procedures.CompareRegisteredAsync();
-await procedures.SyncRegisteredAsync();
-```
-
-Supported providers:
-
-| Provider | Stored Procedure Sync |
-|---|---|
-| SQL Server / Azure SQL | Yes, via `CREATE OR ALTER PROCEDURE` |
-| MySQL / MariaDB | Yes, via `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` |
-| PostgreSQL | Yes, via `CREATE OR REPLACE PROCEDURE` |
-| SQLite | Not supported |
-
-ModelSync creates missing procedures and updates changed procedures according to provider capabilities.
-Run `CompareRegisteredAsync()` first when you want to preview the SQL before applying it.
-
-See [docs/11-stored-procedures.md](docs/11-stored-procedures.md) for SQL file rules, provider behavior, and local integration test setup.
+Use `CompareRegisteredAsync()` before applying changes when you want a dry-run plan.
 
 ### Migration Runner
 
-For full project setup scripts, use the provider migration runners:
+Provider migration runners apply ordered SQL scripts:
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -280,45 +172,70 @@ runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql
 runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
 runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
 
-var plans = await runner.CompareRegisteredAsync();
-await runner.RunAsync();
+var plans = await runner.CompareRegisteredAsync(cancellationToken);
+await runner.RunAsync(cancellationToken);
 ```
 
-Supported migration categories run in this order:
+Execution order:
 
 ```text
 Tables -> StoredProcedures -> Triggers -> Seeds
 ```
 
-The runner creates migration history tables, stores script hashes, supports embedded `.sql` resources, and can add missing columns from changed table scripts. SQL Server also supports `GO` batch splitting.
+The runner creates history tables, stores script hashes, supports embedded `.sql` resources, and can repair missing columns additively from changed `CREATE TABLE` scripts.
 
-Important scope note: adding a new C# property to a model does not yet trigger automatic live database diffing. Use explicit model operations such as `AddColumn<T>("PropertyName")`, or use migration runner SQL scripts as the source of truth. Missing-column repair in the migration runner is based on changed `CREATE TABLE` scripts and migration history hashes, not direct model-property comparison.
+History tables are used because a database catalog can tell whether an object exists, but it cannot reliably tell which script version was applied, whether a seed script already ran, or which SQL hash was last deployed.
 
-History tables are used because a live database catalog can show whether an object exists, but it cannot reliably show which script version was applied, whether a seed already ran, or which SQL hash was last deployed.
-
-Optional database reset is destructive and requires:
+Database reset is destructive and requires explicit permission:
 
 ```csharp
-new MigrationRunnerOptions
+var options = new MigrationRunnerOptions
 {
     ResetDatabase = true,
     DestructiveOptions = DestructiveOperationOptions.Allow()
 };
 ```
 
-See [docs/12-migration-runner.md](docs/12-migration-runner.md) for provider support and behavior notes.
+### Provider Support Matrix
+
+| Feature | SQL Server | MySQL / MariaDB | PostgreSQL | SQLite |
+|---|:---:|:---:|:---:|:---:|
+| Table SQL generation | Yes | Yes | Yes | Yes |
+| Index SQL generation | Yes | Yes | Yes | Yes |
+| Add column | Yes | Yes | Yes | Yes |
+| Drop column | Yes | Yes | Yes | Limited by SQLite version |
+| Alter column type | Yes | Yes | Yes | No |
+| Truncate table | Yes | Yes | Yes | Emulated with `DELETE FROM` |
+| Stored procedure sync | Yes | Yes | Yes | No |
+| Migration runner | Yes | Yes | Yes | Yes |
+| `GO` batch splitting | Yes | Not applicable | Not applicable | Not applicable |
+| Reset database | Yes | Yes | Yes | Yes |
+
+### Unsupported or Intentionally Limited Features
+
+| Feature | Status | Why |
+|---|---|---|
+| Runtime ORM behavior | Not supported | ModelSync is a schema/script tool. Data access should remain in Dapper, ADO.NET, EF Core, or your own repository layer. |
+| Automatic live database diff from models | Planned, not in v1 | Safe diffing needs operation classification, reviewable plans, and destructive-operation handling. Silent production mutation is intentionally avoided. |
+| Database-first model scaffolding | Out of scope for this repository | Scaffolding is a tooling concern and should live separately from the runtime schema package. |
+| Visual Studio designer/tooling | Out of scope for this repository | IDE tooling has different packaging and UX requirements. The runtime library stays small and provider-focused. |
+| SQLite stored procedures | Not supported | SQLite does not implement stored procedures. ModelSync throws explicit unsupported behavior instead of pretending support exists. |
+| SQLite direct alter-column-type | Not supported | SQLite does not support direct `ALTER COLUMN TYPE`; use a create-copy-drop rebuild strategy. |
+| Silent destructive operations | Not supported | Dropping tables/columns or changing types can lose data. Explicit `DestructiveOperationOptions.Allow()` is required. |
+| User-supplied raw default/check expressions | Not safe by design | `DbColumnDefault` and `DbColumnCheck` accept raw SQL fragments for schema authors. They must not be built from untrusted user input. |
+| Arbitrary identifier names with spaces/symbols | Not supported | Strict identifier validation prevents unsafe or ambiguous generated SQL. |
 
 ### Identifier Safety
 
-ModelSync uses strict identifier validation before quoting table, column, index, and database names.
+ModelSync validates identifiers before quoting table, column, database, and index names.
 
-Allowed identifier pattern:
+Allowed pattern:
 
 ```text
 ^[A-Za-z_][A-Za-z0-9_]*$
 ```
 
-This intentionally rejects spaces, dots, quotes, brackets, semicolons, hyphens, and other characters that make generated DDL harder to reason about safely.
+Spaces, dots, quotes, brackets, semicolons, hyphens, and other punctuation are rejected intentionally. This keeps generated SQL predictable and reduces injection risk in schema identifiers.
 
 ### Supported Attributes
 
@@ -326,30 +243,32 @@ Provider-specific attributes:
 
 | Attribute | Description |
 |---|---|
-| `[{Db}TableName("name")]` | Set table name |
-| `[{Db}ColumnType(Type)]` | Set column data type |
-| `[{Db}ColumnPrimaryKey]` | Mark as primary key |
-| `[{Db}ColumnNotNull]` | Add NOT NULL |
-| `[{Db}ColumnUnique]` | Add UNIQUE |
-| `[{Db}ForeignKey("column","table","ref")]` | Add foreign key |
+| `[{Db}TableName("name")]` | Sets table name |
+| `[{Db}ColumnType(Type)]` | Sets provider-specific column type |
+| `[{Db}ColumnPrimaryKey]` | Marks a primary key column |
+| `[{Db}ColumnNotNull]` | Adds `NOT NULL` |
+| `[{Db}ColumnUnique]` | Adds `UNIQUE` |
+| `[{Db}ForeignKey("column", "table", "ref")]` | Adds a foreign key |
 
 Cross-provider attributes:
 
 | Attribute | Description |
 |---|---|
-| `[DbColumnDefault("expr")]` | Add DEFAULT expression |
-| `[DbColumnCheck("expr")]` | Add CHECK expression |
-| `[DbColumnIndex]` | Generate CREATE INDEX SQL via `GenerateIndexSql<T>()` |
+| `[DbColumnDefault("expr")]` | Adds a raw SQL `DEFAULT` expression |
+| `[DbColumnCheck("expr")]` | Adds a raw SQL `CHECK` expression |
+| `[DbColumnIndex]` | Generates index SQL with `GenerateIndexSql<T>()` |
 
-> Security note: `DbColumnDefault` and `DbColumnCheck` are raw SQL fragments by design. Never build these values from user input; keep them as reviewed, hard-coded schema expressions.
+Security note: `DbColumnDefault` and `DbColumnCheck` are raw SQL fragments by design. Keep them as reviewed, hard-coded schema expressions. Do not build them from user input.
 
 ### Roslyn Analyzer
 
 | Rule | Severity | Description |
 |---|---|---|
-| MSYNC001 | Warning | Public property is missing a column type attribute |
-| MSYNC002 | Warning | Class has column attributes but no table name attribute |
-| MSYNC003 | Warning | Model table has no primary key defined |
+| `MSYNC001` | Warning | Public property is missing a column type attribute |
+| `MSYNC002` | Warning | Class has column attributes but no table name attribute |
+| `MSYNC003` | Warning | Model table has no primary key defined |
+
+Example `.editorconfig`:
 
 ```ini
 dotnet_diagnostic.MSYNC001.severity = error
@@ -358,44 +277,39 @@ dotnet_diagnostic.MSYNC003.severity = none
 
 ### Development
 
-Run unit tests without external databases:
+Run unit tests:
 
 ```powershell
 .\scripts\test.ps1
 ```
 
-Run all solution build steps on Windows:
+Build solution:
 
 ```powershell
 .\scripts\build.ps1
 ```
 
-Package NuGet artifacts:
+Pack NuGet artifacts:
 
 ```powershell
 .\scripts\pack.ps1
 ```
 
-If your local PowerShell policy blocks scripts:
+If PowerShell blocks local scripts:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\pack.ps1
 ```
 
-Publish NuGet packages after setting `NUGET_API_KEY`:
-
-```powershell
-.\scripts\publish-nuget.ps1
-```
-
-Integration tests are opt-in because they require live databases. Set the relevant flag and connection string before running `.\scripts\test.ps1 -Integration`:
+Integration tests are opt-in because they require live databases:
 
 ```powershell
 $env:MODELSYNC_RUN_MYSQL_INTEGRATION = "1"
 $env:MODELSYNC_MYSQL_CONNECTION_STRING = "Server=localhost;Port=3306;Database=appdb;User ID=root;Password=rootpass;"
+.\scripts\test.ps1 -Integration
 ```
 
-Stored procedure integration tests can use the provided Docker test environment:
+Stored procedure integration tests can use the Docker test environment when available:
 
 ```powershell
 .\scripts\start-test-databases.ps1
@@ -403,47 +317,39 @@ $env:MODELSYNC_RUN_SP_INTEGRATION = "1"
 dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 ```
 
-Note: integration tests are intentionally opt-in. A fresh clone can run unit tests without installing MySQL, PostgreSQL, SQL Server, or MariaDB.
+### English Resources
 
-### Documentation
-
-| Document | Description |
+| Resource | Description |
 |---|---|
 | [Overview](docs/01-overview.md) | Architecture and design decisions |
-| [Quick Start](docs/02-quickstart.md) | Working examples per provider |
-| [Attribute Reference](docs/03-attributes.md) | Attribute list and parameter details |
+| [Quick Start](docs/02-quickstart.md) | Provider examples |
+| [Attribute Reference](docs/03-attributes.md) | Attribute list and parameters |
 | [Provider Guides](docs/04-providers.md) | Provider-specific behavior |
-| [API Reference](docs/05-api-reference.md) | Public API details |
+| [API Reference](docs/05-api-reference.md) | Public API surface |
 | [Dependency Injection](docs/06-dependency-injection.md) | ASP.NET Core DI usage |
 | [Roslyn Analyzers](docs/07-analyzers.md) | Analyzer rules |
 | [Architecture](docs/08-architecture.md) | Internal flow and extension points |
 | [Contributing](docs/09-contributing.md) | Development setup |
 | [Changelog](docs/10-changelog.md) | Version history |
-| [Stored Procedure Sync](docs/11-stored-procedures.md) | SQL Server, MySQL/MariaDB, and PostgreSQL procedure file synchronization |
-| [Migration Runner](docs/12-migration-runner.md) | Ordered table, procedure, trigger, and seed SQL scripts with history tracking |
-| [Full Usage Guide](docs/13-full-usage-guide-en.md) | Complete English NuGet usage guide for ModelSync 1.0.7 |
-| [Tam Kullanim Kilavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.0.7 icin eksiksiz Turkce NuGet kullanim kilavuzu |
+| [Stored Procedure Sync](docs/11-stored-procedures.md) | Procedure synchronization |
+| [Migration Runner](docs/12-migration-runner.md) | Ordered SQL scripts and history |
+| [Full Usage Guide](docs/13-full-usage-guide-en.md) | Complete English guide |
+| [Examples](examples/README.md) | Example projects and snippets |
+| [NuGet README Source](docs/nuget/README.md) | Package README source |
 
-### Articles and Examples
-
-| Resource | Description |
-|---|---|
-| [Articles](articles/README.md) | Three short publish-ready articles for introducing ModelSync |
-| [Examples](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive-operation, and stored-procedure examples |
-
-Start with the examples when evaluating the project. They show the recommended flow: generate SQL first, inspect it, and only then execute DDL against a live database.
-
-### Why ModelSync?
+### Comparison
 
 | Feature | ModelSync | EF Core | FluentMigrator | DbUp |
 |---|:---:|:---:|:---:|:---:|
 | Zero ORM dependency | Yes | No | Yes | Yes |
-| Attribute-based schema | Yes | Yes | No | No |
-| Provider packages | Yes | Yes | Yes | Yes |
+| Attribute-based schema generation | Yes | Yes | No | No |
+| Provider packages | Yes | Yes | Yes | Mostly script-based |
 | Async DDL execution | Yes | Yes | Limited | Yes |
 | Analyzer support | Yes | No | No | No |
-| Explicit destructive safety | Yes | Partial | Manual | Manual |
-| Automatic live DB diff | Planned | Yes | No | No |
+| Explicit destructive-operation guard | Yes | Partial | Manual | Manual |
+| Automatic live DB model diff | Planned | Yes | No | No |
+| Script migration runner | Yes | Yes | Yes | Yes |
+| Stored procedure synchronization | Yes | Manual | Manual | Script-based |
 
 ### License
 
@@ -451,110 +357,127 @@ MIT (c) UmbrellaFrame
 
 ---
 
-## Turkce
+## Türkçe
 
-**.NET icin attribute tabanli SQL sema uretici**  
-Sifir ORM bagimliligi - 4 veritabani saglayici - yikici islemler icin acik onay guvenligi.
+ModelSync, .NET için attribute tabanlı SQL şema ve script yönetim aracıdır. Sade C# sınıflarıyla veritabanı tabloları tanımlamanızı, sağlayıcıya özel SQL üretmenizi, açık DDL işlemleri çalıştırmanızı, stored procedure senkronizasyonu yapmanızı ve sıralı migration scriptleri uygulamanızı sağlar. Bunu ORM bağımlılığı eklemeden yapar.
 
-ModelSync, sade C# siniflarini attribute'larla isaretleyerek Entity Framework veya agir bir ORM kullanmadan `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`, `TRUNCATE TABLE` ve `CREATE INDEX` DDL'i uretmenizi veya calistirmanizi saglar.
+ModelSync; Dapper, ADO.NET veya elle yazılmış SQL kullanan ama tekrar edilebilir şema üretimi, güvenlik kontrolleri ve sağlayıcıya özel SQL çıktısı isteyen ekipler için tasarlanmıştır.
 
-### Tasarim Felsefesi
+### Paketler
 
-ModelSync v1, canli veritabanini otomatik degistirmek yerine **gelistiricinin acikca kontrol ettigi sema islemlerini** tercih eder.
+```text
+UmbrellaFrame.ModelSync.Core          Attribute'lar, arayüzler, ortak SQL üretimi
+UmbrellaFrame.ModelSync.SqlServer     SQL Server / Azure SQL sağlayıcısı
+UmbrellaFrame.ModelSync.MySql         MySQL / MariaDB sağlayıcısı
+UmbrellaFrame.ModelSync.PostgreSQL    PostgreSQL sağlayıcısı
+UmbrellaFrame.ModelSync.SQLite        SQLite sağlayıcısı
+UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer paketi
+```
 
-Sema degisiklikleri yikici olabilir. Sutun silme, sutun tipi degistirme, tabloyu bosaltma veya tablo silme gibi islemler otomatik uygulanirsa veri kaybina neden olabilir. Bu nedenle ModelSync v1 SQL uretir ve acik DDL metotlari saglar; canli veritabanini sessizce kendi kendine senkronize etmez.
+Güncel paket sürümü: `1.0.7`
 
-Planlanan Faz 2 yonu:
+### ModelSync Ne Yapar?
 
-- model attribute'larini canli veritabani semasiyla karsilastirmak
-- uygulamadan once ALTER TABLE plani uretmek
-- dry-run SQL ciktisi vermek
-- riskli ve yikici islemleri siniflandirmak
-- veri kaybi olusturabilecek islemler icin acik onay istemek
+- Attribute ile işaretlenmiş C# modellerinden `CREATE TABLE` SQL'i üretir.
+- Sağlayıcı desteklediği sürece `CREATE INDEX`, `DROP TABLE`, `TRUNCATE TABLE`, `ADD COLUMN`, `DROP COLUMN` ve `ALTER COLUMN TYPE` SQL'i üretir.
+- Üretilen DDL'i açık metot çağrılarıyla çalıştırır.
+- Veri kaybı oluşturabilecek işlemler için açık onay ister.
+- SQL Server, MySQL/MariaDB, PostgreSQL ve SQLite için tablo üretimini destekler.
+- SQL Server, MySQL/MariaDB ve PostgreSQL için stored procedure senkronizasyonu yapar.
+- Table, stored procedure, trigger ve seed scriptlerini sıralı şekilde çalıştırır.
+- Uygulanan migration scriptlerini history tabloları ve SQL hash bilgisiyle takip eder.
+- Eksik tablo adı, primary key ve kolon tipi için Roslyn analyzer uyarıları verir.
 
-Database-first model scaffolding ve Visual Studio araclari bu runtime repodan bilincli olarak ayrilmalidir. Bu araclar ayni provider paketlerinden beslenebilir, fakat ModelSync reposu sema uretimine odakli kalmalidir.
+### ModelSync Ne Değildir?
+
+ModelSync bilinçli olarak ORM değildir. Entity tracking, LINQ query üretimi, change tracking, lazy loading veya runtime data access görevi üstlenmez. Dapper, ADO.NET, EF Core veya kendi repository katmanınızın yerine geçmez.
+
+ModelSync v1 aynı zamanda otomatik canlı veritabanı diff motoru değildir. SQL üretir ve açık operasyonlar sunar; fakat her model property’sini production veritabanıyla sessizce karşılaştırıp uygulama açılışında şemayı kendiliğinden değiştirmez.
+
+Bu tercih bilinçlidir: şema değişiklikleri veri silebilir, deployment bozabilir veya mevcut uygulama varsayımlarını geçersiz kılabilir. ModelSync gizli veritabanı değişikliği yerine incelenebilir SQL ve açık çalıştırma adımlarını tercih eder.
 
 ### Kurulum
+
+İhtiyacınız olan sağlayıcı paketini kurun:
 
 ```bash
 dotnet add package UmbrellaFrame.ModelSync.SqlServer
 dotnet add package UmbrellaFrame.ModelSync.MySql
 dotnet add package UmbrellaFrame.ModelSync.PostgreSQL
 dotnet add package UmbrellaFrame.ModelSync.SQLite
+```
+
+Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak getirir.
+
+Analyzer paketi:
+
+```bash
 dotnet add package UmbrellaFrame.ModelSync.Analyzers
 ```
 
-Her saglayici paketi `UmbrellaFrame.ModelSync.Core` paketini bagimlilik olarak indirir.
-
-### Hizli Baslangic
+### Hızlı Başlangıç
 
 ```csharp
 using UmbrellaFrame.ModelSync.Core;
-using UmbrellaFrame.ModelSync.MySql;
+using UmbrellaFrame.ModelSync.SqlServer;
 
-[MySqlTableName("urunler")]
-public class Urun
+[SqlServerTableName("Products")]
+public sealed class Product
 {
-    [MySqlColumnType(MySqlColumnType.INT)]
-    [MySqlColumnPrimaryKey(isAutoIncrement: true)]
+    [SqlServerColumnType(SqlServerColumnType.INT)]
+    [SqlServerColumnPrimaryKey(isAutoIncrement: true)]
     public int Id { get; set; }
 
-    [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
-    [MySqlColumnNotNull]
-    public string Ad { get; set; }
+    [SqlServerColumnType(SqlServerColumnType.NVARCHAR, "200")]
+    [SqlServerColumnNotNull]
+    [DbColumnIndex("IX_Products_Name")]
+    public string Name { get; set; } = string.Empty;
 
-    [MySqlColumnType(MySqlColumnType.DECIMAL, "10,2")]
-    [DbColumnDefault("0.00")]
-    [DbColumnCheck("Fiyat >= 0")]
-    public decimal Fiyat { get; set; }
+    [SqlServerColumnType(SqlServerColumnType.DECIMAL, "18,2")]
+    [DbColumnDefault("0")]
+    [DbColumnCheck("Price >= 0")]
+    public decimal Price { get; set; }
 }
 
-var generator = new MySqlTableGenerator(
-    "Server=localhost;Database=mydb;User=root;Password=pass;"
-);
+var generator = new SqlServerTableGenerator(
+    "Server=localhost;Database=AppDb;Integrated Security=True;TrustServerCertificate=True;");
 
-generator.CreateDatabase();
-generator.GenerateMySqlTable<Urun>(ifNotExists: true);
+var sql = generator.GenerateSqlServerTable<Product>(ifNotExists: true);
+var indexes = generator.GenerateIndexSql<Product>();
+
+Console.WriteLine(sql);
+foreach (var indexSql in indexes)
+{
+    Console.WriteLine(indexSql);
+}
+
 await generator.CreateTablesAsync(cancellationToken);
 ```
 
-### ALTER TABLE Islemleri
+Önerilen akış:
 
-Guvenli ekleme islemleri dogrudan calisabilir:
+1. SQL üret.
+2. SQL'i incele.
+3. Gerekiyorsa üretilen veya elle yazılan scriptleri repoya ekle.
+4. Canlı veritabanına sadece açık deployment adımlarıyla uygula.
 
-```csharp
-generator.AddColumn<Urun>("Stok");
-await generator.AddColumnAsync<Urun>("Stok", cancellationToken);
-```
+### Yıkıcı İşlem Güvenliği
 
-Yikici veya riskli islemler acik onay ister:
+Veri kaybına yol açabilecek işlemler `DestructiveOperationOptions.Allow()` ister:
 
 ```csharp
 var allow = DestructiveOperationOptions.Allow();
 
-generator.DropColumn<Urun>("EskiKod", allow);
-generator.AlterColumnType<Urun>("Fiyat", allow);
-generator.DropTables(allow);
+generator.DropColumn<Product>("LegacyCode", allow);
+generator.AlterColumnType<Product>("Price", allow);
+await generator.DropTablesAsync(allow, cancellationToken);
 ```
 
-`DropColumn`, `AlterColumnType` veya `DropTables` metotlarini `DestructiveOperationOptions.Allow()` olmadan cagirmak tasarim geregi exception firlatir.
-
-SQLite `ALTER COLUMN TYPE` islemini dogrudan desteklemez. Destructive izin verilse bile SQLite saglayicisi `NotSupportedException` firlatir; tabloyu yeniden olusturup veriyi tasima stratejisi gerekir.
+Yıkıcı metotları açık onay vermeden çağırmak tasarım gereği exception fırlatır. Böylece tehlikeli şema operasyonları code review sırasında görünür olur ve production veri kaybı riski azalır.
 
 ### Stored Procedure Senkronizasyonu
 
-Stored procedure dosyalari proje icinde `.sql` olarak tutulabilir ve desteklenen veritabanlariyla senkronize edilebilir.
-
-Destek durumu:
-
-| Saglayici | Stored Procedure Sync |
-|---|---|
-| SQL Server / Azure SQL | Evet, `CREATE OR ALTER PROCEDURE` ile |
-| MySQL / MariaDB | Evet, `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` ile |
-| PostgreSQL | Evet, `CREATE OR REPLACE PROCEDURE` ile |
-| SQLite | Desteklenmez |
-
-Ornek:
+Stored procedure'ler `.sql` dosyası olarak tutulabilir ve desteklenen sağlayıcılarla senkronize edilebilir.
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -564,15 +487,24 @@ var procedures = new SqlServerStoredProcedureSynchronizer(connectionString);
 procedures.RegisterProcedureFile(
     "Database/Procedures/SqlServer/dbo.usp_GetProducts.sql");
 
-var plans = await procedures.CompareRegisteredAsync();
-await procedures.SyncRegisteredAsync();
+var plans = await procedures.CompareRegisteredAsync(cancellationToken);
+await procedures.SyncRegisteredAsync(cancellationToken);
 ```
 
-Canli veritabanina uygulamadan once `CompareRegisteredAsync()` ile dry-run planini inceleyin. Detaylar ve Docker test ortami icin [docs/11-stored-procedures.md](docs/11-stored-procedures.md) dosyasina bakin.
+Sağlayıcı davranışı:
+
+| Sağlayıcı | Destek | Strateji |
+|---|---:|---|
+| SQL Server / Azure SQL | Var | `CREATE OR ALTER PROCEDURE` |
+| MySQL / MariaDB | Var | `DROP PROCEDURE IF EXISTS` + `CREATE PROCEDURE` |
+| PostgreSQL | Var | `CREATE OR REPLACE PROCEDURE` |
+| SQLite | Yok | SQLite stored procedure özelliği sunmaz |
+
+Değişiklikleri uygulamadan önce dry-run planı görmek için `CompareRegisteredAsync()` kullanın.
 
 ### Migration Runner
 
-Tam proje kurulumu icin provider migration runner'lari kullanilabilir:
+Sağlayıcı migration runner'ları sıralı SQL scriptleri uygular:
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -584,62 +516,191 @@ runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql
 runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
 runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
 
-var plans = await runner.CompareRegisteredAsync();
-await runner.RunAsync();
+var plans = await runner.CompareRegisteredAsync(cancellationToken);
+await runner.RunAsync(cancellationToken);
 ```
 
-Script sirasi:
+Çalışma sırası:
 
 ```text
 Tables -> StoredProcedures -> Triggers -> Seeds
 ```
 
-Runner history tablolari olusturur, script hash'i tutar, embedded `.sql` resource'larini okuyabilir ve degisen tablo scriptlerinden eksik kolonlari ekleyebilir. SQL Server icin `GO` batch ayrimi desteklenir.
+Runner history tabloları oluşturur, script hash'i tutar, embedded `.sql` resource'larını destekler ve değişen `CREATE TABLE` scriptlerinden eksik kolonları eklemeli şekilde tamir edebilir.
 
-Onemli kapsam notu: modele yeni C# property eklemek henuz otomatik live database diff calistirmaz. Bunun icin `AddColumn<T>("PropertyName")` gibi acik operasyon kullanilir veya migration runner tarafinda SQL scriptleri kaynak kabul edilir. Migration runner'daki eksik kolon tamiri model property karsilastirmasindan degil, degisen `CREATE TABLE` scriptinden ve history hash bilgisinden gelir.
+History tabloları gereklidir; çünkü veritabanı kataloğu bir nesnenin var olup olmadığını gösterebilir, fakat hangi script versiyonunun uygulandığını, seed scriptinin daha önce çalışıp çalışmadığını veya son SQL hash'ini güvenilir şekilde tutmaz.
 
-History tablolari gereklidir cunku live database kataloglari nesnenin var olup olmadigini gosterir, fakat hangi script versiyonunun uygulandigini, seed'in daha once calisip calismadigini veya son SQL hash'ini guvenilir sekilde tutmaz.
+Veritabanı reset işlemi yıkıcıdır ve açık izin ister:
 
-Detaylar icin [docs/12-migration-runner.md](docs/12-migration-runner.md) dosyasina bakin.
+```csharp
+var options = new MigrationRunnerOptions
+{
+    ResetDatabase = true,
+    DestructiveOptions = DestructiveOperationOptions.Allow()
+};
+```
 
-### Identifier Guvenligi
+### Sağlayıcı Destek Matrisi
 
-ModelSync tablo, kolon, index ve veritabani adlarini quote etmeden once siki sekilde dogrular.
+| Özellik | SQL Server | MySQL / MariaDB | PostgreSQL | SQLite |
+|---|:---:|:---:|:---:|:---:|
+| Tablo SQL üretimi | Var | Var | Var | Var |
+| Index SQL üretimi | Var | Var | Var | Var |
+| Kolon ekleme | Var | Var | Var | Var |
+| Kolon silme | Var | Var | Var | SQLite sürümüne bağlı sınırlı |
+| Kolon tipi değiştirme | Var | Var | Var | Yok |
+| Tablo boşaltma | Var | Var | Var | `DELETE FROM` ile taklit edilir |
+| Stored procedure senkronizasyonu | Var | Var | Var | Yok |
+| Migration runner | Var | Var | Var | Var |
+| `GO` batch ayrımı | Var | Uygulanmaz | Uygulanmaz | Uygulanmaz |
+| Veritabanı reset | Var | Var | Var | Var |
 
-Izin verilen desen:
+### Desteklenmeyen veya Bilinçli Sınırlanan Özellikler
+
+| Özellik | Durum | Neden |
+|---|---|---|
+| Runtime ORM davranışı | Desteklenmez | ModelSync bir şema/script aracıdır. Veri erişimi Dapper, ADO.NET, EF Core veya kendi repository katmanınızda kalmalıdır. |
+| Modellerden otomatik canlı veritabanı diff | Planlanıyor, v1'de yok | Güvenli diff için operasyon sınıflandırması, incelenebilir planlar ve yıkıcı işlem yönetimi gerekir. Sessiz production değişikliği bilinçli olarak engellenir. |
+| Database-first model scaffolding | Bu repo kapsamı dışında | Scaffolding bir tooling konusudur ve runtime şema paketinden ayrı tutulmalıdır. |
+| Visual Studio designer/tooling | Bu repo kapsamı dışında | IDE tooling farklı paketleme ve kullanıcı deneyimi ister. Runtime kütüphanesi küçük ve sağlayıcı odaklı kalır. |
+| SQLite stored procedure | Desteklenmez | SQLite stored procedure implementasyonu sunmaz. ModelSync sahte destek vermek yerine açık unsupported davranışı üretir. |
+| SQLite doğrudan kolon tipi değiştirme | Desteklenmez | SQLite doğrudan `ALTER COLUMN TYPE` desteklemez; create-copy-drop tablo yeniden kurma stratejisi gerekir. |
+| Sessiz yıkıcı operasyonlar | Desteklenmez | Tablo/kolon silme veya tip değiştirme veri kaybı oluşturabilir. Açık `DestructiveOperationOptions.Allow()` gerekir. |
+| Kullanıcı girdisinden raw default/check expression | Güvenli değildir | `DbColumnDefault` ve `DbColumnCheck` şema geliştiricileri için raw SQL parçası alır. Güvenilmeyen kullanıcı girdisinden üretilmemelidir. |
+| Boşluk/sembol içeren serbest identifier adları | Desteklenmez | Sıkı identifier doğrulaması güvenli ve öngörülebilir SQL üretimi sağlar. |
+
+### Identifier Güvenliği
+
+ModelSync tablo, kolon, veritabanı ve index adlarını quote etmeden önce doğrular.
+
+İzin verilen desen:
 
 ```text
 ^[A-Za-z_][A-Za-z0-9_]*$
 ```
 
-Bosluk, nokta, tirnak, koseli parantez, noktali virgul, tire ve benzeri karakterler bilincli olarak reddedilir.
+Boşluk, nokta, tırnak, köşeli parantez, noktalı virgül, tire ve diğer noktalama karakterleri bilinçli olarak reddedilir. Bu yaklaşım üretilen SQL'i öngörülebilir tutar ve şema identifier'ları üzerinden injection riskini azaltır.
 
 ### Desteklenen Attribute'lar
 
-| Attribute | Aciklama |
+Sağlayıcıya özel attribute'lar:
+
+| Attribute | Açıklama |
 |---|---|
-| `[{Db}TableName("isim")]` | Tablo adini belirler |
-| `[{Db}ColumnType(Tip)]` | Sutun veri tipini belirler |
-| `[{Db}ColumnPrimaryKey]` | Primary key olarak isaretler |
-| `[{Db}ColumnNotNull]` | NOT NULL ekler |
-| `[{Db}ColumnUnique]` | UNIQUE ekler |
-| `[{Db}ForeignKey("sutun","tablo","ref")]` | Foreign key ekler |
-| `[DbColumnDefault("ifade")]` | DEFAULT ifadesi ekler |
-| `[DbColumnCheck("ifade")]` | CHECK ifadesi ekler |
-| `[DbColumnIndex]` | `GenerateIndexSql<T>()` ile index SQL'i uretir |
+| `[{Db}TableName("name")]` | Tablo adını belirler |
+| `[{Db}ColumnType(Type)]` | Sağlayıcıya özel kolon tipini belirler |
+| `[{Db}ColumnPrimaryKey]` | Kolonu primary key olarak işaretler |
+| `[{Db}ColumnNotNull]` | `NOT NULL` ekler |
+| `[{Db}ColumnUnique]` | `UNIQUE` ekler |
+| `[{Db}ForeignKey("column", "table", "ref")]` | Foreign key ekler |
 
-> Guvenlik notu: `DbColumnDefault` ve `DbColumnCheck` bilerek raw SQL parcasi alir. Bu degerleri kullanici girdisinden uretmeyin; sadece incelenmis, sabit sema ifadeleri olarak kullanin.
+Ortak attribute'lar:
 
-### Makaleler ve Ornekler
-
-| Kaynak | Aciklama |
+| Attribute | Açıklama |
 |---|---|
-| [Makaleler](articles/README.md) | ModelSync'i tanitmak icin hazir uc kisa yazi |
-| [Ornekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive-operation ve stored procedure ornekleri |
-| [Tam Kullanim Kilavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.0.7 icin eksiksiz Turkce NuGet kullanim kilavuzu |
-| [Full Usage Guide](docs/13-full-usage-guide-en.md) | ModelSync 1.0.7 icin eksiksiz Ingilizce NuGet kullanim kilavuzu |
+| `[DbColumnDefault("expr")]` | Raw SQL `DEFAULT` ifadesi ekler |
+| `[DbColumnCheck("expr")]` | Raw SQL `CHECK` ifadesi ekler |
+| `[DbColumnIndex]` | `GenerateIndexSql<T>()` ile index SQL'i üretir |
 
-Projeyi degerlendirirken once orneklerden baslayin. Onerilen akis once SQL uretmek, SQL'i incelemek ve ancak sonra canli veritabaninda DDL calistirmaktir.
+Güvenlik notu: `DbColumnDefault` ve `DbColumnCheck` tasarım gereği raw SQL parçası alır. Bunları incelenmiş, sabit şema ifadeleri olarak tutun. Kullanıcı girdisinden üretmeyin.
+
+### Roslyn Analyzer
+
+| Kural | Seviye | Açıklama |
+|---|---|---|
+| `MSYNC001` | Warning | Public property kolon tipi attribute'u eksik |
+| `MSYNC002` | Warning | Sınıfta kolon attribute'u var ama tablo adı attribute'u yok |
+| `MSYNC003` | Warning | Model tablosunda primary key yok |
+
+Örnek `.editorconfig`:
+
+```ini
+dotnet_diagnostic.MSYNC001.severity = error
+dotnet_diagnostic.MSYNC003.severity = none
+```
+
+### Geliştirme
+
+Birim testleri çalıştırma:
+
+```powershell
+.\scripts\test.ps1
+```
+
+Solution build:
+
+```powershell
+.\scripts\build.ps1
+```
+
+NuGet paketlerini üretme:
+
+```powershell
+.\scripts\pack.ps1
+```
+
+PowerShell yerel scriptleri engellerse:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\pack.ps1
+```
+
+Entegrasyon testleri canlı veritabanı istediği için opt-in çalışır:
+
+```powershell
+$env:MODELSYNC_RUN_MYSQL_INTEGRATION = "1"
+$env:MODELSYNC_MYSQL_CONNECTION_STRING = "Server=localhost;Port=3306;Database=appdb;User ID=root;Password=rootpass;"
+.\scripts\test.ps1 -Integration
+```
+
+Stored procedure entegrasyon testleri uygun olduğunda Docker test ortamını kullanabilir:
+
+```powershell
+.\scripts\start-test-databases.ps1
+$env:MODELSYNC_RUN_SP_INTEGRATION = "1"
+dotnet test ModelSync.sln -c Release --filter "Category=Integration"
+```
+
+### Türkçe Kaynaklar
+
+| Kaynak | Açıklama |
+|---|---|
+| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.0.7 için kapsamlı Türkçe kullanım kılavuzu |
+| [Makaleler](articles/README.md) | ModelSync'i anlatmak için hazırlanmış yazılar |
+| [Örnekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive operation ve stored procedure örnekleri |
+| [Stored Procedure Sync](docs/11-stored-procedures.md) | Stored procedure senkronizasyon davranışı |
+| [Migration Runner](docs/12-migration-runner.md) | Sıralı SQL scriptleri ve history yönetimi |
+
+### İngilizce Kaynaklar
+
+| Resource | Description |
+|---|---|
+| [Full Usage Guide](docs/13-full-usage-guide-en.md) | Complete English guide |
+| [Overview](docs/01-overview.md) | Architecture and design decisions |
+| [Quick Start](docs/02-quickstart.md) | Provider examples |
+| [Attribute Reference](docs/03-attributes.md) | Attribute list and parameters |
+| [Provider Guides](docs/04-providers.md) | Provider-specific behavior |
+| [API Reference](docs/05-api-reference.md) | Public API surface |
+| [Dependency Injection](docs/06-dependency-injection.md) | ASP.NET Core DI usage |
+| [Roslyn Analyzers](docs/07-analyzers.md) | Analyzer rules |
+| [Architecture](docs/08-architecture.md) | Internal flow and extension points |
+| [Contributing](docs/09-contributing.md) | Development setup |
+| [Changelog](docs/10-changelog.md) | Version history |
+| [NuGet README Source](docs/nuget/README.md) | Package README source |
+
+### Karşılaştırma
+
+| Özellik | ModelSync | EF Core | FluentMigrator | DbUp |
+|---|:---:|:---:|:---:|:---:|
+| ORM bağımlılığı yok | Var | Yok | Var | Var |
+| Attribute tabanlı şema üretimi | Var | Var | Yok | Yok |
+| Sağlayıcı paketleri | Var | Var | Var | Daha çok script tabanlı |
+| Async DDL çalıştırma | Var | Var | Sınırlı | Var |
+| Analyzer desteği | Var | Yok | Yok | Yok |
+| Açık yıkıcı işlem koruması | Var | Kısmi | Manuel | Manuel |
+| Otomatik canlı DB model diff | Planlanıyor | Var | Yok | Yok |
+| Script migration runner | Var | Var | Var | Var |
+| Stored procedure senkronizasyonu | Var | Manuel | Manuel | Script tabanlı |
 
 ### Lisans
 
