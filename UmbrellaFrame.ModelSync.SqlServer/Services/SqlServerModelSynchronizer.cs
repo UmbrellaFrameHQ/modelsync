@@ -68,8 +68,8 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             ValidateIdentifier(_options.HistorySchema, nameof(_options.HistorySchema));
 
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(SqlServerColumnTypeAttribute), typeof(SqlServerTableNameAttribute), _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(SqlServerColumnTypeAttribute), typeof(SqlServerTableNameAttribute), _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
 
             var builder = new ModelSyncPlanBuilder(
@@ -114,7 +114,10 @@ namespace UmbrellaFrame.ModelSync.SqlServer
                     {
                         if (ShouldApplyEveryRun(script.Category))
                         {
-                            foreach (var batch in SqlBatchSplitter.SplitSqlServerGoBatches(script.Sql))
+                            var sql = script.Category == MigrationScriptCategory.StoredProcedures
+                                ? SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(script.Sql)
+                                : script.Sql;
+                            foreach (var batch in SqlBatchSplitter.SplitSqlServerGoBatches(sql))
                             {
                                 if (!string.IsNullOrWhiteSpace(batch))
                                     await ExecuteSqlAsync(batch, ct).ConfigureAwait(false);
@@ -151,6 +154,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         {
             var options = new MigrationRunnerOptions
             {
+                HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
                 AutoAddMissingColumnsFromTableScripts = true,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null
@@ -251,10 +255,12 @@ WHERE i.is_primary_key = 0 AND i.name IS NOT NULL AND s.name = @Schema;";
         private async Task LoadConstraintsAsync(SqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
             const string uniqueSql = @"
-SELECT s.name, t.name, kc.name
+SELECT s.name, t.name, kc.name, c.name
 FROM sys.key_constraints kc
 JOIN sys.tables t ON t.object_id = kc.parent_object_id
 JOIN sys.schemas s ON s.schema_id = t.schema_id
+JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
 WHERE kc.type = 'UQ' AND s.name = @Schema;";
             using (var command = new SqlCommand(uniqueSql, connection))
             {
@@ -264,16 +270,22 @@ WHERE kc.type = 'UQ' AND s.name = @Schema;";
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         if (result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
+                        {
                             table.UniqueConstraints.Add(reader.GetString(2));
+                            table.UniqueConstraints.Add($"UQ_{reader.GetString(1)}_{reader.GetString(3)}");
+                        }
                     }
                 }
             }
 
             const string fkSql = @"
-SELECT s.name, t.name, fk.name
+SELECT s.name, t.name, fk.name, pc.name, rt.name
 FROM sys.foreign_keys fk
 JOIN sys.tables t ON t.object_id = fk.parent_object_id
 JOIN sys.schemas s ON s.schema_id = t.schema_id
+JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
+JOIN sys.columns pc ON pc.object_id = fkc.parent_object_id AND pc.column_id = fkc.parent_column_id
+JOIN sys.tables rt ON rt.object_id = fkc.referenced_object_id
 WHERE s.name = @Schema;";
             using (var command = new SqlCommand(fkSql, connection))
             {
@@ -283,7 +295,10 @@ WHERE s.name = @Schema;";
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         if (result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
+                        {
                             table.ForeignKeys.Add(reader.GetString(2));
+                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(3)}_{reader.GetString(4)}");
+                        }
                     }
                 }
             }
@@ -330,7 +345,10 @@ WHERE s.name = @Schema;";
             => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"UQ_{table.Name}_{column.Name}")} UNIQUE ({Quote(column.Name)});";
 
         private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{column.Name}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(column.Name)}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
+            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(ForeignKeyColumn(column))}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
+
+        private static string ForeignKeyColumn(ModelColumnDefinition column)
+            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
 
         private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
         {

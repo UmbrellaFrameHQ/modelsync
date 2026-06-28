@@ -65,8 +65,8 @@ namespace UmbrellaFrame.ModelSync.SQLite
         public async Task<ModelSyncResult> CompareAsync(CancellationToken cancellationToken = default)
         {
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(SQLiteColumnTypeAttribute), typeof(SQLiteTableNameAttribute), _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(SQLiteColumnTypeAttribute), typeof(SQLiteTableNameAttribute), _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
             var builder = new ModelSyncPlanBuilder(Quote, Qualify, BuildCreateTableSql, BuildAddColumnSql, BuildAddDefaultConstraintSql, BuildAddCheckConstraintSql, BuildAddUniqueConstraintSql, BuildAddForeignKeySql, BuildCreateIndexSql);
             var operations = builder.Build(modelTables, databaseTables, _options).ToList();
@@ -95,6 +95,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
 
             var runner = new SQLiteMigrationRunner(_options.ConnectionString, new MigrationRunnerOptions
             {
+                HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
                 AutoAddMissingColumnsFromTableScripts = true,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null

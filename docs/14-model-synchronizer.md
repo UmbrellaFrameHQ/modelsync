@@ -90,6 +90,8 @@ var result = await SqlServerModelSynchronizer
     .CompareAsync(cancellationToken);
 ```
 
+`FromAssemblies` is provider-aware. A SQL Server synchronizer reads only SQL Server ModelSync attributes, a MySQL synchronizer reads only MySQL attributes, and so on. If two model classes map to the same schema/table pair, ModelSync throws a clear error instead of producing duplicate operations.
+
 ## Ordered Scripts
 
 Embedded scripts are discovered and ordered by category:
@@ -115,6 +117,8 @@ SchemaMigration_CustomSql
 ```
 
 Changed script hashes are reapplied by the migration runner. Stored procedures and triggers can also be configured to run every time when their provider supports idempotent SQL.
+
+`HistorySchema` controls where schema history tables are created for schema-capable providers such as SQL Server and PostgreSQL. SQL Server stored procedure scripts registered through the model synchronizer or migration runner are normalized to `CREATE OR ALTER PROCEDURE`; keep one procedure per file and do not include `GO` separators inside stored procedure files.
 
 ## Provider Classes
 

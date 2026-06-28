@@ -67,8 +67,8 @@ namespace UmbrellaFrame.ModelSync.MySql
         {
             ValidateIdentifier(_options.DefaultSchema, nameof(_options.DefaultSchema));
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(MySqlColumnTypeAttribute), typeof(MySqlTableNameAttribute), _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(MySqlColumnTypeAttribute), typeof(MySqlTableNameAttribute), _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
             var builder = new ModelSyncPlanBuilder(
                 Quote,
@@ -130,6 +130,7 @@ namespace UmbrellaFrame.ModelSync.MySql
         private MySqlMigrationRunner CreateRunner()
             => new MySqlMigrationRunner(_options.ConnectionString, new MigrationRunnerOptions
             {
+                HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
                 AutoAddMissingColumnsFromTableScripts = true,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null
@@ -212,6 +213,34 @@ WHERE TABLE_SCHEMA = @Schema;";
                 }
             }
 
+            const string keyColumns = @"
+SELECT k.TABLE_SCHEMA, k.TABLE_NAME, k.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE, k.COLUMN_NAME, k.REFERENCED_TABLE_NAME
+FROM information_schema.key_column_usage k
+JOIN information_schema.table_constraints tc
+  ON tc.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA
+ AND tc.TABLE_NAME = k.TABLE_NAME
+ AND tc.CONSTRAINT_NAME = k.CONSTRAINT_NAME
+WHERE k.TABLE_SCHEMA = @Schema
+  AND tc.CONSTRAINT_TYPE IN ('UNIQUE', 'FOREIGN KEY');";
+            using (var command = new MySqlCommand(keyColumns, connection))
+            {
+                command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
+                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        if (!result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
+                            continue;
+
+                        var type = reader.GetString(3);
+                        if (type == "UNIQUE")
+                            table.UniqueConstraints.Add($"UQ_{reader.GetString(1)}_{reader.GetString(4)}");
+                        if (type == "FOREIGN KEY" && !reader.IsDBNull(5))
+                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(4)}_{reader.GetString(5)}");
+                    }
+                }
+            }
+
             const string checks = @"SELECT CONSTRAINT_SCHEMA, TABLE_NAME, CONSTRAINT_NAME FROM information_schema.check_constraints WHERE CONSTRAINT_SCHEMA = @Schema;";
             using (var command = new MySqlCommand(checks, connection))
             {
@@ -265,7 +294,10 @@ WHERE TABLE_SCHEMA = @Schema;";
             => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"UQ_{table.Name}_{column.Name}")} UNIQUE ({Quote(column.Name)});";
 
         private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{column.Name}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(column.Name)}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
+            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(ForeignKeyColumn(column))}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
+
+        private static string ForeignKeyColumn(ModelColumnDefinition column)
+            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
 
         private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
         {

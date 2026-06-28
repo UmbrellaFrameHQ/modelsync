@@ -194,7 +194,7 @@ WHERE o.type = 'P'
             }
         }
 
-        private static string ToCreateOrAlterSql(string sql)
+        public static string ToCreateOrAlterSql(string sql)
         {
             if (string.IsNullOrWhiteSpace(sql))
                 throw new ArgumentException("Procedure SQL cannot be empty.", nameof(sql));

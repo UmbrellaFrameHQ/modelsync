@@ -9,6 +9,7 @@ namespace UmbrellaFrame.ModelSync.Core
         public DestructiveOperationOptions? DestructiveOptions { get; set; }
         public bool EnsureHistoryTables { get; set; } = true;
         public bool AutoAddMissingColumnsFromTableScripts { get; set; } = true;
+        public string HistorySchema { get; set; } = "sec";
         public IList<string> Schemas { get; } = new List<string>();
 
         public static MigrationRunnerOptions Default()

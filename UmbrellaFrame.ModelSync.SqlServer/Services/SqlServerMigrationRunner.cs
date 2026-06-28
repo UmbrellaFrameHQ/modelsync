@@ -78,11 +78,14 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
 
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
-            const string sql = @"
-IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'sec') EXEC('CREATE SCHEMA [sec] AUTHORIZATION dbo;');
+            var schema = HistorySchema();
+            var escapedSchema = EscapeIdentifier(schema);
+            var literalSchema = EscapeLiteral(schema);
+            var sql = $@"
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{literalSchema}') EXEC('CREATE SCHEMA [{escapedSchema}] AUTHORIZATION dbo;');
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Tables' AND schema_id = SCHEMA_ID('sec'))
-CREATE TABLE sec.SchemaMigration_Tables(
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Tables' AND schema_id = SCHEMA_ID('{literalSchema}'))
+CREATE TABLE [{escapedSchema}].[SchemaMigration_Tables](
     [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
     [Name] NVARCHAR(256) NOT NULL,
     [SqlHash] NVARCHAR(128) NULL,
@@ -90,8 +93,8 @@ CREATE TABLE sec.SchemaMigration_Tables(
     [UpdateAt] DATETIME2 NULL
 );
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_StoredProcedures' AND schema_id = SCHEMA_ID('sec'))
-CREATE TABLE sec.SchemaMigration_StoredProcedures(
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_StoredProcedures' AND schema_id = SCHEMA_ID('{literalSchema}'))
+CREATE TABLE [{escapedSchema}].[SchemaMigration_StoredProcedures](
     [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
     [Name] NVARCHAR(256) NOT NULL,
     [SqlHash] NVARCHAR(128) NULL,
@@ -99,8 +102,8 @@ CREATE TABLE sec.SchemaMigration_StoredProcedures(
     [UpdateAt] DATETIME2 NULL
 );
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Triggers' AND schema_id = SCHEMA_ID('sec'))
-CREATE TABLE sec.SchemaMigration_Triggers(
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Triggers' AND schema_id = SCHEMA_ID('{literalSchema}'))
+CREATE TABLE [{escapedSchema}].[SchemaMigration_Triggers](
     [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
     [Name] NVARCHAR(256) NOT NULL,
     [SqlHash] NVARCHAR(128) NULL,
@@ -108,8 +111,8 @@ CREATE TABLE sec.SchemaMigration_Triggers(
     [UpdateAt] DATETIME2 NULL
 );
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Seeds' AND schema_id = SCHEMA_ID('sec'))
-CREATE TABLE sec.SchemaMigration_Seeds(
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Seeds' AND schema_id = SCHEMA_ID('{literalSchema}'))
+CREATE TABLE [{escapedSchema}].[SchemaMigration_Seeds](
     [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
     [Name] NVARCHAR(256) NOT NULL,
     [SqlHash] NVARCHAR(128) NULL,
@@ -117,8 +120,8 @@ CREATE TABLE sec.SchemaMigration_Seeds(
     [UpdateAt] DATETIME2 NULL
 );
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_CustomSql' AND schema_id = SCHEMA_ID('sec'))
-CREATE TABLE sec.SchemaMigration_CustomSql(
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_CustomSql' AND schema_id = SCHEMA_ID('{literalSchema}'))
+CREATE TABLE [{escapedSchema}].[SchemaMigration_CustomSql](
     [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
     [Name] NVARCHAR(256) NOT NULL,
     [SqlHash] NVARCHAR(128) NULL,
@@ -138,7 +141,7 @@ CREATE TABLE sec.SchemaMigration_CustomSql(
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
                     var table = HistoryTable(category);
-                    using (var command = new SqlCommand($"SELECT [Id], [SqlHash] FROM sec.[{table}]", connection))
+                    using (var command = new SqlCommand($"SELECT [Id], [SqlHash] FROM [{EscapeIdentifier(HistorySchema())}].[{table}]", connection))
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                     {
                         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -169,8 +172,9 @@ CREATE TABLE sec.SchemaMigration_CustomSql(
         protected override async Task RecordHistoryAsync(MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
         {
             var table = HistoryTable(definition.Category);
+            var schema = EscapeIdentifier(HistorySchema());
             var sql = $@"
-MERGE sec.[{table}] AS target
+MERGE [{schema}].[{table}] AS target
 USING (SELECT @Id AS Id, @Name AS Name, @SqlHash AS SqlHash) AS source
 ON target.Id = source.Id
 WHEN MATCHED THEN UPDATE SET [Name] = source.Name, [SqlHash] = source.SqlHash, [UpdateAt] = SYSUTCDATETIME()
@@ -222,12 +226,42 @@ WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
+            if (string.IsNullOrWhiteSpace(configured.HistorySchema))
+                configured.HistorySchema = "sec";
+            ValidateIdentifier(configured.HistorySchema, nameof(configured.HistorySchema));
             if (configured.Schemas.Count == 0)
             {
                 foreach (var schema in new[] { "app", "ref", "sec", "auth", "log", "crm", "exp", "veh", "fin" })
                     configured.Schemas.Add(schema);
             }
+            if (!configured.Schemas.Contains(configured.HistorySchema, StringComparer.OrdinalIgnoreCase))
+                configured.Schemas.Add(configured.HistorySchema);
             return configured;
+        }
+
+        protected override async Task ApplyPlanAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
+        {
+            if (plan.Definition.Category != MigrationScriptCategory.StoredProcedures)
+            {
+                await base.ApplyPlanAsync(plan, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var sql = SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(plan.SqlToApply);
+            foreach (var batch in SplitBatches(sql))
+            {
+                if (!string.IsNullOrWhiteSpace(batch))
+                    await ExecuteSqlAsync(batch, cancellationToken).ConfigureAwait(false);
+            }
+
+            await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+        }
+
+        private string HistorySchema()
+        {
+            var schema = string.IsNullOrWhiteSpace(Options.HistorySchema) ? "sec" : Options.HistorySchema;
+            ValidateIdentifier(schema, nameof(Options.HistorySchema));
+            return schema;
         }
 
         private static string HistoryTable(MigrationScriptCategory category)

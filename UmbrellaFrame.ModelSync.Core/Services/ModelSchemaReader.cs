@@ -13,13 +13,37 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             if (assemblies == null || assemblies.Length == 0)
                 throw new ArgumentException("At least one assembly is required.", nameof(assemblies));
 
-            return assemblies
+            return EnsureUniqueTables(assemblies
                 .Where(a => a != null)
                 .SelectMany(a => a.GetTypes())
                 .Where(IsModelType)
                 .Select(t => FromType(t, defaultSchema))
                 .Where(t => t.Columns.Count > 0)
-                .ToList();
+                .ToList());
+        }
+
+        public static IReadOnlyList<ModelTableDefinition> FromAssemblies(
+            string defaultSchema,
+            Type columnAttributeType,
+            Type tableAttributeType,
+            params Assembly[] assemblies)
+        {
+            if (columnAttributeType == null)
+                throw new ArgumentNullException(nameof(columnAttributeType));
+            if (!typeof(DbColumnTypeAttribute).IsAssignableFrom(columnAttributeType))
+                throw new ArgumentException("Column attribute type must derive from DbColumnTypeAttribute.", nameof(columnAttributeType));
+            if (tableAttributeType != null && !typeof(DbTableNameAttribute).IsAssignableFrom(tableAttributeType))
+                throw new ArgumentException("Table attribute type must derive from DbTableNameAttribute.", nameof(tableAttributeType));
+            if (assemblies == null || assemblies.Length == 0)
+                throw new ArgumentException("At least one assembly is required.", nameof(assemblies));
+
+            return EnsureUniqueTables(assemblies
+                .Where(a => a != null)
+                .SelectMany(a => a.GetTypes())
+                .Where(t => IsModelType(t, columnAttributeType))
+                .Select(t => FromType(t, defaultSchema, columnAttributeType, tableAttributeType))
+                .Where(t => t.Columns.Count > 0)
+                .ToList());
         }
 
         public static IReadOnlyList<ModelTableDefinition> FromTypes(string defaultSchema, params Type[] modelTypes)
@@ -27,12 +51,35 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             if (modelTypes == null || modelTypes.Length == 0)
                 throw new ArgumentException("At least one model type is required.", nameof(modelTypes));
 
-            return modelTypes
+            return EnsureUniqueTables(modelTypes
                 .Where(t => t != null)
                 .Where(IsModelType)
                 .Select(t => FromType(t, defaultSchema))
                 .Where(t => t.Columns.Count > 0)
-                .ToList();
+                .ToList());
+        }
+
+        public static IReadOnlyList<ModelTableDefinition> FromTypes(
+            string defaultSchema,
+            Type columnAttributeType,
+            Type tableAttributeType,
+            params Type[] modelTypes)
+        {
+            if (columnAttributeType == null)
+                throw new ArgumentNullException(nameof(columnAttributeType));
+            if (!typeof(DbColumnTypeAttribute).IsAssignableFrom(columnAttributeType))
+                throw new ArgumentException("Column attribute type must derive from DbColumnTypeAttribute.", nameof(columnAttributeType));
+            if (tableAttributeType != null && !typeof(DbTableNameAttribute).IsAssignableFrom(tableAttributeType))
+                throw new ArgumentException("Table attribute type must derive from DbTableNameAttribute.", nameof(tableAttributeType));
+            if (modelTypes == null || modelTypes.Length == 0)
+                throw new ArgumentException("At least one model type is required.", nameof(modelTypes));
+
+            return EnsureUniqueTables(modelTypes
+                .Where(t => t != null)
+                .Where(t => IsModelType(t, columnAttributeType))
+                .Select(t => FromType(t, defaultSchema, columnAttributeType, tableAttributeType))
+                .Where(t => t.Columns.Count > 0)
+                .ToList());
         }
 
         private static bool IsModelType(Type type)
@@ -44,10 +91,23 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 .Any(p => p.GetCustomAttributes(true).OfType<DbColumnTypeAttribute>().Any());
         }
 
+        private static bool IsModelType(Type type, Type columnAttributeType)
+        {
+            if (!type.IsClass || type.IsAbstract)
+                return false;
+
+            return type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Any(p => p.GetCustomAttributes(true).Any(columnAttributeType.IsInstanceOfType));
+        }
+
         private static ModelTableDefinition FromType(Type type, string defaultSchema)
+            => FromType(type, defaultSchema, typeof(DbColumnTypeAttribute), typeof(DbTableNameAttribute));
+
+        private static ModelTableDefinition FromType(Type type, string defaultSchema, Type columnAttributeType, Type tableAttributeType)
         {
             var tableName = type.GetCustomAttributes(true)
                 .OfType<DbTableNameAttribute>()
+                .Where(a => tableAttributeType == null || tableAttributeType.IsInstanceOfType(a))
                 .FirstOrDefault()?.TableName ?? type.Name;
 
             var table = new ModelTableDefinition
@@ -60,7 +120,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
             {
                 var attributes = property.GetCustomAttributes(true);
-                var typeAttribute = attributes.OfType<DbColumnTypeAttribute>().FirstOrDefault();
+                var typeAttribute = attributes
+                    .OfType<DbColumnTypeAttribute>()
+                    .FirstOrDefault(a => columnAttributeType.IsInstanceOfType(a));
                 if (typeAttribute == null)
                     continue;
 
@@ -85,6 +147,22 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             }
 
             return table;
+        }
+
+        private static IReadOnlyList<ModelTableDefinition> EnsureUniqueTables(IReadOnlyList<ModelTableDefinition> tables)
+        {
+            var duplicate = tables
+                .GroupBy(t => $"{t.Schema}.{t.Name}", StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault(g => g.Count() > 1);
+
+            if (duplicate != null)
+            {
+                var modelNames = string.Join(", ", duplicate.Select(t => t.ModelType.FullName));
+                throw new InvalidOperationException(
+                    $"Multiple model types map to the same table '{duplicate.Key}': {modelNames}.");
+            }
+
+            return tables;
         }
     }
 }

@@ -18,6 +18,15 @@ public class SqlServerStoredProcedureSynchronizerTests
     }
 
     [Test]
+    public void ToCreateOrAlterSql_WithCreateProcedure_RewritesHeaderWithoutDatabaseAccess()
+    {
+        var sql = SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(
+            "CREATE PROCEDURE dbo.usp_GetProducts AS BEGIN SELECT 1; END");
+
+        Assert.That(sql, Does.StartWith("CREATE OR ALTER PROCEDURE dbo.usp_GetProducts"));
+    }
+
+    [Test]
     public void BuildCreateOrAlterSql_WithBracketedProcedureName_AllowsMatchingDefinition()
     {
         var sync = CreateSynchronizer();

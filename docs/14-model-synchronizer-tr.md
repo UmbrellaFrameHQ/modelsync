@@ -89,6 +89,8 @@ var result = await SqlServerModelSynchronizer
     .CompareAsync(cancellationToken);
 ```
 
+`FromAssemblies` provider-aware çalışır. SQL Server synchronizer yalnız SQL Server ModelSync attribute'larını, MySQL synchronizer yalnız MySQL attribute'larını okur. İki model sınıfı aynı schema/table çiftine map edilirse ModelSync duplicate operasyon üretmek yerine açık hata fırlatır.
+
 ## Ordered Scripts
 
 Embedded scriptler kategoriye göre şu sırayla keşfedilir ve çalıştırılır:
@@ -112,6 +114,8 @@ Scripts/CustomSql
 ```text
 SchemaMigration_CustomSql
 ```
+
+`HistorySchema`, SQL Server ve PostgreSQL gibi schema destekleyen provider'larda history tablolarının nerede oluşturulacağını belirler. SQL Server stored procedure scriptleri model synchronizer veya migration runner üzerinden çalıştırıldığında `CREATE OR ALTER PROCEDURE` formuna normalize edilir; stored procedure dosyalarında tek procedure tutun ve `GO` separator kullanmayın.
 
 ## Provider Sınıfları
 

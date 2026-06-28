@@ -63,13 +63,14 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
 
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
-            const string sql = @"
-CREATE SCHEMA IF NOT EXISTS ""sec"";
-CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Tables""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_StoredProcedures""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Triggers""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_Seeds""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_CustomSql""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);";
+            var schema = EscapeIdentifier(HistorySchema());
+            var sql = $@"
+CREATE SCHEMA IF NOT EXISTS ""{schema}"";
+CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_Tables""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
+CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_StoredProcedures""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
+CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_Triggers""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
+CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_Seeds""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
+CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_CustomSql""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);";
             await ExecuteSqlAsync(sql, cancellationToken).ConfigureAwait(false);
         }
 
@@ -81,7 +82,7 @@ CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_CustomSql""(""Id"" VARCHAR(
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
-                    using (var command = new NpgsqlCommand($"SELECT \"Id\", \"SqlHash\" FROM \"sec\".\"{HistoryTable(category)}\";", connection))
+                    using (var command = new NpgsqlCommand($"SELECT \"Id\", \"SqlHash\" FROM \"{EscapeIdentifier(HistorySchema())}\".\"{HistoryTable(category)}\";", connection))
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                     {
                         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -104,8 +105,9 @@ CREATE TABLE IF NOT EXISTS ""sec"".""SchemaMigration_CustomSql""(""Id"" VARCHAR(
 
         protected override async Task RecordHistoryAsync(MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
         {
+            var schema = EscapeIdentifier(HistorySchema());
             var sql = $@"
-INSERT INTO ""sec"".""{HistoryTable(definition.Category)}""(""Id"", ""Name"", ""SqlHash"")
+INSERT INTO ""{schema}"".""{HistoryTable(definition.Category)}""(""Id"", ""Name"", ""SqlHash"")
 VALUES (@Id, @Name, @SqlHash)
 ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = EXCLUDED.""SqlHash"", ""UpdateAt"" = CURRENT_TIMESTAMP;";
             using (var connection = new NpgsqlConnection(_connectionString))
@@ -151,12 +153,24 @@ ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = E
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
+            if (string.IsNullOrWhiteSpace(configured.HistorySchema))
+                configured.HistorySchema = "sec";
+            ValidateIdentifier(configured.HistorySchema, nameof(configured.HistorySchema));
             if (configured.Schemas.Count == 0)
             {
                 foreach (var schema in new[] { "app", "ref", "sec", "auth", "log", "crm", "exp", "veh", "fin" })
                     configured.Schemas.Add(schema);
             }
+            if (!configured.Schemas.Contains(configured.HistorySchema, StringComparer.OrdinalIgnoreCase))
+                configured.Schemas.Add(configured.HistorySchema);
             return configured;
+        }
+
+        private string HistorySchema()
+        {
+            var schema = string.IsNullOrWhiteSpace(Options.HistorySchema) ? "sec" : Options.HistorySchema;
+            ValidateIdentifier(schema, nameof(Options.HistorySchema));
+            return schema;
         }
 
         private static string HistoryTable(MigrationScriptCategory category)

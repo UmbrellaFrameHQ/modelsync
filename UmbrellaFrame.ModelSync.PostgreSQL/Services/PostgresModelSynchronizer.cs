@@ -66,8 +66,8 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             ValidateIdentifier(_options.DefaultSchema, nameof(_options.DefaultSchema));
             ValidateIdentifier(_options.HistorySchema, nameof(_options.HistorySchema));
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(PostgresColumnTypeAttribute), typeof(PostgresTableName), _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(PostgresColumnTypeAttribute), typeof(PostgresTableName), _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
             var builder = new ModelSyncPlanBuilder(Quote, Qualify, BuildCreateTableSql, BuildAddColumnSql, BuildAddDefaultConstraintSql, BuildAddCheckConstraintSql, BuildAddUniqueConstraintSql, BuildAddForeignKeySql, BuildCreateIndexSql);
             var operations = builder.Build(modelTables, databaseTables, _options).ToList();
@@ -119,6 +119,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         {
             var options = new MigrationRunnerOptions
             {
+                HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
                 AutoAddMissingColumnsFromTableScripts = true,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null
@@ -211,6 +212,35 @@ WHERE n.nspname = @Schema;";
                     }
                 }
             }
+
+            const string constraintColumnsSql = @"
+SELECT n.nspname, t.relname, c.contype, a.attname, rt.relname
+FROM pg_constraint c
+JOIN pg_class t ON t.oid = c.conrelid
+JOIN pg_namespace n ON n.oid = t.relnamespace
+JOIN LATERAL unnest(c.conkey) AS ck(attnum) ON true
+JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ck.attnum
+LEFT JOIN pg_class rt ON rt.oid = c.confrelid
+WHERE n.nspname = @Schema
+  AND c.contype IN ('u', 'f');";
+            using (var command = new NpgsqlCommand(constraintColumnsSql, connection))
+            {
+                command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
+                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        if (!result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
+                            continue;
+
+                        var type = reader.GetChar(2);
+                        if (type == 'u')
+                            table.UniqueConstraints.Add($"UQ_{reader.GetString(1)}_{reader.GetString(3)}");
+                        if (type == 'f' && !reader.IsDBNull(4))
+                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(3)}_{reader.GetString(4)}");
+                    }
+                }
+            }
         }
 
         private string BuildCreateTableSql(ModelTableDefinition table)
@@ -254,7 +284,10 @@ WHERE n.nspname = @Schema;";
             => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"UQ_{table.Name}_{column.Name}")} UNIQUE ({Quote(column.Name)});";
 
         private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{column.Name}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(column.Name)}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
+            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(ForeignKeyColumn(column))}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
+
+        private static string ForeignKeyColumn(ModelColumnDefinition column)
+            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
 
         private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
         {
