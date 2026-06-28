@@ -1,4 +1,4 @@
-# ModelSync - Full Usage Guide
+﻿# ModelSync - Full Usage Guide
 
 Choose a language:
 
@@ -7,4 +7,5 @@ Choose a language:
 | English | [Full Usage Guide](13-full-usage-guide-en.md) |
 | Turkce | [Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) |
 
-The guides cover ModelSync 1.0.7: installation, provider attributes, SQL generation, DDL execution, destructive-operation safety, migration runner, stored procedure synchronization, analyzers, testing, troubleshooting, and production usage.
+The guides cover ModelSync 1.0.8: installation, provider attributes, SQL generation, DDL execution, destructive-operation safety, migration runner, stored procedure synchronization, live model synchronization, analyzers, testing, troubleshooting, and production usage.
+

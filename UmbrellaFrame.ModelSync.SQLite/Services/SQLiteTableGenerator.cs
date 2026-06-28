@@ -41,6 +41,16 @@ namespace UmbrellaFrame.ModelSync.SQLite
         public string GenerateSQLiteTable<T>(bool ifNotExists = false) where T : class, new()
             => GenerateSqlTable<T>(ifNotExists);
 
+        /// <summary>
+        /// SQLite has no TRUNCATE TABLE command. Generates an equivalent DELETE statement.
+        /// </summary>
+        public override string GenerateTruncateTableSql<T>()
+        {
+            var propertyManager = new Core.Helpers.DynamicPropertyManager<T>();
+            var tableName = GetTableName<T>(propertyManager);
+            return $"DELETE FROM {QuoteIdentifier(tableName)};";
+        }
+
         // ── DDL execution ───────────────────────────────────────────────────
 
         /// <inheritdoc/>

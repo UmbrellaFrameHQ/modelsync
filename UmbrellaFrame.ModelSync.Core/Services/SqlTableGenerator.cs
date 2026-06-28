@@ -67,7 +67,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         /// <typeparam name="T">Model class decorated with table/column attributes.</typeparam>
         /// <param name="ifNotExists">When <c>true</c> emits <c>CREATE TABLE IF NOT EXISTS</c>.</param>
         /// <returns>The generated SQL string.</returns>
-        public string GenerateSqlTable<T>(bool ifNotExists = false) where T : class, new()
+        public virtual string GenerateSqlTable<T>(bool ifNotExists = false) where T : class, new()
         {
             var type = typeof(T);
             var sql = BuildSql<T>(ifNotExists);

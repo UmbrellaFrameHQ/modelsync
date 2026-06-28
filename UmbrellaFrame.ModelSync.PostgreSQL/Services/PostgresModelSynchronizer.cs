@@ -111,7 +111,9 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
 
         private bool ShouldApplyEveryRun(MigrationScriptCategory category)
             => category == MigrationScriptCategory.StoredProcedures && _options.ApplyStoredProceduresOnEveryRun
-               || category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun;
+               || category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun
+               || category == MigrationScriptCategory.Seeds && !_options.ApplySeedsWithHashTracking
+               || category == MigrationScriptCategory.CustomSql && !_options.ApplyCustomSqlWithHashTracking;
 
         private PostgresMigrationRunner CreateRunner()
         {

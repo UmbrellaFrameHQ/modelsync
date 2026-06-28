@@ -171,7 +171,6 @@ runner.RegisterScriptFile("Database/Scripts/StoredProcedures/010_GetProducts.sql
 runner.RegisterScriptFile("Database/Scripts/Triggers/020_ProductAudit.sql");
 runner.RegisterScriptFile("Database/Scripts/Seeds/030_DefaultProducts.sql");
 runner.RegisterScriptFile("Database/Scripts/CustomSql/999_AfterSetup.sql");
-runner.RegisterScriptFile("Database/Scripts/CustomSql/999_AfterSetup.sql");
 
 var plans = await runner.CompareRegisteredAsync(cancellationToken);
 await runner.RunAsync(cancellationToken);
@@ -240,7 +239,7 @@ Safe automatic operations include missing tables, safe missing columns, indexes,
 | Migration runner | Yes | Yes | Yes | Yes |
 | Live model synchronization | Yes | Yes | Yes | Yes |
 | `GO` batch splitting | Yes | Not applicable | Not applicable | Not applicable |
-| Reset database | Yes | Yes | Yes | Yes |
+| Reset database | Yes | Yes | Yes | No |
 
 ### Unsupported or Intentionally Limited Features
 
@@ -614,7 +613,7 @@ Eksik tablo, güvenli eksik kolon, indeks ve desteklenen constraint eklemeleri o
 | Migration runner | Var | Var | Var | Var |
 | Canlı model senkronizasyonu | Var | Var | Var | Var |
 | `GO` batch ayrımı | Var | Uygulanmaz | Uygulanmaz | Uygulanmaz |
-| Veritabanı reset | Var | Var | Var | Var |
+| Veritabanı reset | Var | Var | Var | Yok |
 
 ### Desteklenmeyen veya Bilinçli Sınırlanan Özellikler
 
@@ -726,7 +725,7 @@ dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 
 | Kaynak | Açıklama |
 |---|---|
-| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.0.7 için kapsamlı Türkçe kullanım kılavuzu |
+| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.0.8 için kapsamlı Türkçe kullanım kılavuzu |
 | [Makaleler](articles/README.md) | ModelSync'i anlatmak için hazırlanmış yazılar |
 | [Örnekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive operation ve stored procedure örnekleri |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | Stored procedure senkronizasyon davranışı |

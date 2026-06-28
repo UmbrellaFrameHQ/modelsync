@@ -44,8 +44,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             ModelSyncOptions options)
         {
             var plans = new List<ModelSyncPlanItem>();
+            var modelTableList = modelTables.ToList();
 
-            foreach (var modelTable in modelTables)
+            foreach (var modelTable in modelTableList)
             {
                 var tableKey = Key(modelTable.Schema, modelTable.Name);
                 if (!databaseTables.TryGetValue(tableKey, out var dbTable))
@@ -133,6 +134,30 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 }
             }
 
+            foreach (var dbTable in databaseTables.Values)
+            {
+                if (IsModelSyncHistoryTable(dbTable.Name))
+                    continue;
+
+                var existsInModel = modelTableList.Any(t =>
+                    string.Equals(t.Schema, dbTable.Schema, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(t.Name, dbTable.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (!existsInModel)
+                {
+                    plans.Add(new ModelSyncPlanItem
+                    {
+                        ChangeType = ModelSyncChangeType.DropTable,
+                        Risk = ModelSyncOperationRisk.Destructive,
+                        Schema = dbTable.Schema,
+                        Table = dbTable.Name,
+                        Name = dbTable.Name,
+                        Reason = "Database table does not exist in the model set. Dropping tables is destructive and is never automatic.",
+                        CanApplyAutomatically = false
+                    });
+                }
+            }
+
             return plans;
         }
 
@@ -144,6 +169,10 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
         private static string Normalize(string value)
             => new string((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
+
+        private static bool IsModelSyncHistoryTable(string tableName)
+            => !string.IsNullOrWhiteSpace(tableName) &&
+               tableName.StartsWith("SchemaMigration_", StringComparison.OrdinalIgnoreCase);
 
         private static ModelSyncPlanItem Safe(ModelSyncChangeType changeType, ModelTableDefinition table, ModelColumnDefinition column, string sql, string reason, bool enabled)
             => new ModelSyncPlanItem

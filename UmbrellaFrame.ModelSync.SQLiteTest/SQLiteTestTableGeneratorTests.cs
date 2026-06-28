@@ -254,6 +254,15 @@ public class SQLiteTestTableGeneratorTests
     }
 
     [Test]
+    public void GenerateTruncateTableSql_ShouldUseDeleteFromBecauseSQLiteHasNoTruncate()
+    {
+        var generator = new InMemorySQLiteTableGenerator();
+        var sql = generator.GenerateTruncateTableSql<MockModel>();
+
+        Assert.That(sql, Is.EqualTo("DELETE FROM \"SQLiteMockTable\";"));
+    }
+
+    [Test]
     public void AlterTable_AddColumn_UnknownColumn_ShouldThrow()
     {
         var generator = new InMemorySQLiteTableGenerator();

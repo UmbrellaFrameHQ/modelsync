@@ -140,6 +140,10 @@ namespace UmbrellaFrame.ModelSync.SqlServer
                 return _options.ApplyStoredProceduresOnEveryRun;
             if (category == MigrationScriptCategory.Triggers)
                 return _options.ApplyTriggersOnEveryRun;
+            if (category == MigrationScriptCategory.Seeds)
+                return !_options.ApplySeedsWithHashTracking;
+            if (category == MigrationScriptCategory.CustomSql)
+                return !_options.ApplyCustomSqlWithHashTracking;
             return false;
         }
 

@@ -102,7 +102,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             foreach (var script in _scripts)
                 runner.RegisterScript(script);
             var plans = await runner.CompareRegisteredAsync(cancellationToken).ConfigureAwait(false);
-            return plans.Where(p => p.HasChanges || p.Definition.Category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun).Select(plan =>
+            return plans.Where(p => p.HasChanges || ShouldApplyEveryRun(p.Definition.Category)).Select(plan =>
             {
                 var script = plan.Definition;
                 return new ModelSyncPlanItem
@@ -115,7 +115,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
                     CanApplyAutomatically = true,
                     ApplyOperationAsync = async (_, ct) =>
                     {
-                        if (script.Category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun)
+                        if (ShouldApplyEveryRun(script.Category))
                             await ExecuteSqlAsync(script.Sql, ct).ConfigureAwait(false);
                         else
                         {
@@ -127,6 +127,11 @@ namespace UmbrellaFrame.ModelSync.SQLite
                 };
             }).ToList();
         }
+
+        private bool ShouldApplyEveryRun(MigrationScriptCategory category)
+            => category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun
+               || category == MigrationScriptCategory.Seeds && !_options.ApplySeedsWithHashTracking
+               || category == MigrationScriptCategory.CustomSql && !_options.ApplyCustomSqlWithHashTracking;
 
         private async Task<IDictionary<string, DatabaseTableDefinition>> LoadDatabaseSchemaAsync(CancellationToken cancellationToken)
         {

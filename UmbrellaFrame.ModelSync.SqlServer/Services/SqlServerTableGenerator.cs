@@ -49,7 +49,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         /// When <paramref name="ifNotExists"/> is <c>true</c>, wraps the statement with
         /// <c>IF OBJECT_ID(N'table', N'U') IS NULL BEGIN ... END</c>.
         /// </summary>
-        public new string GenerateSqlTable<T>(bool ifNotExists = false) where T : class, new()
+        public override string GenerateSqlTable<T>(bool ifNotExists = false)
         {
             // Build raw CREATE TABLE (without inline IF NOT EXISTS guard)
             var sql = base.GenerateSqlTable<T>(ifNotExists: false);

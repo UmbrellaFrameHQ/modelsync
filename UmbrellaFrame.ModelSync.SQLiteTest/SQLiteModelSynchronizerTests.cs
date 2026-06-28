@@ -82,4 +82,28 @@ public class SQLiteModelSynchronizerTests
             x.Column == "Code" &&
             x.Risk == ModelSyncOperationRisk.Risky), Is.True);
     }
+
+    [Test]
+    public async Task CompareAsync_ShouldReportExtraDatabaseTableAsBlockedDropTable()
+    {
+        var cs = $"Data Source={System.Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var keepAlive = new SqliteConnection(cs);
+        await keepAlive.OpenAsync();
+
+        await using (var command = keepAlive.CreateCommand())
+        {
+            command.CommandText = "CREATE TABLE orphan_table(Id INTEGER);";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var options = new SQLiteModelSyncOptions { ConnectionString = cs };
+        var result = await SQLiteModelSynchronizer
+            .FromTypes(options, typeof(ProductSchema))
+            .CompareAsync();
+
+        Assert.That(result.BlockedOperations.Any(x =>
+            x.ChangeType == ModelSyncChangeType.DropTable &&
+            x.Table == "orphan_table" &&
+            x.Risk == ModelSyncOperationRisk.Destructive), Is.True);
+    }
 }

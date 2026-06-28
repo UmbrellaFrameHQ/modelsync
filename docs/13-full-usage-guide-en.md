@@ -1,8 +1,8 @@
-# ModelSync - NuGet Full Usage Guide
+﻿# ModelSync - NuGet Full Usage Guide
 
-Installation, model definition, SQL generation, DDL execution, migration runner, stored procedure synchronization, analyzers, testing, troubleshooting, and production usage.
+Installation, model definition, SQL generation, DDL execution, migration runner, stored procedure synchronization, live model synchronization, analyzers, testing, troubleshooting, and production usage.
 
-**Version scope:** 1.0.7  
+**Version scope:** 1.0.8  
 **Author:** UmbrellaFrame / ModelSync
 
 # Table Of Contents
@@ -23,19 +23,20 @@ Installation, model definition, SQL generation, DDL execution, migration runner,
 14. [Logging](#logging)
 15. [Migration Runner](#migration-runner)
 16. [Stored Procedure Synchronization](#stored-procedure-synchronization)
-17. [Analyzer](#analyzer)
-18. [Troubleshooting](#troubleshooting)
-19. [Testing Approach](#testing-approach)
-20. [Production Guide](#production-guide)
-21. [Complete Project Structure](#complete-project-structure)
-22. [Quick API Reference](#quick-api-reference)
-23. [Version 1.0.7 Limits](#version-107-limits)
-24. [FAQ](#faq)
-25. [Conclusion](#conclusion)
+17. [Live Model Synchronization](#live-model-synchronization)
+18. [Analyzer](#analyzer)
+19. [Troubleshooting](#troubleshooting)
+20. [Testing Approach](#testing-approach)
+21. [Production Guide](#production-guide)
+22. [Complete Project Structure](#complete-project-structure)
+23. [Quick API Reference](#quick-api-reference)
+24. [Version 1.0.8 Limits](#version-108-limits)
+25. [FAQ](#faq)
+26. [Conclusion](#conclusion)
 
 # About This Guide
 
-This guide is written for .NET developers who install **ModelSync 1.0.7** from NuGet and want to use it correctly without reading the source code first.
+This guide is written for .NET developers who install **ModelSync 1.0.8** from NuGet and want to use it correctly without reading the source code first.
 
 It covers installation, model definition, SQL generation, table creation, index generation, column operations, migration scripts, stored procedure synchronization, dependency injection, logging, analyzers, testing, and production safety.
 
@@ -63,7 +64,7 @@ Main use cases:
 | `Insert`, `Update`, `Delete`, `Select` operations | Not provided. Use Dapper, ADO.NET, EF Core, or another data access tool. |
 | LINQ query provider | Not provided. |
 | Entity change tracking | Not provided. |
-| Automatic full model-to-live-database diff when a model changes | Not available in 1.0.7. Use explicit column operations or SQL migration files. |
+| Automatic silent destructive model-to-live-database mutation | Not provided. Model synchronizers are dry-run-first and apply only safe additive operations automatically. |
 | Automatic repair for every possible schema drift | Not provided. Automatic repair is limited to simple missing-column scenarios from changed table scripts. |
 | Automatic index execution inside `CreateTables()` | Not performed. `GenerateIndexSql<T>()` returns SQL only; execution is separate. |
 | SQLite stored procedures | Not supported because SQLite does not support stored procedures. |
@@ -89,31 +90,31 @@ Install only the provider you need.
 SQL Server / Azure SQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.0.7
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.0.8
 ```
 
 MySQL / MariaDB:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.0.7
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.0.8
 ```
 
 PostgreSQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.0.7
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.0.8
 ```
 
 SQLite:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.0.7
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.0.8
 ```
 
 Analyzer:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.0.7
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.0.8
 ```
 
 Common namespaces:
@@ -313,7 +314,7 @@ SQLite limitations:
 - Stored procedures are not supported.
 - `ALTER COLUMN TYPE` is not supported and throws `NotSupportedException`.
 - Use a create-copy-drop/rename strategy for type changes.
-- `GenerateTruncateTableSql<T>()` produces `TRUNCATE TABLE`, which SQLite does not support. Use `DELETE FROM "Table";` yourself.
+- `GenerateTruncateTableSql<T>()` produces `DELETE FROM "Table";` for SQLite because SQLite has no `TRUNCATE TABLE` command.
 
 # Attribute System
 
@@ -337,7 +338,7 @@ Every public property intended as a column should have a provider column type at
 public string Email { get; set; } = string.Empty;
 ```
 
-The column name is the property name. Version 1.0.7 does not include a column-name override attribute.
+The column name is the property name. Version 1.0.8 does not include a column-name override attribute.
 
 ## Primary Key
 
@@ -406,7 +407,7 @@ Cross-provider attributes:
 [SQLiteColumnForeignKey("UserId", "users", "Id")]
 ```
 
-Foreign key snippets are intentionally simple in 1.0.7. Avoid spaces, dots, brackets, quoted names, and schema-qualified names in foreign key parameters. Use migration scripts for advanced cascade behavior or schema-qualified constraints.
+Foreign key snippets are intentionally simple in 1.0.8. Avoid spaces, dots, brackets, quoted names, and schema-qualified names in foreign key parameters. Use migration scripts for advanced cascade behavior or schema-qualified constraints.
 
 # Provider Column Types
 
@@ -738,15 +739,106 @@ Rules:
 - Each file should contain one procedure definition.
 - The SQL procedure name must match the registered name.
 - Do not use SQL Server `GO` in stored procedure synchronizer files.
-- PostgreSQL overloaded procedure signatures are not supported in 1.0.7.
+- PostgreSQL overloaded procedure signatures are not supported in 1.0.8.
 - MySQL procedure updates drop and recreate the procedure; review production plans carefully.
+
+# Live Model Synchronization
+
+Model synchronizers are the 1.0.8 dry-run-first layer for comparing attribute models with a live database.
+
+Use them when the database already exists and you want ModelSync to answer:
+
+- Which tables are missing?
+- Which columns are missing?
+- Which indexes or supported constraints are missing?
+- Which differences are risky or destructive and must be reviewed manually?
+- Which project SQL scripts need to run?
+
+## Provider APIs
+
+| Provider | Options | Synchronizer |
+|---|---|---|
+| SQL Server / Azure SQL | `SqlServerModelSyncOptions` | `SqlServerModelSynchronizer` |
+| MySQL / MariaDB | `MySqlModelSyncOptions` | `MySqlModelSynchronizer` |
+| PostgreSQL | `PostgresModelSyncOptions` | `PostgresModelSynchronizer` |
+| SQLite | `SQLiteModelSyncOptions` | `SQLiteModelSynchronizer` |
+
+## SQL Server Example
+
+```csharp
+var options = new SqlServerModelSyncOptions
+{
+    ConnectionString = connectionString,
+    HistorySchema = "sec",
+    DefaultSchema = "app",
+    AllowDestructiveChanges = false,
+    ApplyStoredProceduresOnEveryRun = true,
+    ApplyTriggersOnEveryRun = true,
+    ApplySeedsWithHashTracking = true,
+    ApplyCustomSqlWithHashTracking = true
+};
+
+var result = await SqlServerModelSynchronizer
+    .FromAssemblies(options, typeof(Product).Assembly)
+    .AddSqlScriptsFromEmbeddedResources(
+        typeof(Product).Assembly,
+        "MyApp.Database.Scripts")
+    .CompareAsync(cancellationToken);
+
+foreach (var operation in result.Operations)
+{
+    Console.WriteLine($"{operation.ChangeType}: {operation.Reason}");
+    if (!string.IsNullOrWhiteSpace(operation.Sql))
+        Console.WriteLine(operation.Sql);
+}
+
+await result.ThrowIfUnsupportedOrDestructiveAsync();
+await result.ApplyAsync(cancellationToken);
+```
+
+## Exact Model Selection
+
+Use `FromTypes` when the assembly contains several schema versions, test models, or DTOs:
+
+```csharp
+var result = await SqlServerModelSynchronizer
+    .FromTypes(options, typeof(ProductSchema), typeof(CustomerSchema))
+    .CompareAsync(cancellationToken);
+```
+
+## Automatically Applied Safe Operations
+
+- Missing table creation.
+- Missing nullable column addition.
+- Missing `NOT NULL` column addition when the model column has a default.
+- Missing index creation.
+- Missing default/check/unique/foreign key constraints where the provider can safely add them.
+- Ordered SQL scripts with history/hash tracking.
+
+## Blocked Operations
+
+- Extra database tables are reported as `DropTable` and blocked.
+- Extra database columns are reported as `DropColumn` and blocked.
+- Rename, type change, and nullable-to-not-null changes are blocked.
+- Adding a `NOT NULL` column without a default to an existing table is blocked.
+- SQLite stored procedure scripts are unsupported.
+
+`AllowDestructiveChanges` does not make model diff drop/rename/type-change operations automatic. It is passed to destructive migration-runner operations such as reset. Model diff destructive operations remain review-only.
+
+## Script Options
+
+`ApplyStoredProceduresOnEveryRun` and `ApplyTriggersOnEveryRun` run those scripts directly each time, which is useful for idempotent `CREATE OR ALTER` style scripts.
+
+`ApplySeedsWithHashTracking` and `ApplyCustomSqlWithHashTracking` default to `true`. When they are true, seeds and custom SQL are applied through migration history/hash tracking. When false, they are treated as every-run scripts.
+
+For the focused reference, see [14 - Model Synchronizer](14-model-synchronizer.md).
 
 # Analyzer
 
 Install:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.0.7
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.0.8
 ```
 
 Rules:
@@ -804,9 +896,9 @@ Create parent tables first, or use migration scripts where ordering is explicit.
 
 `GenerateIndexSql<T>()` only returns SQL. Execute it separately or use migration scripts.
 
-## SQLite TRUNCATE Error
+## SQLite Truncate Behavior
 
-SQLite does not support `TRUNCATE TABLE`. Use:
+SQLite does not support `TRUNCATE TABLE`. ModelSync's SQLite provider generates:
 
 ```sql
 DELETE FROM "products";
@@ -911,7 +1003,7 @@ MyApplication/
   appsettings.json
 ```
 
-Keep schema models separate from domain entities and API DTOs when possible, because ModelSync 1.0.7 treats all public properties as columns.
+Keep schema models separate from domain entities and API DTOs when possible, because ModelSync 1.0.8 treats all public properties as columns.
 
 # Quick API Reference
 
@@ -922,7 +1014,7 @@ Keep schema models separate from domain entities and API DTOs when possible, bec
 | `GenerateSqlTable<T>()` | Generates and caches CREATE TABLE SQL. |
 | `GenerateSqlTableAsync<T>()` | Task-based wrapper for generation. |
 | `GenerateDropTableSql<T>()` | Returns DROP TABLE SQL. |
-| `GenerateTruncateTableSql<T>()` | Returns TRUNCATE SQL. |
+| `GenerateTruncateTableSql<T>()` | Returns provider-specific truncate/delete SQL. |
 | `GenerateIndexSql<T>()` | Returns CREATE INDEX SQL list. |
 | `CreateDatabase()` / async | Creates the provider database where supported. |
 | `CreateTables()` / async | Executes cached CREATE TABLE SQL. |
@@ -953,7 +1045,7 @@ Keep schema models separate from domain entities and API DTOs when possible, bec
 | `ApplyAsync(plan)` | Applies one plan. |
 | `SyncRegisteredAsync()` | Compares and applies registered procedures. |
 
-# Version 1.0.7 Limits
+# Version 1.0.8 Limits
 
 - No full model-to-live-database schema diff.
 - No public-property ignore / not-mapped attribute.
@@ -964,6 +1056,7 @@ Keep schema models separate from domain entities and API DTOs when possible, bec
 - Table create/drop order is not dependency-graph based.
 - Migrations are not guaranteed to be one atomic transaction across all batches and history updates.
 - Changed table script repair is limited to simple missing-column additions.
+- Model synchronizers do not silently apply destructive/risky differences such as drop, rename, type changes, or nullable-to-not-null changes.
 - SQLite does not support type alter or stored procedures.
 - PostgreSQL overloaded procedures are not supported.
 - `DbColumnDefault` and `DbColumnCheck` accept raw SQL.
@@ -980,7 +1073,7 @@ Usually no. Install the provider package you use; it brings Core as a dependency
 
 ## Can a ModelSync model also be my domain entity?
 
-Technically yes, but separate schema models are safer because all public properties are treated as columns in 1.0.7.
+Technically yes, but separate schema models are safer because all public properties are treated as columns in 1.0.8.
 
 ## Does `ifNotExists: true` replace migrations?
 
@@ -1021,3 +1114,4 @@ Recommended workflow:
 9. In production, use one migration authority and avoid silent schema mutation.
 
 With that workflow, ModelSync provides provider-specific DDL generation and controlled database schema management without the weight of an ORM.
+

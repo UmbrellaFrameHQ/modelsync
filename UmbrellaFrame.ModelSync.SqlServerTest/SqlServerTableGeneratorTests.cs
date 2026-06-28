@@ -104,6 +104,18 @@ public class SqlServerTableGeneratorTests
         public int ForeignKeyId { get; set; }
     }
 
+    [Test]
+    public async Task GenerateSqlTableAsync_ShouldUseSqlServerIfNotExistsGuard()
+    {
+        var generator = new FakeSqlServerTableGenerator();
+        SqlTableGenerator baseReference = generator;
+
+        var sql = await baseReference.GenerateSqlTableAsync<MockModel>(ifNotExists: true);
+
+        Assert.That(sql, Does.Contain("IF OBJECT_ID"));
+        Assert.That(sql, Does.Contain("BEGIN"));
+    }
+
     [SqlServerTableName("SqlServerMockTable2")]
     private class MockModel2
     {

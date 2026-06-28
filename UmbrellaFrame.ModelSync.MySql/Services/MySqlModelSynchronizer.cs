@@ -123,7 +123,9 @@ namespace UmbrellaFrame.ModelSync.MySql
 
         private bool ShouldApplyEveryRun(MigrationScriptCategory category)
             => category == MigrationScriptCategory.StoredProcedures && _options.ApplyStoredProceduresOnEveryRun
-               || category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun;
+               || category == MigrationScriptCategory.Triggers && _options.ApplyTriggersOnEveryRun
+               || category == MigrationScriptCategory.Seeds && !_options.ApplySeedsWithHashTracking
+               || category == MigrationScriptCategory.CustomSql && !_options.ApplyCustomSqlWithHashTracking;
 
         private MySqlMigrationRunner CreateRunner()
             => new MySqlMigrationRunner(_options.ConnectionString, new MigrationRunnerOptions

@@ -21,7 +21,7 @@ No changes yet.
 - Added blocked reporting for destructive/risky operations such as drop, rename, type changes, and nullable-to-not-null changes.
 - Added `CustomSql` migration script category and `SchemaMigration_CustomSql` history tracking.
 - Added explicit `FromTypes` synchronizer APIs for precise model selection.
-- Added complete English and Turkish NuGet usage guides for ModelSync 1.0.7.
+- Added complete English and Turkish NuGet usage guides for ModelSync 1.0.8.
 - Added a language selector page for the full usage guide.
 - Clarified migration runner scope in README, NuGet README, and migration runner documentation.
 - Documented why migration history tables are used alongside provider catalog checks.
