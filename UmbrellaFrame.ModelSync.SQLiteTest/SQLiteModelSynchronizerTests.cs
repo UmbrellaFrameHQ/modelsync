@@ -36,6 +36,18 @@ public class SQLiteModelSynchronizerTests
         public string Code { get; set; } = string.Empty;
     }
 
+    [SQLiteTableName("sync_indexed_products")]
+    private sealed class IndexedProductSchema
+    {
+        [SQLiteColumnType(SQLiteColumnType.INTEGER)]
+        [SQLiteColumnPrimaryKey]
+        public int Id { get; set; }
+
+        [SQLiteColumnType(SQLiteColumnType.TEXT)]
+        [DbColumnIndex]
+        public string Code { get; set; } = string.Empty;
+    }
+
     [Test]
     public async Task ApplyAsync_ShouldCreateMissingTable()
     {
@@ -96,7 +108,7 @@ public class SQLiteModelSynchronizerTests
             await command.ExecuteNonQueryAsync();
         }
 
-        var options = new SQLiteModelSyncOptions { ConnectionString = cs };
+        var options = new SQLiteModelSyncOptions { ConnectionString = cs, ReportUnmappedTables = true };
         var result = await SQLiteModelSynchronizer
             .FromTypes(options, typeof(ProductSchema))
             .CompareAsync();
@@ -105,5 +117,42 @@ public class SQLiteModelSynchronizerTests
             x.ChangeType == ModelSyncChangeType.DropTable &&
             x.Table == "orphan_table" &&
             x.Risk == ModelSyncOperationRisk.Destructive), Is.True);
+    }
+
+    [Test]
+    public async Task CompareAsync_ShouldIgnoreExtraDatabaseTableByDefault()
+    {
+        var cs = $"Data Source={System.Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var keepAlive = new SqliteConnection(cs);
+        await keepAlive.OpenAsync();
+
+        await using (var command = keepAlive.CreateCommand())
+        {
+            command.CommandText = "CREATE TABLE orphan_table(Id INTEGER);";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var options = new SQLiteModelSyncOptions { ConnectionString = cs };
+        var result = await SQLiteModelSynchronizer
+            .FromTypes(options, typeof(ProductSchema))
+            .CompareAsync();
+
+        Assert.That(result.BlockedOperations.Any(x => x.ChangeType == ModelSyncChangeType.DropTable), Is.False);
+    }
+
+    [Test]
+    public async Task CompareAsync_WhenTableIsMissing_ShouldPlanIndexesInSameResult()
+    {
+        var cs = $"Data Source={System.Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var keepAlive = new SqliteConnection(cs);
+        await keepAlive.OpenAsync();
+
+        var options = new SQLiteModelSyncOptions { ConnectionString = cs };
+        var result = await SQLiteModelSynchronizer
+            .FromTypes(options, typeof(IndexedProductSchema))
+            .CompareAsync();
+
+        Assert.That(result.SafeOperations.Any(x => x.ChangeType == ModelSyncChangeType.CreateTable), Is.True);
+        Assert.That(result.SafeOperations.Any(x => x.ChangeType == ModelSyncChangeType.AddIndex), Is.True);
     }
 }

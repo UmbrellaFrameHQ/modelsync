@@ -643,6 +643,7 @@ SchemaMigration_Tables
 SchemaMigration_StoredProcedures
 SchemaMigration_Triggers
 SchemaMigration_Seeds
+SchemaMigration_CustomSql
 ```
 
 SQL Server and PostgreSQL store these under the `sec` schema. MySQL/MariaDB and SQLite store them in the current database.
@@ -817,19 +818,21 @@ var result = await SqlServerModelSynchronizer
 
 ## Blocked Operations
 
-- Extra database tables are reported as `DropTable` and blocked.
+- Extra database tables are reported as blocked `DropTable` only when `ReportUnmappedTables = true`.
 - Extra database columns are reported as `DropColumn` and blocked.
 - Rename, type change, and nullable-to-not-null changes are blocked.
 - Adding a `NOT NULL` column without a default to an existing table is blocked.
 - SQLite stored procedure scripts are unsupported.
 
-`AllowDestructiveChanges` does not make model diff drop/rename/type-change operations automatic. It is passed to destructive migration-runner operations such as reset. Model diff destructive operations remain review-only.
+`AllowDestructiveChanges` does not make model diff drop/rename/type-change operations automatic. Model diff destructive operations remain review-only. The option is reserved for explicit destructive runner operations and should not be treated as permission for automatic model diff data loss.
 
 ## Script Options
 
 `ApplyStoredProceduresOnEveryRun` and `ApplyTriggersOnEveryRun` run those scripts directly each time, which is useful for idempotent `CREATE OR ALTER` style scripts.
 
 `ApplySeedsWithHashTracking` and `ApplyCustomSqlWithHashTracking` default to `true`. When they are true, seeds and custom SQL are applied through migration history/hash tracking. When false, they are treated as every-run scripts.
+
+Model diff operations are classified by risk. Registered SQL scripts are treated as trusted, reviewed project artifacts; ModelSync does not parse arbitrary script text for destructive SQL such as `DROP TABLE` or `DELETE`.
 
 For the focused reference, see [14 - Model Synchronizer](14-model-synchronizer.md).
 
@@ -1045,15 +1048,28 @@ Keep schema models separate from domain entities and API DTOs when possible, bec
 | `ApplyAsync(plan)` | Applies one plan. |
 | `SyncRegisteredAsync()` | Compares and applies registered procedures. |
 
+## Model Synchronizer
+
+| Method / Member | Purpose |
+|---|---|
+| `FromAssemblies(options, ...)` | Reads provider-specific ModelSync attributes from assemblies. |
+| `FromTypes(options, ...)` | Reads only explicitly supplied model types. |
+| `AddSqlScript(...)` | Adds an inline ordered script definition. |
+| `AddSqlScriptsFromEmbeddedResources(...)` | Adds embedded SQL resources by folder/category. |
+| `CompareAsync()` | Builds a dry-run model/script synchronization result. |
+| `ModelSyncResult.SafeOperations` | Operations that can be applied automatically. |
+| `ModelSyncResult.BlockedOperations` | Destructive, risky, disabled, or unsupported operations. |
+| `ApplyAsync()` | Applies only when no blocked operations exist. |
+
 # Version 1.0.8 Limits
 
-- No full model-to-live-database schema diff.
+- Model-to-live-database diff is additive/safety-first, not a full destructive migration engine.
 - No public-property ignore / not-mapped attribute.
 - No column-name override attribute.
 - Schema-qualified table-name attributes are intentionally limited by strict identifier validation.
 - Index SQL is not executed automatically.
 - Foreign key attributes do not model advanced quoting or cascade behavior.
-- Table create/drop order is not dependency-graph based.
+- Missing tables, indexes, and foreign keys are planned in one apply pass; complex dependency cycles may still require reviewed SQL scripts.
 - Migrations are not guaranteed to be one atomic transaction across all batches and history updates.
 - Changed table script repair is limited to simple missing-column additions.
 - Model synchronizers do not silently apply destructive/risky differences such as drop, rename, type changes, or nullable-to-not-null changes.

@@ -36,7 +36,7 @@ SQLite does not support stored procedures. If a SQLite model synchronizer receiv
 
 ## Blocked Operations
 
-- Dropping tables.
+- Dropping unmapped database tables when `ReportUnmappedTables = true`.
 - Dropping columns.
 - Renaming columns.
 - Column type changes.
@@ -92,6 +92,8 @@ var result = await SqlServerModelSynchronizer
 
 `FromAssemblies` is provider-aware. A SQL Server synchronizer reads only SQL Server ModelSync attributes, a MySQL synchronizer reads only MySQL attributes, and so on. If two model classes map to the same schema/table pair, ModelSync throws a clear error instead of producing duplicate operations.
 
+By default, `FromTypes` and `FromAssemblies` synchronize only the supplied/discovered model set and do not report unrelated database tables. Set `ReportUnmappedTables = true` when you want the model set to be authoritative and want extra database tables reported as blocked `DropTable` operations.
+
 ## Ordered Scripts
 
 Embedded scripts are discovered and ordered by category:
@@ -119,6 +121,8 @@ SchemaMigration_CustomSql
 Changed script hashes are reapplied by the migration runner. Stored procedures and triggers can also be configured to run every time when their provider supports idempotent SQL.
 
 `HistorySchema` controls where schema history tables are created for schema-capable providers such as SQL Server and PostgreSQL. SQL Server stored procedure scripts registered through the model synchronizer or migration runner are normalized to `CREATE OR ALTER PROCEDURE`; keep one procedure per file and do not include `GO` separators inside stored procedure files.
+
+Model diff operations are risk-classified. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
 
 ## Provider Classes
 

@@ -204,7 +204,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             var sql = new StringBuilder();
             sql.Append($"{Quote(column.Name)} {column.StoreType}");
             if (column.IsPrimaryKey && allowInlinePrimaryKey)
-                sql.Append(" PRIMARY KEY");
+                sql.Append(" " + PrimaryKeySql(column));
             if (column.IsRequired)
                 sql.Append(" NOT NULL");
             if (column.IsUnique)
@@ -215,6 +215,9 @@ namespace UmbrellaFrame.ModelSync.SQLite
                 sql.Append(" CHECK (" + column.CheckSql + ")");
             return sql.ToString();
         }
+
+        private static string PrimaryKeySql(ModelColumnDefinition column)
+            => string.IsNullOrWhiteSpace(column.PrimaryKeySqlSnippet) ? "PRIMARY KEY" : column.PrimaryKeySqlSnippet;
 
         private string BuildAddDefaultConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
             => string.Empty;

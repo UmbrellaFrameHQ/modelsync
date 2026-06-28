@@ -10,6 +10,7 @@ public class ModelSchemaReaderTests
     private sealed class ProviderProduct
     {
         [FakeColumnType("INT")]
+        [FakePrimaryKey("PRIMARY KEY GENERATED")]
         public int Id { get; set; }
     }
 
@@ -47,6 +48,7 @@ public class ModelSchemaReaderTests
         Assert.That(tables, Has.Count.EqualTo(1));
         Assert.That(tables[0].Name, Is.EqualTo("provider_products"));
         Assert.That(tables[0].Columns[0].StoreType, Is.EqualTo("INT"));
+        Assert.That(tables[0].Columns[0].PrimaryKeySqlSnippet, Is.EqualTo("PRIMARY KEY GENERATED"));
     }
 
     [Test]
@@ -98,6 +100,20 @@ public class ModelSchemaReaderTests
             : base(tableName)
         {
         }
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    private sealed class FakePrimaryKeyAttribute : DbColumnPrimaryKeyAttribute
+    {
+        private readonly string _snippet;
+
+        public FakePrimaryKeyAttribute(string snippet)
+        {
+            _snippet = snippet;
+        }
+
+        public override string GetSqlSnippet()
+            => _snippet;
     }
 
     [AttributeUsage(AttributeTargets.Class)]

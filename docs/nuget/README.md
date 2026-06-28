@@ -140,6 +140,8 @@ await result.ApplyAsync();
 
 The migration runner has a different source of truth: SQL scripts. If an already-applied table script changes, ModelSync compares the script hash from the history table and can add missing columns from the changed `CREATE TABLE` script. That additive repair is script-based, not model-property-based.
 
+`FromAssemblies` is provider-aware and `FromTypes` scopes synchronization to the supplied model types. Extra database tables are reported as blocked `DropTable` operations only when `ReportUnmappedTables = true`. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
+
 ## Stored Procedures
 
 Stored procedures can be kept as project `.sql` files and synchronized with SQL Server, MySQL/MariaDB, and PostgreSQL:

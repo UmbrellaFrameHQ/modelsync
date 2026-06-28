@@ -37,6 +37,24 @@ public class SqlServerTableGeneratorTests
     private const string RunSqlServerIntegrationVariable = "MODELSYNC_RUN_SQLSERVER_INTEGRATION";
     private const string SqlServerConnectionStringVariable = "MODELSYNC_SQLSERVER_CONNECTION_STRING";
 
+    [SqlServerTableName("identity_models")]
+    private sealed class IdentityModel
+    {
+        [SqlServerColumnType(SqlServerColumnType.INT)]
+        [SqlServerColumnPrimaryKey(isAutoIncrement: true)]
+        public int Id { get; set; }
+    }
+
+    [Test]
+    public void ModelSchemaReader_ShouldPreserveSqlServerIdentityPrimaryKeySnippet()
+    {
+        var table = ModelSchemaReader
+            .FromTypes("app", typeof(SqlServerColumnTypeAttribute), typeof(SqlServerTableNameAttribute), typeof(IdentityModel))
+            .Single();
+
+        Assert.That(table.Columns.Single().PrimaryKeySqlSnippet, Does.Contain("IDENTITY(1,1)"));
+    }
+
     private enum StatusEnum
     {
         Active,

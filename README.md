@@ -225,6 +225,8 @@ await result.ApplyAsync(cancellationToken);
 
 Safe automatic operations include missing tables, safe missing columns, indexes, and supported constraints. Drop, rename, type changes, and nullable-to-not-null changes are never silently applied.
 
+`FromAssemblies` is provider-aware and `FromTypes` scopes synchronization to the supplied model types. Extra database tables are reported as blocked `DropTable` operations only when `ReportUnmappedTables = true`. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
+
 ### Provider Support Matrix
 
 | Feature | SQL Server | MySQL / MariaDB | PostgreSQL | SQLite |

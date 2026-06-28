@@ -272,7 +272,7 @@ WHERE k.TABLE_SCHEMA = @Schema
             var sql = new StringBuilder();
             sql.Append($"{Quote(column.Name)} {column.StoreType}");
             if (column.IsPrimaryKey && allowInlinePrimaryKey)
-                sql.Append(" PRIMARY KEY");
+                sql.Append(" " + PrimaryKeySql(column));
             if (column.IsRequired)
                 sql.Append(" NOT NULL");
             if (column.IsUnique)
@@ -283,6 +283,9 @@ WHERE k.TABLE_SCHEMA = @Schema
                 sql.Append(" CHECK (" + column.CheckSql + ")");
             return sql.ToString();
         }
+
+        private static string PrimaryKeySql(ModelColumnDefinition column)
+            => string.IsNullOrWhiteSpace(column.PrimaryKeySqlSnippet) ? "PRIMARY KEY" : column.PrimaryKeySqlSnippet;
 
         private string BuildAddDefaultConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
             => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ALTER {Quote(column.Name)} SET DEFAULT {column.DefaultSql};";

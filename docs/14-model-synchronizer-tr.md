@@ -91,6 +91,8 @@ var result = await SqlServerModelSynchronizer
 
 `FromAssemblies` provider-aware çalışır. SQL Server synchronizer yalnız SQL Server ModelSync attribute'larını, MySQL synchronizer yalnız MySQL attribute'larını okur. İki model sınıfı aynı schema/table çiftine map edilirse ModelSync duplicate operasyon üretmek yerine açık hata fırlatır.
 
+Varsayılan olarak `FromTypes` ve `FromAssemblies` yalnız verilen/keşfedilen model setini senkronize eder ve ilgisiz database tablolarını raporlamaz. Model setinin authoritative olmasını ve fazla database tablolarının blocked `DropTable` olarak görünmesini istiyorsanız `ReportUnmappedTables = true` kullanın.
+
 ## Ordered Scripts
 
 Embedded scriptler kategoriye göre şu sırayla keşfedilir ve çalıştırılır:
@@ -116,6 +118,8 @@ SchemaMigration_CustomSql
 ```
 
 `HistorySchema`, SQL Server ve PostgreSQL gibi schema destekleyen provider'larda history tablolarının nerede oluşturulacağını belirler. SQL Server stored procedure scriptleri model synchronizer veya migration runner üzerinden çalıştırıldığında `CREATE OR ALTER PROCEDURE` formuna normalize edilir; stored procedure dosyalarında tek procedure tutun ve `GO` separator kullanmayın.
+
+Model diff işlemleri risk sınıflandırmasından geçer. Kaydedilen SQL scriptleri güvenilir proje artifact'i kabul edilir; ModelSync script metnini destructive SQL açısından parse etmez.
 
 ## Provider Sınıfları
 

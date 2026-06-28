@@ -14,5 +14,6 @@ namespace UmbrellaFrame.ModelSync.Core
         public bool AddMissingColumns { get; set; } = true;
         public bool AddMissingIndexes { get; set; } = true;
         public bool AddMissingConstraints { get; set; } = true;
+        public bool ReportUnmappedTables { get; set; }
     }
 }

@@ -128,11 +128,13 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
                 var index = attributes.OfType<DbColumnIndexAttribute>().FirstOrDefault();
                 var foreignKey = attributes.OfType<DbColumnForeignKeyAttribute>().FirstOrDefault();
+                var primaryKey = attributes.OfType<DbColumnPrimaryKeyAttribute>().FirstOrDefault();
                 table.Columns.Add(new ModelColumnDefinition
                 {
                     Name = property.Name,
                     StoreType = typeAttribute.GetColumnType(),
-                    IsPrimaryKey = attributes.OfType<DbColumnPrimaryKeyAttribute>().Any(),
+                    IsPrimaryKey = primaryKey != null,
+                    PrimaryKeySqlSnippet = primaryKey?.GetSqlSnippet() ?? string.Empty,
                     IsRequired = attributes.OfType<DbColumnNotNullAttribute>().Any(),
                     IsUnique = attributes.OfType<DbColumnUniqueAttribute>().Any(),
                     IsIndexed = index != null,

@@ -1215,6 +1215,7 @@ SchemaMigration_Tables
 SchemaMigration_StoredProcedures
 SchemaMigration_Triggers
 SchemaMigration_Seeds
+SchemaMigration_CustomSql
 ```
 
 Temel olarak şu bilgiler saklanır:
@@ -1513,19 +1514,21 @@ var result = await SqlServerModelSynchronizer
 
 ## Bloklanan işlemler
 
-- Model setinde bulunmayan canlı database tabloları `DropTable` olarak raporlanır ve bloklanır.
+- Model setinde bulunmayan canlı database tabloları yalnız `ReportUnmappedTables = true` ise `DropTable` olarak raporlanır ve bloklanır.
 - Modelde bulunmayan canlı database kolonları `DropColumn` olarak raporlanır ve bloklanır.
 - Rename, tip değişikliği ve nullable-to-not-null değişiklikleri bloklanır.
 - Mevcut tabloya defaultsuz `NOT NULL` kolon eklemek bloklanır.
 - SQLite stored procedure scriptleri desteklenmez.
 
-`AllowDestructiveChanges`, model diff içindeki drop/rename/type-change işlemlerini otomatik yapmaz. Bu seçenek migration runner reset gibi yıkıcı runner işlemlerine aktarılır. Model diff tarafındaki yıkıcı işlemler review-only kalır.
+`AllowDestructiveChanges`, model diff içindeki drop/rename/type-change işlemlerini otomatik yapmaz. Model diff tarafındaki yıkıcı işlemler review-only kalır. Bu seçenek otomatik veri kaybı izni gibi değerlendirilmemelidir.
 
 ## Script seçenekleri
 
 `ApplyStoredProceduresOnEveryRun` ve `ApplyTriggersOnEveryRun`, idempotent scriptleri her çalıştırmada doğrudan uygular.
 
 `ApplySeedsWithHashTracking` ve `ApplyCustomSqlWithHashTracking` varsayılan olarak `true` değerindedir. True iken seed ve custom SQL scriptleri migration history/hash ile uygulanır. False yapılırsa her çalıştırmada doğrudan uygulanırlar.
+
+Model diff işlemleri risk sınıflandırmasından geçer. Kaydedilen SQL scriptleri ise review edilmiş, güvenilir proje artifact'i kabul edilir; ModelSync script metnini `DROP TABLE` veya `DELETE` gibi destructive SQL açısından parse etmez.
 
 Odaklı referans için [14 - Model Synchronizer](14-model-synchronizer.md) belgesine bakın.
 
@@ -1913,13 +1916,15 @@ Hayır. Yalnız tablo yoksa create işlemini güvenli hale getirir. Mevcut tablo
 
 ## 82. Kolon ekledim, tablo otomatik güncellenir mi?
 
-Hayır. Şunlardan birini yapın:
+Yalnız model property’sini eklemek database’i kendiliğinden değiştirmez. Şunlardan birini yapın:
 
 ```csharp
 await generator.AddColumnAsync<Model>(nameof(Model.NewProperty));
 ```
 
 veya yeni, immutable SQL migration dosyası ekleyin.
+
+Model Synchronizer kullanıyorsanız `CompareAsync()` + `ApplyAsync()` akışı güvenli eksik kolonları otomatik ekleyebilir; riskli kolonlar yine bloklanır.
 
 ## 83. İndeksler neden ayrı?
 

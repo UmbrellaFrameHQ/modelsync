@@ -5,6 +5,7 @@ namespace UmbrellaFrame.ModelSync.Core
         public string Name { get; set; } = string.Empty;
         public string StoreType { get; set; } = string.Empty;
         public bool IsPrimaryKey { get; set; }
+        public string PrimaryKeySqlSnippet { get; set; } = string.Empty;
         public bool IsRequired { get; set; }
         public bool IsUnique { get; set; }
         public bool IsIndexed { get; set; }

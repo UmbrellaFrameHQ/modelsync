@@ -44,6 +44,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             ModelSyncOptions options)
         {
             var plans = new List<ModelSyncPlanItem>();
+            var postCreatePlans = new List<ModelSyncPlanItem>();
             var modelTableList = modelTables.ToList();
 
             foreach (var modelTable in modelTableList)
@@ -52,6 +53,17 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 if (!databaseTables.TryGetValue(tableKey, out var dbTable))
                 {
                     plans.Add(Safe(ModelSyncChangeType.CreateTable, modelTable, null, _createTableSql(modelTable), "Table is missing in the live database.", options.CreateMissingTables));
+                    foreach (var column in modelTable.Columns.Where(c => c.IsIndexed))
+                    {
+                        postCreatePlans.Add(Safe(ModelSyncChangeType.AddIndex, modelTable, column, _addIndexSql(modelTable, column),
+                            "Index will be created after the missing table is created.", options.CreateMissingTables && options.AddMissingIndexes));
+                    }
+
+                    foreach (var column in modelTable.Columns.Where(c => !string.IsNullOrWhiteSpace(c.ForeignKeyTable)))
+                    {
+                        postCreatePlans.Add(Safe(ModelSyncChangeType.AddForeignKey, modelTable, column, _addForeignKeySql(modelTable, column),
+                            "Foreign key will be created after missing tables are created.", options.CreateMissingTables && options.AddMissingConstraints));
+                    }
                     continue;
                 }
 
@@ -126,13 +138,18 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
                 foreach (var column in modelTable.Columns.Where(c => !string.IsNullOrWhiteSpace(c.ForeignKeyTable)))
                 {
-                    var name = $"FK_{modelTable.Name}_{column.Name}_{column.ForeignKeyTable}";
+                    var name = $"FK_{modelTable.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}";
                     if (!dbTable.ForeignKeys.Contains(name))
                     {
                         plans.Add(Safe(ModelSyncChangeType.AddForeignKey, modelTable, column, _addForeignKeySql(modelTable, column), "Foreign key is missing.", options.AddMissingConstraints));
                     }
                 }
             }
+
+            plans.AddRange(postCreatePlans);
+
+            if (!options.ReportUnmappedTables)
+                return plans;
 
             foreach (var dbTable in databaseTables.Values)
             {
@@ -173,6 +190,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         private static bool IsModelSyncHistoryTable(string tableName)
             => !string.IsNullOrWhiteSpace(tableName) &&
                tableName.StartsWith("SchemaMigration_", StringComparison.OrdinalIgnoreCase);
+
+        private static string ForeignKeyColumn(ModelColumnDefinition column)
+            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
 
         private static ModelSyncPlanItem Safe(ModelSyncChangeType changeType, ModelTableDefinition table, ModelColumnDefinition column, string sql, string reason, bool enabled)
             => new ModelSyncPlanItem
