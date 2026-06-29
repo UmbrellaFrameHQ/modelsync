@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Services;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 
 namespace UmbrellaFrame.ModelSync.SQLite
 {
@@ -25,6 +26,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
     public sealed class SQLiteModelSynchronizer
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(SQLiteProviderDescriptor.Create());
         private readonly SQLiteModelSyncOptions _options;
         private readonly List<Assembly> _modelAssemblies;
         private readonly List<Type> _modelTypes;
@@ -64,11 +66,23 @@ namespace UmbrellaFrame.ModelSync.SQLite
 
         public async Task<ModelSyncResult> CompareAsync(CancellationToken cancellationToken = default)
         {
+            var attributes = new ProviderAttributeSet(
+                typeof(SQLiteTableNameAttribute),
+                typeof(SQLiteColumnTypeAttribute),
+                typeof(SQLiteColumnPrimaryKeyAttribute),
+                typeof(SQLiteColumnNotNullAttribute),
+                typeof(SQLiteColumnUniqueAttribute),
+                typeof(SQLiteColumnForeignKeyAttribute),
+                (pk, column) =>
+                    string.Equals(column.StoreType, "INTEGER", StringComparison.OrdinalIgnoreCase)
+                        ? DbValueGenerationKind.RowIdAlias
+                        : DbValueGenerationKind.None);
+
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(SQLiteColumnTypeAttribute), typeof(SQLiteTableNameAttribute), _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(SQLiteColumnTypeAttribute), typeof(SQLiteTableNameAttribute), _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, attributes, _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, attributes, _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
-            var builder = new ModelSyncPlanBuilder(Quote, Qualify, BuildCreateTableSql, BuildAddColumnSql, BuildAddDefaultConstraintSql, BuildAddCheckConstraintSql, BuildAddUniqueConstraintSql, BuildAddForeignKeySql, BuildCreateIndexSql);
+            var builder = new ModelSyncPlanBuilder(Dialect.Quote, Dialect.Qualify, Dialect.BuildCreateTableSql, Dialect.BuildAddColumnSql, Dialect.BuildAddDefaultConstraintSql, Dialect.BuildAddCheckConstraintSql, Dialect.BuildAddUniqueConstraintSql, Dialect.BuildAddForeignKeySql, Dialect.BuildCreateIndexSql);
             var operations = builder.Build(modelTables, databaseTables, _options).ToList();
             operations.AddRange(await BuildScriptPlansAsync(cancellationToken).ConfigureAwait(false));
             return new ModelSyncResult(operations, ExecuteSqlAsync);
@@ -137,13 +151,13 @@ namespace UmbrellaFrame.ModelSync.SQLite
         private async Task<IDictionary<string, DatabaseTableDefinition>> LoadDatabaseSchemaAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, DatabaseTableDefinition>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new SqliteConnection(_options.ConnectionString))
+            using (var connection = SQLiteConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 var tables = new List<string>();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';";
+                    command.CommandText = Dialect.BuildReadFileCatalogTablesPlan().CommandText;
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                             tables.Add(reader.GetString(0));
@@ -157,7 +171,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
 
                     using (var command = connection.CreateCommand())
                     {
-                        command.CommandText = $"PRAGMA table_info({Quote(tableName)});";
+                        command.CommandText = Dialect.BuildReadFileCatalogTableInfoPlan(tableName).CommandText;
                         using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                         {
                             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -175,73 +189,74 @@ namespace UmbrellaFrame.ModelSync.SQLite
 
                     using (var command = connection.CreateCommand())
                     {
-                        command.CommandText = $"PRAGMA index_list({Quote(tableName)});";
+                        var indexes = new List<DatabaseIndexDefinition>();
+                        command.CommandText = Dialect.BuildReadFileCatalogIndexListPlan(tableName).CommandText;
                         using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                        {
                             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                                table.Indexes.Add(reader.GetString(1));
+                            {
+                                var indexName = reader.GetString(1);
+                                table.Indexes.Add(indexName);
+                                indexes.Add(new DatabaseIndexDefinition
+                                {
+                                    Name = indexName,
+                                    IsUnique = reader.GetInt32(2) == 1
+                                });
+                            }
+                        }
+
+                        foreach (var index in indexes)
+                        {
+                            await LoadSQLiteIndexColumnsAsync(connection, index.Name, index, cancellationToken).ConfigureAwait(false);
+                            if (index.Columns.Count > 0)
+                                table.SemanticIndexes.Add(index);
+                        }
+                    }
+
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = Dialect.BuildReadFileCatalogForeignKeysPlan(tableName).CommandText;
+                        using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                var fk = new DatabaseForeignKeyDefinition
+                                {
+                                    Name = $"FK_{tableName}_{reader.GetString(3)}_{reader.GetString(2)}",
+                                    ReferencedSchema = _options.DefaultSchema,
+                                    ReferencedTable = reader.GetString(2)
+                                };
+                                fk.LocalColumns.Add(reader.GetString(3));
+                                fk.ReferencedColumns.Add(reader.GetString(4));
+                                table.ForeignKeys.Add(fk.Name);
+                                table.SemanticForeignKeys.Add(fk);
+                            }
+                        }
                     }
                 }
             }
             return result;
         }
 
-        private string BuildCreateTableSql(ModelTableDefinition table)
+        private static async Task LoadSQLiteIndexColumnsAsync(SqliteConnection connection, string indexName, DatabaseIndexDefinition index, CancellationToken cancellationToken)
         {
-            var lines = new List<string>();
-            var primaryKeys = table.Columns.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToList();
-            foreach (var column in table.Columns)
-                lines.Add("    " + BuildColumnDefinition(column, primaryKeys.Count <= 1));
-            if (primaryKeys.Count > 1)
-                lines.Add("    PRIMARY KEY (" + string.Join(", ", primaryKeys.Select(Quote)) + ")");
-            return $"CREATE TABLE {Quote(table.Name)} ({Environment.NewLine}{string.Join("," + Environment.NewLine, lines)}{Environment.NewLine});";
-        }
-
-        private string BuildAddColumnSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Quote(table.Name)} ADD COLUMN {BuildColumnDefinition(column, true)};";
-
-        private string BuildColumnDefinition(ModelColumnDefinition column, bool allowInlinePrimaryKey)
-        {
-            var sql = new StringBuilder();
-            sql.Append($"{Quote(column.Name)} {column.StoreType}");
-            if (column.IsPrimaryKey && allowInlinePrimaryKey)
-                sql.Append(" " + PrimaryKeySql(column));
-            if (column.IsRequired)
-                sql.Append(" NOT NULL");
-            if (column.IsUnique)
-                sql.Append(" UNIQUE");
-            if (!string.IsNullOrWhiteSpace(column.DefaultSql))
-                sql.Append(" DEFAULT " + column.DefaultSql);
-            if (!string.IsNullOrWhiteSpace(column.CheckSql))
-                sql.Append(" CHECK (" + column.CheckSql + ")");
-            return sql.ToString();
-        }
-
-        private static string PrimaryKeySql(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.PrimaryKeySqlSnippet) ? "PRIMARY KEY" : column.PrimaryKeySqlSnippet;
-
-        private string BuildAddDefaultConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => string.Empty;
-
-        private string BuildAddCheckConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => string.Empty;
-
-        private string BuildAddUniqueConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"CREATE UNIQUE INDEX {Quote($"UQ_{table.Name}_{column.Name}")} ON {Quote(table.Name)} ({Quote(column.Name)});";
-
-        private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => string.Empty;
-
-        private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
-        {
-            var indexName = string.IsNullOrWhiteSpace(column.IndexName) ? $"idx_{table.Name}_{column.Name}" : column.IndexName;
-            return $"CREATE {(column.IsUniqueIndex ? "UNIQUE " : string.Empty)}INDEX {Quote(indexName)} ON {Quote(table.Name)} ({Quote(column.Name)});";
+            ValidateIdentifier(indexName, nameof(indexName));
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = Dialect.BuildReadFileCatalogIndexInfoPlan(indexName).CommandText;
+                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                        index.Columns.Add(reader.GetString(2));
+                }
+            }
         }
 
         private async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(sql))
                 throw new NotSupportedException("SQLite cannot add this constraint after table creation. Use a reviewed migration script with create-copy-rename strategy.");
-            using (var connection = new SqliteConnection(_options.ConnectionString))
+            using (var connection = SQLiteConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = connection.CreateCommand())
@@ -253,18 +268,12 @@ namespace UmbrellaFrame.ModelSync.SQLite
         }
 
         private static string Qualify(string schema, string table)
-            => Quote(table);
+            => Dialect.Qualify(schema, table);
 
         private static string Quote(string identifier)
-        {
-            ValidateIdentifier(identifier, nameof(identifier));
-            return "\"" + identifier.Replace("\"", "\"\"") + "\"";
-        }
+            => Dialect.Quote(identifier);
 
         private static void ValidateIdentifier(string identifier, string parameterName)
-        {
-            if (string.IsNullOrWhiteSpace(identifier) || !SafeIdentifierPattern.IsMatch(identifier))
-                throw new ArgumentException($"Invalid SQL identifier '{identifier}'.", parameterName);
-        }
+            => SqlIdentifierValidator.Validate(identifier, parameterName);
     }
 }

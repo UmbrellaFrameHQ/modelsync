@@ -39,6 +39,17 @@ public class MySqlTestTableGeneratorTests
     private const string MySqlConnectionStringVariable = "MODELSYNC_MYSQL_CONNECTION_STRING";
     private const string MariaDbConnectionStringVariable = "MODELSYNC_MARIADB_CONNECTION_STRING";
 
+    [Test]
+    public void GenerateSqlTable_WithAutoIncrementPrimaryKey_ShouldPlaceAutoIncrementBeforePrimaryKey()
+    {
+        var sqlGenerator = new FakeMySqlTestGenerator();
+
+        var sql = sqlGenerator.GenerateSqlTable<MockModel>();
+
+        Assert.That(sql, Does.Contain("`Id` INT AUTO_INCREMENT PRIMARY KEY"));
+        Assert.That(sql, Does.Not.Contain("`Id` INT PRIMARY KEY AUTO_INCREMENT"));
+    }
+
     private enum StatusEnum
     {
         Active,

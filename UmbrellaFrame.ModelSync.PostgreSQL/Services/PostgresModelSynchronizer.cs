@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Npgsql;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Services;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 
 namespace UmbrellaFrame.ModelSync.PostgreSQL
 {
@@ -24,6 +25,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
     public sealed class PostgresModelSynchronizer
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(PostgresProviderDescriptor.Create());
         private readonly PostgresModelSyncOptions _options;
         private readonly List<Assembly> _modelAssemblies;
         private readonly List<Type> _modelTypes;
@@ -65,11 +67,27 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         {
             ValidateIdentifier(_options.DefaultSchema, nameof(_options.DefaultSchema));
             ValidateIdentifier(_options.HistorySchema, nameof(_options.HistorySchema));
+            var attributes = new ProviderAttributeSet(
+                typeof(PostgresTableName),
+                typeof(PostgresColumnTypeAttribute),
+                typeof(PostgresColumnPrimaryKeyAttribute),
+                typeof(PostgresColumnNotNullAttribute),
+                typeof(PostgresColumnUniqueAttribute),
+                typeof(PostgresForeignKeyAttribute),
+                (pk, column) =>
+                {
+                    if (string.Equals(column.StoreType, "SERIAL", StringComparison.OrdinalIgnoreCase))
+                        return DbValueGenerationKind.Serial;
+                    if (string.Equals(column.StoreType, "BIGSERIAL", StringComparison.OrdinalIgnoreCase))
+                        return DbValueGenerationKind.BigSerial;
+                    return DbValueGenerationKind.None;
+                });
+
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(PostgresColumnTypeAttribute), typeof(PostgresTableName), _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(PostgresColumnTypeAttribute), typeof(PostgresTableName), _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, attributes, _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, attributes, _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
-            var builder = new ModelSyncPlanBuilder(Quote, Qualify, BuildCreateTableSql, BuildAddColumnSql, BuildAddDefaultConstraintSql, BuildAddCheckConstraintSql, BuildAddUniqueConstraintSql, BuildAddForeignKeySql, BuildCreateIndexSql);
+            var builder = new ModelSyncPlanBuilder(Dialect.Quote, Dialect.Qualify, Dialect.BuildCreateTableSql, Dialect.BuildAddColumnSql, Dialect.BuildAddDefaultConstraintSql, Dialect.BuildAddCheckConstraintSql, Dialect.BuildAddUniqueConstraintSql, Dialect.BuildAddForeignKeySql, Dialect.BuildCreateIndexSql);
             var operations = builder.Build(modelTables, databaseTables, _options).ToList();
             operations.AddRange(await BuildScriptPlansAsync(cancellationToken).ConfigureAwait(false));
             return new ModelSyncResult(operations, ExecuteSqlAsync);
@@ -132,18 +150,11 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         private async Task<IDictionary<string, DatabaseTableDefinition>> LoadDatabaseSchemaAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, DatabaseTableDefinition>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new NpgsqlConnection(_options.ConnectionString))
+            using (var connection = PostgresConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                using (var ensure = new NpgsqlCommand($"CREATE SCHEMA IF NOT EXISTS {Quote(_options.DefaultSchema)};", connection))
-                    await ensure.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
-                const string columnsSql = @"
-SELECT table_schema, table_name, column_name, data_type, character_maximum_length, numeric_precision, numeric_scale, is_nullable,
-       CASE WHEN column_default IS NULL THEN 0 ELSE 1 END AS has_default
-FROM information_schema.columns
-WHERE table_schema = @Schema;";
-                using (var command = new NpgsqlCommand(columnsSql, connection))
+                using (var command = new NpgsqlCommand(Dialect.BuildReadColumnsPlan().CommandText, connection))
                 {
                     command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -175,24 +186,32 @@ WHERE table_schema = @Schema;";
 
         private async Task LoadIndexesAndConstraintsAsync(NpgsqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
-            const string indexesSql = @"
-SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname = @Schema;";
-            using (var command = new NpgsqlCommand(indexesSql, connection))
+            using (var command = new NpgsqlCommand(Dialect.BuildReadIndexesPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    var semanticIndexes = new Dictionary<string, DatabaseIndexDefinition>(StringComparer.OrdinalIgnoreCase);
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
                         if (result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
-                            table.Indexes.Add(reader.GetString(2));
+                        {
+                            var indexName = reader.GetString(2);
+                            table.Indexes.Add(indexName);
+                            var key = ModelSyncPlanBuilder.Key(reader.GetString(1), indexName);
+                            if (!semanticIndexes.TryGetValue(key, out var index))
+                            {
+                                index = new DatabaseIndexDefinition { Name = indexName, IsUnique = reader.GetBoolean(3) };
+                                semanticIndexes[key] = index;
+                                table.SemanticIndexes.Add(index);
+                            }
+                            index.Columns.Add(reader.GetString(4));
+                        }
+                    }
+                }
             }
 
-            const string constraintsSql = @"
-SELECT n.nspname, t.relname, c.conname, c.contype
-FROM pg_constraint c
-JOIN pg_class t ON t.oid = c.conrelid
-JOIN pg_namespace n ON n.oid = t.relnamespace
-WHERE n.nspname = @Schema;";
-            using (var command = new NpgsqlCommand(constraintsSql, connection))
+            using (var command = new NpgsqlCommand(Dialect.BuildReadConstraintsPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -213,94 +232,46 @@ WHERE n.nspname = @Schema;";
                 }
             }
 
-            const string constraintColumnsSql = @"
-SELECT n.nspname, t.relname, c.contype, a.attname, rt.relname
-FROM pg_constraint c
-JOIN pg_class t ON t.oid = c.conrelid
-JOIN pg_namespace n ON n.oid = t.relnamespace
-JOIN LATERAL unnest(c.conkey) AS ck(attnum) ON true
-JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ck.attnum
-LEFT JOIN pg_class rt ON rt.oid = c.confrelid
-WHERE n.nspname = @Schema
-  AND c.contype IN ('u', 'f');";
-            using (var command = new NpgsqlCommand(constraintColumnsSql, connection))
+            using (var command = new NpgsqlCommand(Dialect.BuildReadConstraintColumnsPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    var semanticForeignKeys = new Dictionary<string, DatabaseForeignKeyDefinition>(StringComparer.OrdinalIgnoreCase);
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         if (!result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
                             continue;
 
-                        var type = reader.GetChar(2);
+                        var type = reader.GetChar(3);
                         if (type == 'u')
-                            table.UniqueConstraints.Add($"UQ_{reader.GetString(1)}_{reader.GetString(3)}");
-                        if (type == 'f' && !reader.IsDBNull(4))
-                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(3)}_{reader.GetString(4)}");
+                            table.UniqueConstraints.Add($"UQ_{reader.GetString(1)}_{reader.GetString(4)}");
+                        if (type == 'f' && !reader.IsDBNull(6))
+                        {
+                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(4)}_{reader.GetString(6)}");
+                            var key = ModelSyncPlanBuilder.Key(reader.GetString(1), reader.GetString(2));
+                            if (!semanticForeignKeys.TryGetValue(key, out var foreignKey))
+                            {
+                                foreignKey = new DatabaseForeignKeyDefinition
+                                {
+                                    Name = reader.GetString(2),
+                                    ReferencedSchema = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                                    ReferencedTable = reader.GetString(6)
+                                };
+                                semanticForeignKeys[key] = foreignKey;
+                                table.SemanticForeignKeys.Add(foreignKey);
+                            }
+                            foreignKey.LocalColumns.Add(reader.GetString(4));
+                            foreignKey.ReferencedColumns.Add(reader.GetString(7));
+                        }
                     }
                 }
             }
         }
 
-        private string BuildCreateTableSql(ModelTableDefinition table)
-        {
-            var lines = new List<string>();
-            var primaryKeys = table.Columns.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToList();
-            foreach (var column in table.Columns)
-                lines.Add("    " + BuildColumnDefinition(column, primaryKeys.Count <= 1));
-            if (primaryKeys.Count > 1)
-                lines.Add("    PRIMARY KEY (" + string.Join(", ", primaryKeys.Select(Quote)) + ")");
-            return $"CREATE TABLE {Qualify(table.Schema, table.Name)} ({Environment.NewLine}{string.Join("," + Environment.NewLine, lines)}{Environment.NewLine});";
-        }
-
-        private string BuildAddColumnSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD COLUMN {BuildColumnDefinition(column, true)};";
-
-        private string BuildColumnDefinition(ModelColumnDefinition column, bool allowInlinePrimaryKey)
-        {
-            var sql = new StringBuilder();
-            sql.Append($"{Quote(column.Name)} {column.StoreType}");
-            if (column.IsPrimaryKey && allowInlinePrimaryKey)
-                sql.Append(" " + PrimaryKeySql(column));
-            if (column.IsRequired)
-                sql.Append(" NOT NULL");
-            if (column.IsUnique)
-                sql.Append(" UNIQUE");
-            if (!string.IsNullOrWhiteSpace(column.DefaultSql))
-                sql.Append(" DEFAULT " + column.DefaultSql);
-            if (!string.IsNullOrWhiteSpace(column.CheckSql))
-                sql.Append(" CHECK (" + column.CheckSql + ")");
-            return sql.ToString();
-        }
-
-        private static string PrimaryKeySql(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.PrimaryKeySqlSnippet) ? "PRIMARY KEY" : column.PrimaryKeySqlSnippet;
-
-        private string BuildAddDefaultConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ALTER COLUMN {Quote(column.Name)} SET DEFAULT {column.DefaultSql};";
-
-        private string BuildAddCheckConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"CK_{table.Name}_{column.Name}")} CHECK ({column.CheckSql});";
-
-        private string BuildAddUniqueConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"UQ_{table.Name}_{column.Name}")} UNIQUE ({Quote(column.Name)});";
-
-        private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(ForeignKeyColumn(column))}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
-
-        private static string ForeignKeyColumn(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
-
-        private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
-        {
-            var indexName = string.IsNullOrWhiteSpace(column.IndexName) ? $"idx_{table.Name}_{column.Name}" : column.IndexName;
-            return $"CREATE {(column.IsUniqueIndex ? "UNIQUE " : string.Empty)}INDEX {Quote(indexName)} ON {Qualify(table.Schema, table.Name)} ({Quote(column.Name)});";
-        }
-
         private async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
-            using (var connection = new NpgsqlConnection(_options.ConnectionString))
+            using (var connection = PostgresConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = new NpgsqlCommand(sql, connection))
@@ -309,19 +280,13 @@ WHERE n.nspname = @Schema
         }
 
         private static string Qualify(string schema, string table)
-            => $"{Quote(schema)}.{Quote(table)}";
+            => Dialect.Qualify(schema, table);
 
         private static string Quote(string identifier)
-        {
-            ValidateIdentifier(identifier, nameof(identifier));
-            return "\"" + identifier.Replace("\"", "\"\"") + "\"";
-        }
+            => Dialect.Quote(identifier);
 
         private static void ValidateIdentifier(string identifier, string parameterName)
-        {
-            if (string.IsNullOrWhiteSpace(identifier) || !SafeIdentifierPattern.IsMatch(identifier))
-                throw new ArgumentException($"Invalid SQL identifier '{identifier}'.", parameterName);
-        }
+            => SqlIdentifierValidator.Validate(identifier, parameterName);
 
         private static string BuildPostgresStoreType(string type, long length, int precision, int scale)
         {

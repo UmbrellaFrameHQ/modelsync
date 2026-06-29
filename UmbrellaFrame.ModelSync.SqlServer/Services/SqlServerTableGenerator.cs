@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Interfaces;
 using UmbrellaFrame.ModelSync.Core.Services;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 using UmbrellaFrame.ModelSync.SqlServer.Resources;
 
 namespace UmbrellaFrame.ModelSync.SqlServer
@@ -19,6 +20,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
     public class SqlServerTableGenerator : SqlTableGenerator, ITableGenerator
     {
         private readonly string _connectionString;
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(SqlServerProviderDescriptor.Create());
 
         /// <inheritdoc/>
         protected override string QuoteValidatedIdentifier(string identifier) => $"[{identifier}]";
@@ -68,7 +70,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             return sql;
         }
 
-        // ── DDL execution ───────────────────────────────────────────────────
+        // �� DDL execution ���������������������������������������������������
 
         /// <inheritdoc/>
         public void CreateDatabase()
@@ -83,7 +85,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             builder.InitialCatalog = "master";
             builder.ConnectTimeout = 10;
 
-            using var masterConnection = new SqlConnection(builder.ConnectionString);
+            using var masterConnection = SqlServerConnectionFactory.Create(builder.ConnectionString);
             masterConnection.Open();
 
             var sql = $"IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{databaseName}') CREATE DATABASE {QuoteIdentifier(databaseName)};";
@@ -104,7 +106,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             builder.InitialCatalog = "master";
             builder.ConnectTimeout = 10;
 
-            using var masterConnection = new SqlConnection(builder.ConnectionString);
+            using var masterConnection = SqlServerConnectionFactory.Create(builder.ConnectionString);
             await masterConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             var sql = $"IF NOT EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{databaseName}') CREATE DATABASE {QuoteIdentifier(databaseName)};";
@@ -117,7 +119,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         {
             CreateDatabase();
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             connection.Open();
 
             foreach (var sqlCommand in SqlCache.Values)
@@ -138,7 +140,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         {
             await CreateDatabaseAsync(cancellationToken).ConfigureAwait(false);
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             foreach (var sqlCommand in SqlCache.Values)
@@ -161,7 +163,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         {
             RequireDestructivePermission(options, nameof(DropTables));
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             connection.Open();
 
             foreach (var type in SqlCache.Keys)
@@ -181,7 +183,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         {
             RequireDestructivePermission(options, nameof(DropTablesAsync));
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             foreach (var type in SqlCache.Keys)
@@ -193,13 +195,13 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             }
         }
 
-        // ── ALTER TABLE ─────────────────────────────────────────────────────
+        // �� ALTER TABLE �����������������������������������������������������
 
         /// <inheritdoc/>
         public void AddColumn<T>(string columnName) where T : class, new()
         {
             var sql = BuildAddColumnSql<T>(columnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -209,7 +211,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         public async Task AddColumnAsync<T>(string columnName, CancellationToken cancellationToken = default) where T : class, new()
         {
             var sql = BuildAddColumnSql<T>(columnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -225,7 +227,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             RequireDestructivePermission(options, nameof(DropColumn));
 
             var sql = BuildDropColumnSql<T>(columnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -241,7 +243,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             RequireDestructivePermission(options, nameof(DropColumnAsync));
 
             var sql = BuildDropColumnSql<T>(columnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -263,7 +265,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         public void RenameColumn<T>(string oldColumnName, string newColumnName) where T : class, new()
         {
             var sql = BuildRenameColumnSql<T>(oldColumnName, newColumnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -273,7 +275,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         public async Task RenameColumnAsync<T>(string oldColumnName, string newColumnName, CancellationToken cancellationToken = default) where T : class, new()
         {
             var sql = BuildRenameColumnSql<T>(oldColumnName, newColumnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -289,7 +291,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             var columnTypeAttr = propertyManager.GetAttribute<DbColumnTypeAttribute>(columnName);
             if (columnTypeAttr == null)
                 throw new InvalidOperationException($"Column '{columnName}' has no type attribute on {typeof(T).Name}.");
-            return $"ALTER TABLE {QuoteIdentifier(tableName)} ALTER COLUMN {QuoteIdentifier(columnName)} {columnTypeAttr.GetColumnType()};";
+            return Dialect.BuildAlterColumnTypeSql(string.Empty, tableName, columnName, columnTypeAttr.GetColumnType());
         }
 
         /// <inheritdoc/>
@@ -302,7 +304,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             RequireDestructivePermission(options, nameof(AlterColumnType));
 
             var sql = BuildAlterColumnTypeSql<T>(columnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -318,11 +320,10 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             RequireDestructivePermission(options, nameof(AlterColumnTypeAsync));
 
             var sql = BuildAlterColumnTypeSql<T>(columnName);
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }
-

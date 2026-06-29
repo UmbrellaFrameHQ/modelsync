@@ -15,5 +15,7 @@ namespace UmbrellaFrame.ModelSync.Core
         public bool AddMissingIndexes { get; set; } = true;
         public bool AddMissingConstraints { get; set; } = true;
         public bool ReportUnmappedTables { get; set; }
+        public ModelSyncTableMode DefaultTableMode { get; set; } = ModelSyncTableMode.Inherit;
+        public ModelSyncTablePolicyCollection TablePolicies { get; } = new ModelSyncTablePolicyCollection();
     }
 }

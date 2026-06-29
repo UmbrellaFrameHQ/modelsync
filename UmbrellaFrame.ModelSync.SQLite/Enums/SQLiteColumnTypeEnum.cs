@@ -1,4 +1,4 @@
-﻿
+
 namespace UmbrellaFrame.ModelSync.SQLite
 {
     public enum SQLiteColumnType

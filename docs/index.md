@@ -1,4 +1,4 @@
-﻿# ModelSync Documentation
+# ModelSync Documentation
 
 Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider packages, analyzer support, and explicit destructive-operation safety.
 
@@ -20,8 +20,8 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [10 - Changelog](10-changelog.md) | Version history |
 | [11 - Stored Procedure Sync](11-stored-procedures.md) | SQL Server, MySQL/MariaDB, and PostgreSQL procedure file synchronization |
 | [12 - Migration Runner](12-migration-runner.md) | Ordered table, procedure, trigger, and seed scripts with history tracking |
-| [13 - Full Usage Guide](13-full-usage-guide-en.md) | Complete English NuGet usage guide for ModelSync 1.0.8 |
-| [13 - Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) | Complete Turkish NuGet usage guide for ModelSync 1.0.8 |
+| [13 - Full Usage Guide](13-full-usage-guide-en.md) | Complete English NuGet usage guide for ModelSync 1.1.0 |
+| [13 - Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) | Complete Turkish NuGet usage guide for ModelSync 1.1.0 |
 | [14 - Model Synchronizer](14-model-synchronizer.md) | Live database diff from attribute models with safe apply plans |
 | [14 - Model Synchronizer TR](14-model-synchronizer-tr.md) | Turkish guide for live database diff from attribute models |
 
@@ -53,8 +53,8 @@ Attribute-based SQL schema generator for .NET. Zero ORM dependency, provider pac
 | [10 - Changelog](10-changelog.md) | Surum gecmisi |
 | [11 - Stored Procedure Sync](11-stored-procedures.md) | SQL Server, MySQL/MariaDB ve PostgreSQL procedure dosyalarini senkronize etme |
 | [12 - Migration Runner](12-migration-runner.md) | Sirali table, procedure, trigger ve seed scriptleri icin history takipli runner |
-| [13 - Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) | ModelSync 1.0.8 icin eksiksiz Turkce NuGet kullanim kilavuzu |
-| [13 - Full Usage Guide](13-full-usage-guide-en.md) | ModelSync 1.0.8 icin eksiksiz Ingilizce NuGet kullanim kilavuzu |
+| [13 - Tam Kullanim Kilavuzu](13-full-usage-guide-tr.md) | ModelSync 1.1.0 icin eksiksiz Turkce NuGet kullanim kilavuzu |
+| [13 - Full Usage Guide](13-full-usage-guide-en.md) | ModelSync 1.1.0 icin eksiksiz Ingilizce NuGet kullanim kilavuzu |
 | [14 - Model Synchronizer](14-model-synchronizer-tr.md) | Attribute modellerinden canli veritabani diff plani ve guvenli uygulama |
 
 ### Indirme

@@ -167,7 +167,7 @@ The procedure name inside the SQL file must match the registered name. ModelSync
 
 Use the provided Docker Compose file to start local test databases:
 
-```powershell
+```bash
 docker compose -f docker-compose.modelsync-test.yml up -d
 ```
 
@@ -181,22 +181,21 @@ PostgreSQL: Host=localhost;Port=5433;Database=modelsync_sp;Username=postgres;Pas
 
 Run the opt-in stored procedure integration smoke tests:
 
-```powershell
-$env:MODELSYNC_RUN_SP_INTEGRATION = "1"
-dotnet test ModelSync.sln -c Release --filter "Category=Integration"
+```bash
+MODELSYNC_RUN_SP_INTEGRATION=1 dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 ```
 
 You can override the default connections with:
 
-```powershell
-$env:MODELSYNC_SQLSERVER_SP_CONNECTION_STRING = "Server=localhost,14333;Database=modelsync_sp;User Id=sa;Password=ModelSync_Pass123;Encrypt=False;TrustServerCertificate=True;"
-$env:MODELSYNC_MYSQL_SP_CONNECTION_STRING = "Server=localhost;Port=3307;Database=modelsync_sp;User ID=root;Password=ModelSync_Pass123;"
-$env:MODELSYNC_POSTGRES_SP_CONNECTION_STRING = "Host=localhost;Port=5433;Database=modelsync_sp;Username=postgres;Password=ModelSync_Pass123;"
+```bash
+MODELSYNC_SQLSERVER_SP_CONNECTION_STRING="Server=localhost,14333;Database=modelsync_sp;User Id=sa;Password=ModelSync_Pass123;Encrypt=False;TrustServerCertificate=True;"
+MODELSYNC_MYSQL_SP_CONNECTION_STRING="Server=localhost;Port=3307;Database=modelsync_sp;User ID=root;Password=ModelSync_Pass123;"
+MODELSYNC_POSTGRES_SP_CONNECTION_STRING="Host=localhost;Port=5433;Database=modelsync_sp;Username=postgres;Password=ModelSync_Pass123;"
 ```
 
 Stop the environment:
 
-```powershell
+```bash
 docker compose -f docker-compose.modelsync-test.yml down
 ```
 

@@ -68,6 +68,14 @@ var plans = await runner.CompareRegisteredAsync();
 await runner.RunAsync();
 ```
 
+`CompareRegisteredAsync()` is read-only. If history tables do not exist yet, it treats the registered scripts as pending and does not create infrastructure. `RunAsync()` creates required schemas/history tables before applying scripts. You can also bootstrap infrastructure explicitly:
+
+```csharp
+await runner.EnsureInfrastructureAsync(cancellationToken);
+```
+
+Duplicate script IDs are rejected before database access so a bad migration set fails fast.
+
 ## Embedded Resources
 
 ```csharp
@@ -134,6 +142,46 @@ await runner.RunAsync();
 ```
 
 If `ResetDatabase` is enabled without `DestructiveOperationOptions.Allow()`, ModelSync throws before touching the database.
+
+For new code, prefer structured reset options:
+
+```csharp
+var options = new MigrationRunnerOptions
+{
+    ResetDatabase = true,
+    ResetOptions = new DatabaseResetOptions
+    {
+        Enabled = true,
+        Approval = DestructiveOperationOptions.Allow(),
+        ExpectedDatabaseName = "appdb",
+        EnvironmentName = "Development",
+        AllowedEnvironments = new[] { "Development" }
+    }
+};
+```
+
+ModelSync rejects empty expected database names, environment mismatches, and known provider system databases such as SQL Server `master`, PostgreSQL `template0`, and MySQL `information_schema`.
+
+## Execution Results
+
+`RunAsync()` is preserved for compatibility and returns the migration plans produced before execution. New code can call:
+
+```csharp
+MigrationExecutionResult result = await runner.RunWithResultAsync();
+```
+
+The result contains one item per script with category, script id, source, action, hash, timing, batch counts, and sanitized failure metadata. It does not include passwords, full connection strings, or full SQL script text.
+
+## Operational Contracts
+
+ModelSync now exposes additive contracts for deployment-grade hosting:
+
+- `ModelSyncConnectionFactory` for adapting application-owned connection factories.
+- `IDatabaseReadinessStrategy` for provider-specific readiness retry.
+- `IMigrationLockStrategy` and `MigrationLockOptions` for provider-specific migration locking.
+- `MigrationTransactionPolicy` for future transaction policy selection.
+
+The public contracts are available, but live provider lock/transaction integration must be verified before treating a release as fully operationally hardened.
 
 ## SQL Server GO Support
 

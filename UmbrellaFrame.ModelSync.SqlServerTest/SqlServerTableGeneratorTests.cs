@@ -48,11 +48,20 @@ public class SqlServerTableGeneratorTests
     [Test]
     public void ModelSchemaReader_ShouldPreserveSqlServerIdentityPrimaryKeySnippet()
     {
+        var attributes = new ProviderAttributeSet(
+            typeof(SqlServerTableNameAttribute),
+            typeof(SqlServerColumnTypeAttribute),
+            typeof(SqlServerColumnPrimaryKeyAttribute),
+            typeof(SqlServerColumnNotNullAttribute),
+            typeof(SqlServerColumnUniqueAttribute),
+            typeof(SqlServerColumnForeignKey),
+            (pk, column) => DbValueGenerationKind.Identity);
+
         var table = ModelSchemaReader
-            .FromTypes("app", typeof(SqlServerColumnTypeAttribute), typeof(SqlServerTableNameAttribute), typeof(IdentityModel))
+            .FromTypes("app", attributes, typeof(IdentityModel))
             .Single();
 
-        Assert.That(table.Columns.Single().PrimaryKeySqlSnippet, Does.Contain("IDENTITY(1,1)"));
+        Assert.That(table.Columns.Single().ValueGeneration, Is.EqualTo(DbValueGenerationKind.Identity));
     }
 
     private enum StatusEnum
@@ -196,6 +205,17 @@ public class SqlServerTableGeneratorTests
 
         Assert.That(sql, Does.Contain("IF OBJECT_ID(N'SqlServerMockTable', N'U') IS NULL"));
         Assert.That(sql, Does.Not.Contain("OBJECT_ID(N'[SqlServerMockTable]'"));
+    }
+
+    [Test]
+    public void GenerateSqlTable_WithIdentityPrimaryKey_ShouldPlaceIdentityBeforePrimaryKey()
+    {
+        var sqlGenerator = new FakeSqlServerTableGenerator();
+
+        var sql = sqlGenerator.GenerateSqlTable<MockModel>();
+
+        Assert.That(sql, Does.Contain("[Id] INT IDENTITY(1,1) PRIMARY KEY"));
+        Assert.That(sql, Does.Not.Contain("[Id] INT PRIMARY KEY IDENTITY(1,1)"));
     }
 
     [Test]

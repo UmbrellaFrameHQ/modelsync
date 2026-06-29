@@ -8,7 +8,54 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
-No changes yet.
+---
+
+## [1.1.0] - 2026-06-29 - Operational Hardening and Live Provider Release Gate
+
+### Added
+- Added `DbColumnNameAttribute` for explicit column-name mapping in schema models.
+- Added `DbIgnoreAttribute` so public helper properties can be excluded from ModelSync schema discovery.
+- Added provider-aware model discovery through `ProviderAttributeSet`; each provider synchronizer now reads only its own table, column, key, nullability, uniqueness, and foreign-key attributes.
+- Added structured value-generation metadata through `DbValueGenerationKind` so SQL Server identity, MySQL auto-increment, PostgreSQL serial/bigserial, and SQLite rowid primary keys are preserved by model synchronizers.
+- Added `IMigrationRunner.EnsureInfrastructureAsync()` for explicit history/schema bootstrap.
+- Added `ModelSyncResult.SkippedOperations` and `SkippedByOption` risk classification for safe operations disabled by configuration.
+- Added global model-sync plan phases so tables, columns, constraints, indexes, foreign keys, and scripts are emitted in deterministic order.
+- Added semantic index and foreign-key metadata containers for live schema introspection.
+- Added package smoke validation for packed `.nupkg` files through cross-platform .NET repository tooling.
+- Added `DatabaseResetOptions` for explicit reset approval, expected database checks, environment allow-list checks, retry settings, and command timeout metadata.
+- Added `DatabaseReadinessContext`, `IDatabaseReadinessStrategy`, `DefaultDatabaseReadinessStrategy`, and `DatabaseReadinessException`.
+- Added `ModelSyncConnectionFactory` delegate for future provider factory overloads.
+- Added migration lock contracts: `MigrationLockOptions`, `IMigrationLockStrategy`, and a no-op default strategy.
+- Added `MigrationTransactionPolicy` and structured migration execution result models.
+- Added `RunWithResultAsync()` to migration runners while preserving the existing `RunAsync()` API.
+- Added table execution policies for model synchronization: `ModelSyncTableMode`, `DefaultTableMode`, and `TablePolicies.ForType`, `ForTable`, and `ForSchema`.
+- Added `AutomaticOperations`, `ManualOperations`, `SkippedOperations`, and `BlockedOperations` result categorization for mixed manual/automatic model sync runs.
+- Replaced concrete Core provider dialect classes with a provider-agnostic `ModelSyncSqlDialect` compiler driven by structured provider descriptors.
+- Added cross-platform .NET repository checks for provider SQL ownership, scanner self-tests, package smoke validation, version consistency, release documentation consistency, direct provider connection ownership, and shell-script policy enforcement.
+
+### Changed
+- `CompareRegisteredAsync()` is now read-only when migration history infrastructure is missing; infrastructure creation happens during `RunAsync()` or explicit `EnsureInfrastructureAsync()`.
+- SQL Server and PostgreSQL model synchronizer comparison no longer creates schemas during `CompareAsync()`.
+- Model synchronization now blocks missing primary-key, generated-value, unique, foreign-key, and unsafe `NOT NULL` columns on existing tables instead of treating them as automatic safe additions.
+- Model synchronization now uses a provider pluggable `IModelSyncOperationRiskEvaluator` for missing-column risk decisions.
+- SQLite, SQL Server, MySQL/MariaDB, and PostgreSQL introspection now populate semantic index/foreign-key metadata where provider catalogs expose it.
+- SQL Server and MySQL primary-key generation now emits identity/auto-increment before `PRIMARY KEY`, matching provider SQL syntax expectations.
+- Duplicate migration script IDs are validated before database access.
+- SQL Server, MySQL/MariaDB, and PostgreSQL reset paths now reject known provider system databases and validate expected database names when `DatabaseResetOptions` is configured.
+- Existing `RunAsync()` remains backward-compatible and still returns dry-run plans from before execution; `RunWithResultAsync()` returns per-script execution results.
+- `ApplyAsync()` on model-sync results now applies only automatic safe operations; manual table-policy operations are reported but never executed automatically.
+- Provider-unsupported safe-looking operations without executable SQL are now blocked in automatic scope instead of being silently ignored.
+- Provider model synchronizers now delegate DDL, catalog introspection, history planning, parsed-column repair, and stored procedure framework planning to Core compiler services instead of maintaining their own framework SQL builders.
+- Provider services now use canonical provider connection factories; direct concrete provider connection creation is rejected outside factory files.
+- Provider-native migration locks are wired for SQL Server application locks, MySQL/MariaDB named locks, PostgreSQL advisory locks, and SQLite write-lock behavior through `BEGIN IMMEDIATE`.
+- Stored procedure comparison handles MySQL missing procedure error `1305` and normalizes PostgreSQL dollar-quote routine bodies before comparison.
+- Live integration coverage was validated for SQL Server, MySQL, MariaDB, PostgreSQL, and SQLite.
+
+### Notes
+- Transaction and history hardening is capability-aware. ModelSync does not claim that every provider can make every DDL operation fully transactional.
+- Migration locks can be disabled explicitly, but disabled lock mode does not provide distributed safety.
+- SQLite does not support stored procedures.
+- Compare APIs remain read-only; infrastructure creation, history writes, reset, and DDL execution happen only through explicit mutation APIs.
 
 ---
 
@@ -83,7 +130,7 @@ No changes yet.
 - GitHub Actions NuGet publish flow now works for `v*` tags.
 
 ### Added
-- Added `scripts/publish-nuget.ps1`.
+- Added NuGet release helper automation, later replaced by cross-platform .NET repository tooling.
 - Added download and NuGet links to the documentation index.
 
 ---

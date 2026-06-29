@@ -9,7 +9,9 @@
 
 ModelSync is an attribute-based SQL schema generator for .NET. It lets you define database schema with plain C# classes and generate or execute DDL without Entity Framework or a heavy ORM.
 
-## What's New in 1.0.8
+Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic compiler. Provider packages supply structured descriptors and thin ADO.NET adapters; application-supplied SQL files remain user-authored artifacts.
+
+## What's New in 1.1.0
 
 - Provider migration runners can apply ordered table, stored procedure, trigger, seed, and custom SQL scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -19,6 +21,20 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 - Stored procedure synchronization supports SQL Server, MySQL/MariaDB, and PostgreSQL.
 - Provider model synchronizers can compare attribute models with a live database and apply only safe additive changes.
 - Migration runners explain why history tables are used instead of relying only on live catalog checks.
+
+## 1.1.0 Operational Hardening
+
+ModelSync 1.1.0 is the current stable package line validated by live provider integration tests.
+
+1.1.0 includes:
+
+- `DbColumnName` for explicit column-name mapping.
+- `DbIgnore` for excluding schema-only public helper properties.
+- Provider-aware model discovery for live model synchronization.
+- Structured identity/auto-increment metadata for SQL Server, MySQL, PostgreSQL, and SQLite synchronizers.
+- Read-only migration comparison; infrastructure creation is explicit through `RunAsync()` or `EnsureInfrastructureAsync()`.
+- `SkippedOperations` for safe operations disabled by options.
+- Structured reset options, readiness strategy contracts, migration lock contracts, transaction policy metadata, and `RunWithResultAsync()` execution reporting.
 
 ## Packages
 
@@ -36,16 +52,17 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 Install only the provider you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql
-dotnet add package UmbrellaFrame.ModelSync.SqlServer
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL
-dotnet add package UmbrellaFrame.ModelSync.SQLite
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
 ```
 
 Optional analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
 ```
 
 ## Quick Start
@@ -141,6 +158,18 @@ await result.ApplyAsync();
 The migration runner has a different source of truth: SQL scripts. If an already-applied table script changes, ModelSync compares the script hash from the history table and can add missing columns from the changed `CREATE TABLE` script. That additive repair is script-based, not model-property-based.
 
 `FromAssemblies` is provider-aware and `FromTypes` scopes synchronization to the supplied model types. Extra database tables are reported as blocked `DropTable` operations only when `ReportUnmappedTables = true`. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
+
+ModelSync 1.1.0 adds table execution policies for mixed manual/automatic ownership:
+
+```csharp
+options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
+options.TablePolicies
+    .ForType<AuditLog>(ModelSyncTableMode.ApplySafeChanges)
+    .ForType<Notification>(ModelSyncTableMode.ApplySafeChanges)
+    .ForTable("legacy", "OldOrders", ModelSyncTableMode.Ignore);
+```
+
+`ManualOnly` operations are reported through `ManualOperations` and are never applied automatically. `ApplySafeChanges` applies only safe provider-supported changes; destructive changes remain blocked.
 
 ## Stored Procedures
 

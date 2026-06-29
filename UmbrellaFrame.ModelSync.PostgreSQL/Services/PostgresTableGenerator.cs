@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,6 +9,7 @@ using Npgsql;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Interfaces;
 using UmbrellaFrame.ModelSync.Core.Services;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 using UmbrellaFrame.ModelSync.PostgreSQL.Resources;
 
 namespace UmbrellaFrame.ModelSync.PostgreSQL
@@ -20,6 +21,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
     public class PostgresTableGenerator : SqlTableGenerator, ITableGenerator
     {
         private readonly string _connectionString;
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(PostgresProviderDescriptor.Create());
 
         /// <inheritdoc/>
         protected override string QuoteValidatedIdentifier(string identifier) => $"\"{identifier}\"";
@@ -42,7 +44,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         public string GeneratePostgresTable<T>(bool ifNotExists = false) where T : class, new()
             => GenerateSqlTable<T>(ifNotExists);
 
-        // ── DDL execution ───────────────────────────────────────────────────
+        // �� DDL execution ���������������������������������������������������
 
         /// <inheritdoc/>
         public void CreateDatabase()
@@ -56,7 +58,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             ValidateIdentifier(databaseName);
             builder.Database = "postgres";
 
-            using var connection = new NpgsqlConnection(builder.ConnectionString);
+            using var connection = PostgresConnectionFactory.Create(builder.ConnectionString);
             connection.Open();
 
             using var checkCmd = new NpgsqlCommand($"SELECT 1 FROM pg_database WHERE datname = '{databaseName}';", connection);
@@ -80,7 +82,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             ValidateIdentifier(databaseName);
             builder.Database = "postgres";
 
-            using var connection = new NpgsqlConnection(builder.ConnectionString);
+            using var connection = PostgresConnectionFactory.Create(builder.ConnectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             using var checkCmd = new NpgsqlCommand($"SELECT 1 FROM pg_database WHERE datname = '{databaseName}';", connection);
@@ -97,7 +99,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         {
             foreach (var sqlCommand in SqlCache.Values)
             {
-                using var connection = new NpgsqlConnection(_connectionString);
+                using var connection = PostgresConnectionFactory.Create(_connectionString);
                 connection.Open();
                 using var command = new NpgsqlCommand(sqlCommand, connection);
                 command.ExecuteNonQuery();
@@ -110,7 +112,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             foreach (var sqlCommand in SqlCache.Values)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                using var connection = new NpgsqlConnection(_connectionString);
+                using var connection = PostgresConnectionFactory.Create(_connectionString);
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using var command = new NpgsqlCommand(sqlCommand, connection);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -129,7 +131,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             foreach (var type in SqlCache.Keys)
             {
                 var sql = BuildDropTableSql(type);
-                using var connection = new NpgsqlConnection(_connectionString);
+                using var connection = PostgresConnectionFactory.Create(_connectionString);
                 connection.Open();
                 using var command = new NpgsqlCommand(sql, connection);
                 command.ExecuteNonQuery();
@@ -149,14 +151,14 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var sql = BuildDropTableSql(type);
-                using var connection = new NpgsqlConnection(_connectionString);
+                using var connection = PostgresConnectionFactory.Create(_connectionString);
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using var command = new NpgsqlCommand(sql, connection);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 
-        // ── ALTER TABLE ─────────────────────────────────────────────────────
+        // �� ALTER TABLE �����������������������������������������������������
 
         /// <summary>
         /// PostgreSQL requires the <c>TYPE</c> keyword:
@@ -169,14 +171,14 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             var columnTypeAttr = propertyManager.GetAttribute<DbColumnTypeAttribute>(columnName);
             if (columnTypeAttr == null)
                 throw new InvalidOperationException($"Column '{columnName}' has no type attribute on {typeof(T).Name}.");
-            return $"ALTER TABLE {QuoteIdentifier(tableName)} ALTER COLUMN {QuoteIdentifier(columnName)} TYPE {columnTypeAttr.GetColumnType()};";
+            return Dialect.BuildAlterColumnTypeSql(string.Empty, tableName, columnName, columnTypeAttr.GetColumnType());
         }
 
         /// <inheritdoc/>
         public void AddColumn<T>(string columnName) where T : class, new()
         {
             var sql = BuildAddColumnSql<T>(columnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new NpgsqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -186,7 +188,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         public async Task AddColumnAsync<T>(string columnName, CancellationToken cancellationToken = default) where T : class, new()
         {
             var sql = BuildAddColumnSql<T>(columnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new NpgsqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -202,7 +204,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             RequireDestructivePermission(options, nameof(DropColumn));
 
             var sql = BuildDropColumnSql<T>(columnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new NpgsqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -218,7 +220,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             RequireDestructivePermission(options, nameof(DropColumnAsync));
 
             var sql = BuildDropColumnSql<T>(columnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new NpgsqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -228,7 +230,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         public void RenameColumn<T>(string oldColumnName, string newColumnName) where T : class, new()
         {
             var sql = BuildRenameColumnSql<T>(oldColumnName, newColumnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new NpgsqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -238,7 +240,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         public async Task RenameColumnAsync<T>(string oldColumnName, string newColumnName, CancellationToken cancellationToken = default) where T : class, new()
         {
             var sql = BuildRenameColumnSql<T>(oldColumnName, newColumnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new NpgsqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -254,7 +256,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             RequireDestructivePermission(options, nameof(AlterColumnType));
 
             var sql = BuildAlterColumnTypeSql<T>(columnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new NpgsqlCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -270,11 +272,10 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             RequireDestructivePermission(options, nameof(AlterColumnTypeAsync));
 
             var sql = BuildAlterColumnTypeSql<T>(columnName);
-            using var connection = new NpgsqlConnection(_connectionString);
+            using var connection = PostgresConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new NpgsqlCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }
-

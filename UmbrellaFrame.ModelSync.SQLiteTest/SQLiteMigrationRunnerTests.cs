@@ -91,4 +91,115 @@ public class SQLiteMigrationRunnerTests
         command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Users') WHERE name = 'Name';";
         Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(1));
     }
+
+    [Test]
+    public async Task CompareRegisteredAsync_ShouldBeReadOnlyWhenHistoryTablesAreMissing()
+    {
+        var cs = $"Data Source={Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var keepAlive = new SqliteConnection(cs);
+        await keepAlive.OpenAsync();
+
+        var runner = new SQLiteMigrationRunner(cs);
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            "001",
+            "CreateUsers",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE Users(Id INTEGER PRIMARY KEY);"));
+
+        var plans = await runner.CompareRegisteredAsync();
+
+        Assert.That(plans.Single().ChangeType, Is.EqualTo(MigrationChangeType.Apply));
+
+        await using var command = keepAlive.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'SchemaMigration_%';";
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task RunWithResultAsync_ShouldRollbackScriptAndHistoryWhenBatchFails()
+    {
+        var path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"modelsync-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={path}";
+        var runner = new SQLiteMigrationRunner(connectionString);
+
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            "001",
+            "CreateThenFail",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE RollbackProbe(Id INTEGER PRIMARY KEY);\nINSERT INTO MissingTable(Id) VALUES (1);"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Items.Single().Action, Is.EqualTo(MigrationExecutionAction.Failed));
+
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'RollbackProbe';";
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(0));
+
+        command.CommandText = "SELECT COUNT(*) FROM SchemaMigration_Tables WHERE Id = '001';";
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task RunWithResultAsync_ShouldRespectSQLiteImmediateWriteLock()
+    {
+        var path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"modelsync-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={path};Default Timeout=1";
+
+        await using var blocker = new SqliteConnection(connectionString);
+        await blocker.OpenAsync();
+        await using (var command = blocker.CreateCommand())
+        {
+            command.CommandText = "BEGIN IMMEDIATE;";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        try
+        {
+            var runner = new SQLiteMigrationRunner(connectionString);
+            runner.RegisterScript(MigrationScriptDefinition.Create(
+                "001",
+                "CreateLocked",
+                MigrationScriptCategory.Tables,
+                "CREATE TABLE LockedProbe(Id INTEGER PRIMARY KEY);"));
+
+            var result = await runner.RunWithResultAsync();
+
+            Assert.That(result.Succeeded, Is.False);
+        }
+        finally
+        {
+            await using var command = blocker.CreateCommand();
+            command.CommandText = "ROLLBACK;";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var retry = new SQLiteMigrationRunner(connectionString);
+        retry.RegisterScript(MigrationScriptDefinition.Create(
+            "001",
+            "CreateLocked",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE LockedProbe(Id INTEGER PRIMARY KEY);"));
+
+        var retryResult = await retry.RunWithResultAsync();
+
+        Assert.That(retryResult.Succeeded, Is.True);
+    }
+
+    [Test]
+    public void CompareRegisteredAsync_ShouldFailFastForDuplicateScriptIdInSameCategory()
+    {
+        var runner = new SQLiteMigrationRunner($"Data Source={Guid.NewGuid():N};Mode=Memory;Cache=Shared");
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "A", MigrationScriptCategory.Tables, "SELECT 1;", "a.sql"));
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "B", MigrationScriptCategory.Tables, "SELECT 2;", "b.sql"));
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await runner.CompareRegisteredAsync());
+
+        Assert.That(ex!.Message, Does.Contain("Duplicate migration script id '001'"));
+        Assert.That(ex.Message, Does.Contain("a.sql"));
+        Assert.That(ex.Message, Does.Contain("b.sql"));
+    }
 }

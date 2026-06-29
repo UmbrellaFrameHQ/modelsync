@@ -9,75 +9,76 @@ namespace UmbrellaFrame.ModelSync.Core.Services
     public static class ModelSchemaReader
     {
         public static IReadOnlyList<ModelTableDefinition> FromAssemblies(string defaultSchema, params Assembly[] assemblies)
-        {
-            if (assemblies == null || assemblies.Length == 0)
-                throw new ArgumentException("At least one assembly is required.", nameof(assemblies));
-
-            return EnsureUniqueTables(assemblies
-                .Where(a => a != null)
-                .SelectMany(a => a.GetTypes())
-                .Where(IsModelType)
-                .Select(t => FromType(t, defaultSchema))
-                .Where(t => t.Columns.Count > 0)
-                .ToList());
-        }
+            => FromAssemblies(defaultSchema, ProviderAttributeSet.Generic, assemblies);
 
         public static IReadOnlyList<ModelTableDefinition> FromAssemblies(
             string defaultSchema,
             Type columnAttributeType,
             Type tableAttributeType,
             params Assembly[] assemblies)
+            => FromAssemblies(
+                defaultSchema,
+                new ProviderAttributeSet(
+                    tableAttributeType,
+                    columnAttributeType,
+                    typeof(DbColumnPrimaryKeyAttribute),
+                    typeof(DbColumnNotNullAttribute),
+                    typeof(DbColumnUniqueAttribute),
+                    typeof(DbColumnForeignKeyAttribute)),
+                assemblies);
+
+        public static IReadOnlyList<ModelTableDefinition> FromAssemblies(
+            string defaultSchema,
+            ProviderAttributeSet providerAttributes,
+            params Assembly[] assemblies)
         {
-            if (columnAttributeType == null)
-                throw new ArgumentNullException(nameof(columnAttributeType));
-            if (!typeof(DbColumnTypeAttribute).IsAssignableFrom(columnAttributeType))
-                throw new ArgumentException("Column attribute type must derive from DbColumnTypeAttribute.", nameof(columnAttributeType));
-            if (tableAttributeType != null && !typeof(DbTableNameAttribute).IsAssignableFrom(tableAttributeType))
-                throw new ArgumentException("Table attribute type must derive from DbTableNameAttribute.", nameof(tableAttributeType));
+            if (providerAttributes == null)
+                throw new ArgumentNullException(nameof(providerAttributes));
             if (assemblies == null || assemblies.Length == 0)
                 throw new ArgumentException("At least one assembly is required.", nameof(assemblies));
 
             return EnsureUniqueTables(assemblies
                 .Where(a => a != null)
                 .SelectMany(a => a.GetTypes())
-                .Where(t => IsModelType(t, columnAttributeType))
-                .Select(t => FromType(t, defaultSchema, columnAttributeType, tableAttributeType))
+                .Where(t => IsModelType(t, providerAttributes))
+                .Select(t => FromType(t, defaultSchema, providerAttributes))
                 .Where(t => t.Columns.Count > 0)
                 .ToList());
         }
 
         public static IReadOnlyList<ModelTableDefinition> FromTypes(string defaultSchema, params Type[] modelTypes)
-        {
-            if (modelTypes == null || modelTypes.Length == 0)
-                throw new ArgumentException("At least one model type is required.", nameof(modelTypes));
-
-            return EnsureUniqueTables(modelTypes
-                .Where(t => t != null)
-                .Where(IsModelType)
-                .Select(t => FromType(t, defaultSchema))
-                .Where(t => t.Columns.Count > 0)
-                .ToList());
-        }
+            => FromTypes(defaultSchema, ProviderAttributeSet.Generic, modelTypes);
 
         public static IReadOnlyList<ModelTableDefinition> FromTypes(
             string defaultSchema,
             Type columnAttributeType,
             Type tableAttributeType,
             params Type[] modelTypes)
+            => FromTypes(
+                defaultSchema,
+                new ProviderAttributeSet(
+                    tableAttributeType,
+                    columnAttributeType,
+                    typeof(DbColumnPrimaryKeyAttribute),
+                    typeof(DbColumnNotNullAttribute),
+                    typeof(DbColumnUniqueAttribute),
+                    typeof(DbColumnForeignKeyAttribute)),
+                modelTypes);
+
+        public static IReadOnlyList<ModelTableDefinition> FromTypes(
+            string defaultSchema,
+            ProviderAttributeSet providerAttributes,
+            params Type[] modelTypes)
         {
-            if (columnAttributeType == null)
-                throw new ArgumentNullException(nameof(columnAttributeType));
-            if (!typeof(DbColumnTypeAttribute).IsAssignableFrom(columnAttributeType))
-                throw new ArgumentException("Column attribute type must derive from DbColumnTypeAttribute.", nameof(columnAttributeType));
-            if (tableAttributeType != null && !typeof(DbTableNameAttribute).IsAssignableFrom(tableAttributeType))
-                throw new ArgumentException("Table attribute type must derive from DbTableNameAttribute.", nameof(tableAttributeType));
+            if (providerAttributes == null)
+                throw new ArgumentNullException(nameof(providerAttributes));
             if (modelTypes == null || modelTypes.Length == 0)
                 throw new ArgumentException("At least one model type is required.", nameof(modelTypes));
 
             return EnsureUniqueTables(modelTypes
                 .Where(t => t != null)
-                .Where(t => IsModelType(t, columnAttributeType))
-                .Select(t => FromType(t, defaultSchema, columnAttributeType, tableAttributeType))
+                .Where(t => IsModelType(t, providerAttributes))
+                .Select(t => FromType(t, defaultSchema, providerAttributes))
                 .Where(t => t.Columns.Count > 0)
                 .ToList());
         }
@@ -91,23 +92,24 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 .Any(p => p.GetCustomAttributes(true).OfType<DbColumnTypeAttribute>().Any());
         }
 
-        private static bool IsModelType(Type type, Type columnAttributeType)
+        private static bool IsModelType(Type type, ProviderAttributeSet providerAttributes)
         {
             if (!type.IsClass || type.IsAbstract)
                 return false;
 
             return type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Any(p => p.GetCustomAttributes(true).Any(columnAttributeType.IsInstanceOfType));
+                .Any(p => !p.GetCustomAttributes(true).OfType<DbIgnoreAttribute>().Any() &&
+                          p.GetCustomAttributes(true).Any(providerAttributes.ColumnTypeAttribute.IsInstanceOfType));
         }
 
         private static ModelTableDefinition FromType(Type type, string defaultSchema)
-            => FromType(type, defaultSchema, typeof(DbColumnTypeAttribute), typeof(DbTableNameAttribute));
+            => FromType(type, defaultSchema, ProviderAttributeSet.Generic);
 
-        private static ModelTableDefinition FromType(Type type, string defaultSchema, Type columnAttributeType, Type tableAttributeType)
+        private static ModelTableDefinition FromType(Type type, string defaultSchema, ProviderAttributeSet providerAttributes)
         {
             var tableName = type.GetCustomAttributes(true)
                 .OfType<DbTableNameAttribute>()
-                .Where(a => tableAttributeType == null || tableAttributeType.IsInstanceOfType(a))
+                .Where(a => providerAttributes.TableNameAttribute.IsInstanceOfType(a))
                 .FirstOrDefault()?.TableName ?? type.Name;
 
             var table = new ModelTableDefinition
@@ -120,23 +122,26 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
             {
                 var attributes = property.GetCustomAttributes(true);
+                if (attributes.OfType<DbIgnoreAttribute>().Any())
+                    continue;
+
                 var typeAttribute = attributes
                     .OfType<DbColumnTypeAttribute>()
-                    .FirstOrDefault(a => columnAttributeType.IsInstanceOfType(a));
+                    .FirstOrDefault(a => providerAttributes.ColumnTypeAttribute.IsInstanceOfType(a));
                 if (typeAttribute == null)
                     continue;
 
                 var index = attributes.OfType<DbColumnIndexAttribute>().FirstOrDefault();
-                var foreignKey = attributes.OfType<DbColumnForeignKeyAttribute>().FirstOrDefault();
-                var primaryKey = attributes.OfType<DbColumnPrimaryKeyAttribute>().FirstOrDefault();
-                table.Columns.Add(new ModelColumnDefinition
+                var foreignKey = attributes.OfType<DbColumnForeignKeyAttribute>().FirstOrDefault(a => providerAttributes.ForeignKeyAttribute.IsInstanceOfType(a));
+                var primaryKey = attributes.OfType<DbColumnPrimaryKeyAttribute>().FirstOrDefault(a => providerAttributes.PrimaryKeyAttribute.IsInstanceOfType(a));
+                var columnName = attributes.OfType<DbColumnNameAttribute>().FirstOrDefault()?.ColumnName ?? property.Name;
+                var column = new ModelColumnDefinition
                 {
-                    Name = property.Name,
+                    Name = columnName,
                     StoreType = typeAttribute.GetColumnType(),
                     IsPrimaryKey = primaryKey != null,
-                    PrimaryKeySqlSnippet = primaryKey?.GetSqlSnippet() ?? string.Empty,
-                    IsRequired = attributes.OfType<DbColumnNotNullAttribute>().Any(),
-                    IsUnique = attributes.OfType<DbColumnUniqueAttribute>().Any(),
+                    IsRequired = attributes.OfType<DbColumnNotNullAttribute>().Any(a => providerAttributes.NotNullAttribute.IsInstanceOfType(a)),
+                    IsUnique = attributes.OfType<DbColumnUniqueAttribute>().Any(a => providerAttributes.UniqueAttribute.IsInstanceOfType(a)),
                     IsIndexed = index != null,
                     IndexName = index == null ? string.Empty : index.IndexName,
                     IsUniqueIndex = index != null && index.IsUnique,
@@ -145,7 +150,13 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                     ForeignKeyColumn = foreignKey?.ColumnName ?? string.Empty,
                     ForeignKeyTable = foreignKey?.ReferencedTable ?? string.Empty,
                     ForeignKeyReferenceColumn = foreignKey?.ReferencedColumn ?? string.Empty
-                });
+                };
+
+                if (primaryKey != null && providerAttributes.ValueGenerationResolver != null)
+                    column.ValueGeneration = providerAttributes.ValueGenerationResolver(primaryKey, column);
+                SetPrimaryKeySnippet(column, primaryKey);
+
+                table.Columns.Add(column);
             }
 
             return table;
@@ -165,6 +176,13 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             }
 
             return tables;
+        }
+
+        private static void SetPrimaryKeySnippet(ModelColumnDefinition column, DbColumnPrimaryKeyAttribute primaryKey)
+        {
+#pragma warning disable CS0618
+            column.PrimaryKeySqlSnippet = primaryKey?.GetSqlSnippet() ?? string.Empty;
+#pragma warning restore CS0618
         }
     }
 }

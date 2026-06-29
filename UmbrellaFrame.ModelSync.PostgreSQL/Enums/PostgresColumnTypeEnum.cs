@@ -1,4 +1,4 @@
-﻿
+
 namespace UmbrellaFrame.ModelSync.PostgreSQL
 {
     public enum PostgresColumnType

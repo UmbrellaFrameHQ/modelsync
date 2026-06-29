@@ -3,8 +3,9 @@ namespace UmbrellaFrame.ModelSync.Core
     public enum ModelSyncOperationRisk
     {
         Safe = 0,
-        Risky = 1,
-        Destructive = 2,
-        Unsupported = 3
+        SkippedByOption = 1,
+        Risky = 2,
+        Destructive = 3,
+        Unsupported = 4
     }
 }

@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using UmbrellaFrame.ModelSync.Core.Analyzers.Resources;
 
@@ -9,7 +9,7 @@ namespace UmbrellaFrame.ModelSync.Core.Analyzers.Attributes
         protected const int MaxVarcharLength = 65535;
 
         public string Length { get; }
-        public abstract string DatabaseType { get; } // Her veritabanı katmanında uygulanacak
+        public abstract string DatabaseType { get; } // Her veritaban� katman�nda uygulanacak
 
         protected DbColumnTypeAttribute(string length = null)
         {

@@ -1,4 +1,4 @@
-﻿
+
 using UmbrellaFrame.ModelSync.Core;
 
 namespace UmbrellaFrame.ModelSync.SqlServer
@@ -18,7 +18,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
 
             if (IsAutoIncrement)
             {
-                snippet += " IDENTITY(1,1)";
+                snippet = "IDENTITY(1,1) PRIMARY KEY";
             }
 
             return snippet;

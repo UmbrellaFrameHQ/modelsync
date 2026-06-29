@@ -10,7 +10,7 @@ Her provider kendi attribute setine sahiptir. Attribute isimleri şu şablonu iz
 
 Örnek: `MySqlColumnTypeAttribute`, `SqlServerColumnPrimaryKeyAttribute`, `PostgresTableNameAttribute`
 
-Bazı attribute'lar (`DbColumnDefault`, `DbColumnCheck`, `DbColumnIndex`) **tüm provider'larda ortaktır**
+Bazı attribute'lar (`DbColumnDefault`, `DbColumnCheck`, `DbColumnIndex`, `DbColumnName`, `DbIgnore`) **tüm provider'larda ortaktır**
 ve `UmbrellaFrame.ModelSync.Core` namespace'inden gelir.
 
 ---
@@ -333,6 +333,33 @@ CREATE UNIQUE INDEX `idx_users_email` ON `users` (`Email`);
 
 ---
 
+## 10. Kolon Adı Eşleme Attribute'u (Tüm provider'larda ortak)
+
+```csharp
+using UmbrellaFrame.ModelSync.Core;
+
+[DbColumnName("product_code")]
+[MySqlColumnType(MySqlColumnType.VARCHAR, "64")]
+public string Code { get; set; }
+```
+
+`DbColumnName` property adından farklı bir database kolon adı kullanmak için tasarlanmıştır. Verilen ad ModelSync identifier kurallarından geçmelidir; boşluk, nokta, tire, tırnak, noktalı virgül ve benzeri şüpheli karakterler reddedilir.
+
+---
+
+## 11. Ignore Attribute'u (Tüm provider'larda ortak)
+
+```csharp
+using UmbrellaFrame.ModelSync.Core;
+
+[DbIgnore]
+public string DisplayName => $"{FirstName} {LastName}";
+```
+
+`DbIgnore`, public olan ama database kolonu olmaması gereken hesaplanmış veya yardımcı property'leri schema discovery dışına çıkarır.
+
+---
+
 ## Attribute Kombinasyon Örneği
 
 ```csharp
@@ -344,6 +371,7 @@ public class Product
     public int Id { get; set; }
 
     [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
+    [DbColumnName("sku")]
     [MySqlColumnNotNull]
     [MySqlColumnUnique]
     [DbColumnIndex("idx_products_sku")]
@@ -362,5 +390,8 @@ public class Product
     [MySqlColumnType(MySqlColumnType.DATETIME)]
     [DbColumnDefault("CURRENT_TIMESTAMP")]
     public DateTime CreatedAt { get; set; }
+
+    [DbIgnore]
+    public string DisplayText => Sku;
 }
 ```

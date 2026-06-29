@@ -30,11 +30,16 @@ UmbrellaFrame.ModelSync.SQLite        SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer package
 ```
 
-Current package version: `1.0.8`
+Current package version: `1.1.0`
+
+Development status: the repository contains released 1.1.0 hardening work. NuGet packages are validated by the 1.1.0 provider integration gate.
+
+Architecture rule: `UmbrellaFrame.ModelSync.Core` owns SQL generation and migration planning through a provider-agnostic compiler. Provider packages supply structured descriptors, capabilities, mappings, attributes, connection adapters, and execution integration; they do not maintain independent framework SQL engines.
 
 ### What ModelSync Does
 
 - Generates `CREATE TABLE` SQL from attributed C# models.
+- Supports explicit column mapping with `DbColumnName` and schema-only public property exclusion with `DbIgnore`.
 - Generates `CREATE INDEX`, `DROP TABLE`, `TRUNCATE TABLE`, `ADD COLUMN`, `DROP COLUMN`, and `ALTER COLUMN TYPE` SQL where the provider supports it.
 - Executes generated DDL through explicit method calls.
 - Requires explicit opt-in for destructive operations.
@@ -51,15 +56,18 @@ ModelSync is intentionally not an ORM. It does not track entities, generate LINQ
 
 It is also not a silent production mutation engine. Live model synchronization is dry-run-first: ModelSync can apply safe additive operations, but destructive or risky operations are reported and blocked instead of being silently executed.
 
+Registered SQL scripts are treated as trusted project artifacts. ModelSync risk-classifies model-diff operations, but it does not parse arbitrary SQL script text to prove whether the script itself is destructive.
+
 ### Installation
 
 Install the provider package you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer
-dotnet add package UmbrellaFrame.ModelSync.MySql
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL
-dotnet add package UmbrellaFrame.ModelSync.SQLite
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
 ```
 
 Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
@@ -67,7 +75,7 @@ Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
 Analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
 ```
 
 ### Quick Start
@@ -223,9 +231,25 @@ await result.ThrowIfUnsupportedOrDestructiveAsync();
 await result.ApplyAsync(cancellationToken);
 ```
 
+`SafeOperations` can be applied automatically. `BlockedOperations` must be reviewed manually. `SkippedOperations` contains safe operations that were intentionally disabled by options, such as index or constraint apply flags.
+
 Safe automatic operations include missing tables, safe missing columns, indexes, and supported constraints. Drop, rename, type changes, and nullable-to-not-null changes are never silently applied.
 
 `FromAssemblies` is provider-aware and `FromTypes` scopes synchronization to the supplied model types. Extra database tables are reported as blocked `DropTable` operations only when `ReportUnmappedTables = true`. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
+
+ModelSync 1.1.0 adds table execution policies for mixed ownership:
+
+```csharp
+options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
+options.TablePolicies
+    .ForType<AuditLog>(ModelSyncTableMode.ApplySafeChanges)
+    .ForType<Notification>(ModelSyncTableMode.ApplySafeChanges)
+    .ForTable("legacy", "OldOrders", ModelSyncTableMode.Ignore);
+```
+
+`ManualOnly` operations are reported through `ManualOperations` and are never executed automatically. `ApplySafeChanges` never authorizes destructive schema changes.
+
+Migration runners expose operational hardening contracts for reset approval, readiness retry, migration locking, transaction policy, and structured execution results. Prefer a deployment-time migration job over every application instance running migrations at startup. If startup migration is used, configure a provider lock strategy before production rollout.
 
 ### Provider Support Matrix
 
@@ -311,42 +335,36 @@ dotnet_diagnostic.MSYNC003.severity = none
 
 Run unit tests:
 
-```powershell
-.\scripts\test.ps1
+```bash
+dotnet test ModelSync.sln -c Release --filter "Category!=Integration"
 ```
 
 Build solution:
 
-```powershell
-.\scripts\build.ps1
+```bash
+dotnet restore ModelSync.sln
+dotnet build ModelSync.sln -c Release --no-restore
 ```
 
 Pack NuGet artifacts:
 
-```powershell
-.\scripts\pack.ps1
-```
-
-If PowerShell blocks local scripts:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\pack.ps1
+```bash
+dotnet pack ModelSync.sln -c Release --no-build -o artifacts
 ```
 
 Integration tests are opt-in because they require live databases:
 
-```powershell
-$env:MODELSYNC_RUN_MYSQL_INTEGRATION = "1"
-$env:MODELSYNC_MYSQL_CONNECTION_STRING = "Server=localhost;Port=3306;Database=appdb;User ID=root;Password=rootpass;"
-.\scripts\test.ps1 -Integration
+```bash
+docker compose -f compose.integration.yml up -d
+MODELSYNC_RUN_MYSQL_INTEGRATION=1 MODELSYNC_MYSQL_CONNECTION_STRING="Server=127.0.0.1;Port=13306;Database=modelsync_integration;User ID=root;Password=ModelSync_Pass123;" dotnet test UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj -c Release --filter "Category=Integration"
 ```
 
-Stored procedure integration tests can use the Docker test environment when available:
+The Compose file uses explicit local-only test credentials. Do not reuse them in production. The release gate expects separate live results for SQL Server, MySQL, MariaDB, PostgreSQL, and SQLite; skipped provider tests are not counted as release evidence.
 
-```powershell
-.\scripts\start-test-databases.ps1
-$env:MODELSYNC_RUN_SP_INTEGRATION = "1"
-dotnet test ModelSync.sln -c Release --filter "Category=Integration"
+Stored procedure integration tests can use the same Docker test environment when available:
+
+```bash
+MODELSYNC_RUN_SP_INTEGRATION=1 dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 ```
 
 ### English Resources
@@ -407,11 +425,16 @@ UmbrellaFrame.ModelSync.SQLite        SQLite sağlayıcısı
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer paketi
 ```
 
-Güncel paket sürümü: `1.0.8`
+Güncel paket sürümü: `1.1.0`
+
+Gelistirme durumu: 1.1.0 sertlestirme calismalari provider entegrasyon kapilariyla dogrulanmistir. NuGet paketleri 1.1.0 surumundedir.
+
+Mimari kural: SQL üretimi ve migration planlama, provider-agnostic compiler ile `UmbrellaFrame.ModelSync.Core` katmanına aittir. Provider paketleri structured descriptor, capability, mapping, attribute, connection adapter ve execution entegrasyonu sağlar; bağımsız framework SQL motoru tutmaz.
 
 ### ModelSync Ne Yapar?
 
 - Attribute ile işaretlenmiş C# modellerinden `CREATE TABLE` SQL'i üretir.
+- `DbColumnName` ile açık kolon adı eşlemesini ve `DbIgnore` ile şema dışı public property hariç tutmayı destekler.
 - Sağlayıcı desteklediği sürece `CREATE INDEX`, `DROP TABLE`, `TRUNCATE TABLE`, `ADD COLUMN`, `DROP COLUMN` ve `ALTER COLUMN TYPE` SQL'i üretir.
 - Üretilen DDL'i açık metot çağrılarıyla çalıştırır.
 - Veri kaybı oluşturabilecek işlemler için açık onay ister.
@@ -433,10 +456,11 @@ ModelSync sessiz ve kontrolsüz bir production mutasyon motoru değildir. Canlı
 İhtiyacınız olan sağlayıcı paketini kurun:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer
-dotnet add package UmbrellaFrame.ModelSync.MySql
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL
-dotnet add package UmbrellaFrame.ModelSync.SQLite
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
 ```
 
 Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak getirir.
@@ -444,7 +468,7 @@ Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak 
 Analyzer paketi:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
 ```
 
 ### Hızlı Başlangıç
@@ -562,6 +586,8 @@ Runner history tabloları oluşturur, script hash'i tutar, embedded `.sql` resou
 
 History tabloları gereklidir; çünkü veritabanı kataloğu bir nesnenin var olup olmadığını gösterebilir, fakat hangi script versiyonunun uygulandığını, seed scriptinin daha önce çalışıp çalışmadığını veya son SQL hash'ini güvenilir şekilde tutmaz.
 
+Migration runner katmanı reset onayı, readiness retry, migration lock, transaction policy ve structured execution result için operasyonel sertleştirme sözleşmeleri sunar. Production için her uygulama instance'ının startup sırasında migration çalıştırması yerine deployment-time migration job tercih edin. Startup migration kullanılacaksa production öncesinde provider lock strategy yapılandırın.
+
 Veritabanı reset işlemi yıkıcıdır ve açık izin ister:
 
 ```csharp
@@ -599,7 +625,21 @@ await result.ThrowIfUnsupportedOrDestructiveAsync();
 await result.ApplyAsync(cancellationToken);
 ```
 
+`SafeOperations` otomatik uygulanabilir. `BlockedOperations` manuel incelenmelidir. `SkippedOperations`, seçeneklerle bilinçli kapatılmış güvenli işlemleri gösterir.
+
 Eksik tablo, güvenli eksik kolon, indeks ve desteklenen constraint eklemeleri otomatik uygulanabilir. Drop, rename, tip değişikliği ve nullable-to-not-null işlemleri sessiz uygulanmaz.
+
+Yayınlanmamış sertleştirme çalışması tablo bazlı execution policy ekler:
+
+```csharp
+options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
+options.TablePolicies
+    .ForType<AuditLog>(ModelSyncTableMode.ApplySafeChanges)
+    .ForType<Notification>(ModelSyncTableMode.ApplySafeChanges)
+    .ForTable("legacy", "OldOrders", ModelSyncTableMode.Ignore);
+```
+
+`ManualOnly` operasyonları `ManualOperations` altında raporlanır ve otomatik çalıştırılmaz. `ApplySafeChanges` destructive şema değişikliklerine hiçbir zaman izin vermez.
 
 ### Sağlayıcı Destek Matrisi
 
@@ -685,49 +725,41 @@ dotnet_diagnostic.MSYNC003.severity = none
 
 Birim testleri çalıştırma:
 
-```powershell
-.\scripts\test.ps1
+```bash
+dotnet test ModelSync.sln -c Release --filter "Category!=Integration"
 ```
 
 Solution build:
 
-```powershell
-.\scripts\build.ps1
+```bash
+dotnet restore ModelSync.sln
+dotnet build ModelSync.sln -c Release --no-restore
 ```
 
 NuGet paketlerini üretme:
 
-```powershell
-.\scripts\pack.ps1
-```
-
-PowerShell yerel scriptleri engellerse:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\pack.ps1
+```bash
+dotnet pack ModelSync.sln -c Release --no-build -o artifacts
 ```
 
 Entegrasyon testleri canlı veritabanı istediği için opt-in çalışır:
 
-```powershell
-$env:MODELSYNC_RUN_MYSQL_INTEGRATION = "1"
-$env:MODELSYNC_MYSQL_CONNECTION_STRING = "Server=localhost;Port=3306;Database=appdb;User ID=root;Password=rootpass;"
-.\scripts\test.ps1 -Integration
+```bash
+docker compose -f compose.integration.yml up -d
+MODELSYNC_RUN_MYSQL_INTEGRATION=1 MODELSYNC_MYSQL_CONNECTION_STRING="Server=127.0.0.1;Port=13306;Database=modelsync_integration;User ID=root;Password=ModelSync_Pass123;" dotnet test UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj -c Release --filter "Category=Integration"
 ```
 
 Stored procedure entegrasyon testleri uygun olduğunda Docker test ortamını kullanabilir:
 
-```powershell
-.\scripts\start-test-databases.ps1
-$env:MODELSYNC_RUN_SP_INTEGRATION = "1"
-dotnet test ModelSync.sln -c Release --filter "Category=Integration"
+```bash
+MODELSYNC_RUN_SP_INTEGRATION=1 dotnet test ModelSync.sln -c Release --filter "Category=Integration"
 ```
 
 ### Türkçe Kaynaklar
 
 | Kaynak | Açıklama |
 |---|---|
-| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.0.8 için kapsamlı Türkçe kullanım kılavuzu |
+| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.1.0 için kapsamlı Türkçe kullanım kılavuzu |
 | [Makaleler](articles/README.md) | ModelSync'i anlatmak için hazırlanmış yazılar |
 | [Örnekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive operation ve stored procedure örnekleri |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | Stored procedure senkronizasyon davranışı |

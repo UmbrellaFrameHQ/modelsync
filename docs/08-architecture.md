@@ -2,6 +2,44 @@
 
 ## Katman Diyagramı
 
+## Core-Owned SQL Kuralı
+
+ModelSync'te SQL üretim ve migration planlama otoritesi `UmbrellaFrame.ModelSync.Core` katmanındadır. Core somut provider dialect sınıfı taşımaz. Provider paketleri structured descriptor, ADO.NET bağlantısı, attribute, type mapping ve capability bilgisini sağlar; Core generic compiler bu descriptor ile provider'a uygun SQL üretir.
+
+The canonical SQL pipeline is provider-agnostic and descriptor-driven: Core owns the generic compiler and providers supply structured metadata instead of final framework SQL.
+
+Dependency yönü:
+
+```text
+Application
+   ↓
+Provider package
+   ↓
+UmbrellaFrame.ModelSync.Core
+```
+
+SQL authority akışı:
+
+```text
+Canonical metadata
+   ↓
+Provider descriptor
+   ↓
+Generic Core SQL compiler / planner
+   ↓
+Provider executor
+```
+
+Yeni model synchronizer DDL üretimi `Core.SqlGeneration.ModelSyncSqlDialect` generic compiler üzerinden yapılır. Provider paketleri `ModelSyncProviderDescriptor` üretir; descriptor identifier quote, schema davranışı, generated value yerleşimi, catalog style, history style ve routine capability gibi structured metadata taşır. Provider synchronizer sınıfları `CREATE TABLE`, `ADD COLUMN`, `INDEX`, `UNIQUE`, `CHECK`, `DEFAULT`, `FOREIGN KEY` veya stored procedure framework SQL metinlerini kendileri yazmaz.
+
+Kalan compatibility alanları:
+
+- Eski provider `TableGenerator` sınıfları public API uyumluluğu için durur.
+- Migration runner history, catalog introspection, parsed-column repair ve stored procedure framework planning Core SQL planlarına taşınmıştır.
+- Provider paketleri execution adapter olarak provider client davranışlarını yönetmeye devam eder.
+
+---
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                  Kullanıcı Kodu / Uygulama              │

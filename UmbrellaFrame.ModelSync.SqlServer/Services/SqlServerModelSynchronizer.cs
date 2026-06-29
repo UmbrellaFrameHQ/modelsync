@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Services;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 
 namespace UmbrellaFrame.ModelSync.SqlServer
 {
@@ -24,6 +25,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
     public sealed class SqlServerModelSynchronizer
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(SqlServerProviderDescriptor.Create());
         private readonly SqlServerModelSyncOptions _options;
         private readonly List<Assembly> _modelAssemblies;
         private readonly List<Type> _modelTypes;
@@ -67,21 +69,39 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             ValidateIdentifier(_options.DefaultSchema, nameof(_options.DefaultSchema));
             ValidateIdentifier(_options.HistorySchema, nameof(_options.HistorySchema));
 
+            var attributes = new ProviderAttributeSet(
+                typeof(SqlServerTableNameAttribute),
+                typeof(SqlServerColumnTypeAttribute),
+                typeof(SqlServerColumnPrimaryKeyAttribute),
+                typeof(SqlServerColumnNotNullAttribute),
+                typeof(SqlServerColumnUniqueAttribute),
+                typeof(SqlServerColumnForeignKey),
+                (pk, column) =>
+                {
+                    if (IsAutoIncrement(pk))
+                    {
+                        column.IdentitySeed = 1;
+                        column.IdentityIncrement = 1;
+                        return DbValueGenerationKind.Identity;
+                    }
+                    return DbValueGenerationKind.None;
+                });
+
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(SqlServerColumnTypeAttribute), typeof(SqlServerTableNameAttribute), _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(SqlServerColumnTypeAttribute), typeof(SqlServerTableNameAttribute), _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, attributes, _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, attributes, _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
 
             var builder = new ModelSyncPlanBuilder(
-                Quote,
-                Qualify,
-                BuildCreateTableSql,
-                BuildAddColumnSql,
-                BuildAddDefaultConstraintSql,
-                BuildAddCheckConstraintSql,
-                BuildAddUniqueConstraintSql,
-                BuildAddForeignKeySql,
-                BuildCreateIndexSql);
+                Dialect.Quote,
+                Dialect.Qualify,
+                Dialect.BuildCreateTableSql,
+                Dialect.BuildAddColumnSql,
+                Dialect.BuildAddDefaultConstraintSql,
+                Dialect.BuildAddCheckConstraintSql,
+                Dialect.BuildAddUniqueConstraintSql,
+                Dialect.BuildAddForeignKeySql,
+                Dialect.BuildCreateIndexSql);
 
             var operations = builder.Build(modelTables, databaseTables, _options).ToList();
             operations.AddRange(await BuildScriptPlansAsync(cancellationToken).ConfigureAwait(false));
@@ -117,7 +137,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
                             var sql = script.Category == MigrationScriptCategory.StoredProcedures
                                 ? SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(script.Sql)
                                 : script.Sql;
-                            foreach (var batch in SqlBatchSplitter.SplitSqlServerGoBatches(sql))
+                            foreach (var batch in SqlBatchSplitter.SplitGoBatches(sql))
                             {
                                 if (!string.IsNullOrWhiteSpace(batch))
                                     await ExecuteSqlAsync(batch, ct).ConfigureAwait(false);
@@ -167,10 +187,9 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         private async Task<IDictionary<string, DatabaseTableDefinition>> LoadDatabaseSchemaAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, DatabaseTableDefinition>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new SqlConnection(_options.ConnectionString))
+            using (var connection = SqlServerConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                await EnsureSchemaAsync(connection, _options.DefaultSchema, cancellationToken).ConfigureAwait(false);
                 await LoadTablesAndColumnsAsync(connection, result, cancellationToken).ConfigureAwait(false);
                 await LoadIndexesAsync(connection, result, cancellationToken).ConfigureAwait(false);
                 await LoadConstraintsAsync(connection, result, cancellationToken).ConfigureAwait(false);
@@ -179,29 +198,9 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             return result;
         }
 
-        private static async Task EnsureSchemaAsync(SqlConnection connection, string schema, CancellationToken cancellationToken)
-        {
-            ValidateIdentifier(schema, nameof(schema));
-            using (var command = new SqlCommand($"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{EscapeLiteral(schema)}') EXEC('CREATE SCHEMA [{EscapeIdentifier(schema)}] AUTHORIZATION dbo;');", connection))
-                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-
         private async Task LoadTablesAndColumnsAsync(SqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
-            const string sql = @"
-SELECT s.name AS SchemaName, t.name AS TableName, c.name AS ColumnName,
-       ty.name AS TypeName, c.max_length, c.precision, c.scale, c.is_nullable,
-       CASE WHEN dc.object_id IS NULL THEN 0 ELSE 1 END AS HasDefault,
-       CASE WHEN cc.object_id IS NULL THEN 0 ELSE 1 END AS HasCheck
-FROM sys.tables t
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-JOIN sys.columns c ON c.object_id = t.object_id
-JOIN sys.types ty ON ty.user_type_id = c.user_type_id
-LEFT JOIN sys.default_constraints dc ON dc.parent_object_id = t.object_id AND dc.parent_column_id = c.column_id
-LEFT JOIN sys.check_constraints cc ON cc.parent_object_id = t.object_id AND cc.parent_column_id = c.column_id
-WHERE s.name = @Schema;";
-
-            using (var command = new SqlCommand(sql, connection))
+            using (var command = new SqlCommand(Dialect.BuildReadColumnsPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -232,21 +231,27 @@ WHERE s.name = @Schema;";
 
         private async Task LoadIndexesAsync(SqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
-            const string sql = @"
-SELECT s.name, t.name, i.name
-FROM sys.indexes i
-JOIN sys.tables t ON t.object_id = i.object_id
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-WHERE i.is_primary_key = 0 AND i.name IS NOT NULL AND s.name = @Schema;";
-            using (var command = new SqlCommand(sql, connection))
+            using (var command = new SqlCommand(Dialect.BuildReadIndexesPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    var semanticIndexes = new Dictionary<string, DatabaseIndexDefinition>(StringComparer.OrdinalIgnoreCase);
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         if (result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
-                            table.Indexes.Add(reader.GetString(2));
+                        {
+                            var indexName = reader.GetString(2);
+                            table.Indexes.Add(indexName);
+                            var key = ModelSyncPlanBuilder.Key(reader.GetString(1), indexName);
+                            if (!semanticIndexes.TryGetValue(key, out var index))
+                            {
+                                index = new DatabaseIndexDefinition { Name = indexName, IsUnique = reader.GetBoolean(3) };
+                                semanticIndexes[key] = index;
+                                table.SemanticIndexes.Add(index);
+                            }
+                            index.Columns.Add(reader.GetString(4));
+                        }
                     }
                 }
             }
@@ -254,15 +259,7 @@ WHERE i.is_primary_key = 0 AND i.name IS NOT NULL AND s.name = @Schema;";
 
         private async Task LoadConstraintsAsync(SqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
-            const string uniqueSql = @"
-SELECT s.name, t.name, kc.name, c.name
-FROM sys.key_constraints kc
-JOIN sys.tables t ON t.object_id = kc.parent_object_id
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
-JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-WHERE kc.type = 'UQ' AND s.name = @Schema;";
-            using (var command = new SqlCommand(uniqueSql, connection))
+            using (var command = new SqlCommand(Dialect.BuildReadConstraintsPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -278,90 +275,48 @@ WHERE kc.type = 'UQ' AND s.name = @Schema;";
                 }
             }
 
-            const string fkSql = @"
-SELECT s.name, t.name, fk.name, pc.name, rt.name
-FROM sys.foreign_keys fk
-JOIN sys.tables t ON t.object_id = fk.parent_object_id
-JOIN sys.schemas s ON s.schema_id = t.schema_id
-JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
-JOIN sys.columns pc ON pc.object_id = fkc.parent_object_id AND pc.column_id = fkc.parent_column_id
-JOIN sys.tables rt ON rt.object_id = fkc.referenced_object_id
-WHERE s.name = @Schema;";
-            using (var command = new SqlCommand(fkSql, connection))
+            using (var command = new SqlCommand(Dialect.BuildReadForeignKeysPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    var semanticForeignKeys = new Dictionary<string, DatabaseForeignKeyDefinition>(StringComparer.OrdinalIgnoreCase);
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         if (result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
                         {
-                            table.ForeignKeys.Add(reader.GetString(2));
-                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(3)}_{reader.GetString(4)}");
+                            var fkName = reader.GetString(2);
+                            table.ForeignKeys.Add(fkName);
+                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(3)}_{reader.GetString(5)}");
+                            var key = ModelSyncPlanBuilder.Key(reader.GetString(1), fkName);
+                            if (!semanticForeignKeys.TryGetValue(key, out var foreignKey))
+                            {
+                                foreignKey = new DatabaseForeignKeyDefinition
+                                {
+                                    Name = fkName,
+                                    ReferencedSchema = reader.GetString(4),
+                                    ReferencedTable = reader.GetString(5)
+                                };
+                                semanticForeignKeys[key] = foreignKey;
+                                table.SemanticForeignKeys.Add(foreignKey);
+                            }
+                            foreignKey.LocalColumns.Add(reader.GetString(3));
+                            foreignKey.ReferencedColumns.Add(reader.GetString(6));
                         }
                     }
                 }
             }
         }
 
-        private string BuildCreateTableSql(ModelTableDefinition table)
+        private static bool IsAutoIncrement(DbColumnPrimaryKeyAttribute attribute)
         {
-            var lines = new List<string>();
-            var primaryKeys = table.Columns.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToList();
-            foreach (var column in table.Columns)
-                lines.Add("    " + BuildColumnDefinition(column, primaryKeys.Count <= 1));
-            if (primaryKeys.Count > 1)
-                lines.Add("    PRIMARY KEY (" + string.Join(", ", primaryKeys.Select(Quote)) + ")");
-            return $"CREATE TABLE {Qualify(table.Schema, table.Name)} ({Environment.NewLine}{string.Join("," + Environment.NewLine, lines)}{Environment.NewLine});";
-        }
-
-        private string BuildAddColumnSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD {BuildColumnDefinition(column, true)};";
-
-        private string BuildColumnDefinition(ModelColumnDefinition column, bool allowInlinePrimaryKey)
-        {
-            var sql = new StringBuilder();
-            sql.Append($"{Quote(column.Name)} {column.StoreType}");
-            if (column.IsPrimaryKey && allowInlinePrimaryKey)
-                sql.Append(" " + PrimaryKeySql(column));
-            if (column.IsRequired)
-                sql.Append(" NOT NULL");
-            if (column.IsUnique)
-                sql.Append(" UNIQUE");
-            if (!string.IsNullOrWhiteSpace(column.DefaultSql))
-                sql.Append(" DEFAULT " + column.DefaultSql);
-            if (!string.IsNullOrWhiteSpace(column.CheckSql))
-                sql.Append(" CHECK (" + column.CheckSql + ")");
-            return sql.ToString();
-        }
-
-        private static string PrimaryKeySql(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.PrimaryKeySqlSnippet) ? "PRIMARY KEY" : column.PrimaryKeySqlSnippet;
-
-        private string BuildAddDefaultConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"DF_{table.Name}_{column.Name}")} DEFAULT {column.DefaultSql} FOR {Quote(column.Name)};";
-
-        private string BuildAddCheckConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"CK_{table.Name}_{column.Name}")} CHECK ({column.CheckSql});";
-
-        private string BuildAddUniqueConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"UQ_{table.Name}_{column.Name}")} UNIQUE ({Quote(column.Name)});";
-
-        private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(ForeignKeyColumn(column))}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
-
-        private static string ForeignKeyColumn(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
-
-        private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
-        {
-            var indexName = string.IsNullOrWhiteSpace(column.IndexName) ? $"idx_{table.Name}_{column.Name}" : column.IndexName;
-            return $"CREATE {(column.IsUniqueIndex ? "UNIQUE " : string.Empty)}INDEX {Quote(indexName)} ON {Qualify(table.Schema, table.Name)} ({Quote(column.Name)});";
+            var property = attribute.GetType().GetProperty("IsAutoIncrement");
+            return property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(attribute, null);
         }
 
         private async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_options.ConnectionString))
+            using (var connection = SqlServerConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = new SqlCommand(sql, connection))
@@ -370,19 +325,13 @@ WHERE s.name = @Schema;";
         }
 
         private static string Qualify(string schema, string table)
-            => $"{Quote(schema)}.{Quote(table)}";
+            => Dialect.Qualify(schema, table);
 
         private static string Quote(string identifier)
-        {
-            ValidateIdentifier(identifier, nameof(identifier));
-            return "[" + EscapeIdentifier(identifier) + "]";
-        }
+            => Dialect.Quote(identifier);
 
         private static void ValidateIdentifier(string identifier, string parameterName)
-        {
-            if (string.IsNullOrWhiteSpace(identifier) || !SafeIdentifierPattern.IsMatch(identifier))
-                throw new ArgumentException($"Invalid SQL identifier '{identifier}'.", parameterName);
-        }
+            => SqlIdentifierValidator.Validate(identifier, parameterName);
 
         private static string EscapeIdentifier(string identifier)
             => identifier.Replace("]", "]]");

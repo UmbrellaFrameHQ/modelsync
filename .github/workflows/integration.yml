@@ -2,6 +2,9 @@ name: Integration Tests
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
 
 jobs:
   database-integration:
@@ -79,15 +82,18 @@ jobs:
           dotnet restore UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj
           dotnet restore UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj
           dotnet restore UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj
+          dotnet restore UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj
 
       - name: Build
         run: |
           dotnet build UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj --configuration Release --no-restore
           dotnet build UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --configuration Release --no-restore
           dotnet build UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --configuration Release --no-restore
+          dotnet build UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --configuration Release --no-restore
 
       - name: Run integration tests
         run: |
           dotnet test UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj --configuration Release --no-build --filter "Category=Integration"
           dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --configuration Release --no-build --filter "Category=Integration"
           dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --configuration Release --no-build --filter "Category=Integration"
+          dotnet test UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --configuration Release --no-build --filter "Category=Integration"

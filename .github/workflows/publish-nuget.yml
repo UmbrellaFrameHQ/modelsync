@@ -1,0 +1,60 @@
+name: Publish NuGet
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version to publish
+        required: true
+        type: string
+      confirmation:
+        description: Type PUBLISH-1.1.0 to confirm publishing
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish NuGet packages
+    runs-on: ubuntu-latest
+    environment: nuget-production
+
+    steps:
+      - name: Validate dispatch input
+        run: |
+          test "${{ inputs.version }}" = "1.1.0"
+          test "${{ inputs.confirmation }}" = "PUBLISH-1.1.0"
+          test "${GITHUB_REF}" = "refs/tags/v1.1.0"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: v1.1.0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore
+        run: dotnet restore ModelSync.sln
+
+      - name: Build
+        run: dotnet build ModelSync.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ModelSync.sln --configuration Release --no-build --filter "Category!=Integration"
+
+      - name: Verify repository
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-all
+
+      - name: Pack
+        run: dotnet pack ModelSync.sln --configuration Release --no-build --output ./artifacts
+
+      - name: Package smoke
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke artifacts 1.1.0
+
+      - name: Publish packages
+        run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

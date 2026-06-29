@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.SqlServer;

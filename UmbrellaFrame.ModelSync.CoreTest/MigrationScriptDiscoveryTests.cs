@@ -35,7 +35,7 @@ public class MigrationScriptDiscoveryTests
     [Test]
     public void SqlServerGoSplitter_ShouldSplitGoBatches()
     {
-        var batches = SqlBatchSplitter.SplitSqlServerGoBatches("SELECT 1;\r\nGO\r\nSELECT 2;\r\nGO");
+        var batches = SqlBatchSplitter.SplitGoBatches("SELECT 1;\r\nGO\r\nSELECT 2;\r\nGO");
 
         Assert.That(batches, Has.Count.EqualTo(2));
         Assert.That(batches[0], Does.Contain("SELECT 1"));

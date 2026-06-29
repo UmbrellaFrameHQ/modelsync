@@ -1,4 +1,4 @@
-﻿
+
 using System;
 using UmbrellaFrame.ModelSync.Core.Resources;
 

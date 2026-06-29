@@ -22,25 +22,16 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore ModelSync.sln
 
       - name: Build
-        run: |
-          dotnet build UmbrellaFrame.ModelSync.Core/UmbrellaFrame.ModelSync.Core.csproj --no-restore --configuration Release
-          dotnet build UmbrellaFrame.ModelSync.MySql/UmbrellaFrame.ModelSync.MySql.csproj --no-restore --configuration Release
-          dotnet build UmbrellaFrame.ModelSync.SqlServer/UmbrellaFrame.ModelSync.SqlServer.csproj --no-restore --configuration Release
-          dotnet build UmbrellaFrame.ModelSync.PostgreSQL/UmbrellaFrame.ModelSync.PostgreSQL.csproj --no-restore --configuration Release
-          dotnet build UmbrellaFrame.ModelSync.SQLite/UmbrellaFrame.ModelSync.SQLite.csproj --no-restore --configuration Release
-          dotnet build UmbrellaFrame.ModelSync.Analyzers/UmbrellaFrame.ModelSync.Core.Analyzers.csproj --no-restore --configuration Release
+        run: dotnet build ModelSync.sln --no-restore --configuration Release
 
       - name: Test
-        run: |
-          dotnet test UmbrellaFrame.ModelSync.CoreTest/UmbrellaFrame.ModelSync.CoreTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
-          dotnet test UmbrellaFrame.ModelSync.MySqlTest/UmbrellaFrame.ModelSync.MySqlTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
-          dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
-          dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
-          dotnet test UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
-          dotnet test UmbrellaFrame.ModelSync.AnalyzersTest/UmbrellaFrame.ModelSync.AnalyzersTest.csproj --no-restore --configuration Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+        run: dotnet test ModelSync.sln --configuration Release --no-build --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Verify repository
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-all
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -64,16 +55,13 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore ModelSync.sln
 
       - name: Pack
-        run: |
-          dotnet pack UmbrellaFrame.ModelSync.Core/UmbrellaFrame.ModelSync.Core.csproj --configuration Release --no-restore --output ./nupkg
-          dotnet pack UmbrellaFrame.ModelSync.MySql/UmbrellaFrame.ModelSync.MySql.csproj --configuration Release --no-restore --output ./nupkg
-          dotnet pack UmbrellaFrame.ModelSync.SqlServer/UmbrellaFrame.ModelSync.SqlServer.csproj --configuration Release --no-restore --output ./nupkg
-          dotnet pack UmbrellaFrame.ModelSync.PostgreSQL/UmbrellaFrame.ModelSync.PostgreSQL.csproj --configuration Release --no-restore --output ./nupkg
-          dotnet pack UmbrellaFrame.ModelSync.SQLite/UmbrellaFrame.ModelSync.SQLite.csproj --configuration Release --no-restore --output ./nupkg
-          dotnet pack UmbrellaFrame.ModelSync.Analyzers/UmbrellaFrame.ModelSync.Core.Analyzers.csproj --configuration Release --no-restore --output ./nupkg
+        run: dotnet pack ModelSync.sln --configuration Release --no-build --output ./nupkg
+
+      - name: Package smoke test
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke nupkg 1.1.0
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MySqlConnector;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Services;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 
 namespace UmbrellaFrame.ModelSync.MySql
 {
@@ -24,6 +25,7 @@ namespace UmbrellaFrame.ModelSync.MySql
     public sealed class MySqlModelSynchronizer
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(MySqlProviderDescriptor.Create());
         private readonly MySqlModelSyncOptions _options;
         private readonly List<Assembly> _modelAssemblies;
         private readonly List<Type> _modelTypes;
@@ -66,20 +68,29 @@ namespace UmbrellaFrame.ModelSync.MySql
         public async Task<ModelSyncResult> CompareAsync(CancellationToken cancellationToken = default)
         {
             ValidateIdentifier(_options.DefaultSchema, nameof(_options.DefaultSchema));
+            var attributes = new ProviderAttributeSet(
+                typeof(MySqlTableNameAttribute),
+                typeof(MySqlColumnTypeAttribute),
+                typeof(MySqlColumnPrimaryKeyAttribute),
+                typeof(MySqlColumnNotNullAttribute),
+                typeof(MySqlColumnUniqueAttribute),
+                typeof(MySqlForeignKeyAttribute),
+                (pk, column) => IsAutoIncrement(pk) ? DbValueGenerationKind.AutoIncrement : DbValueGenerationKind.None);
+
             var modelTables = _modelTypes.Count > 0
-                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, typeof(MySqlColumnTypeAttribute), typeof(MySqlTableNameAttribute), _modelTypes.ToArray())
-                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, typeof(MySqlColumnTypeAttribute), typeof(MySqlTableNameAttribute), _modelAssemblies.ToArray());
+                ? ModelSchemaReader.FromTypes(_options.DefaultSchema, attributes, _modelTypes.ToArray())
+                : ModelSchemaReader.FromAssemblies(_options.DefaultSchema, attributes, _modelAssemblies.ToArray());
             var databaseTables = await LoadDatabaseSchemaAsync(cancellationToken).ConfigureAwait(false);
             var builder = new ModelSyncPlanBuilder(
-                Quote,
-                Qualify,
-                BuildCreateTableSql,
-                BuildAddColumnSql,
-                BuildAddDefaultConstraintSql,
-                BuildAddCheckConstraintSql,
-                BuildAddUniqueConstraintSql,
-                BuildAddForeignKeySql,
-                BuildCreateIndexSql);
+                Dialect.Quote,
+                Dialect.Qualify,
+                Dialect.BuildCreateTableSql,
+                Dialect.BuildAddColumnSql,
+                Dialect.BuildAddDefaultConstraintSql,
+                Dialect.BuildAddCheckConstraintSql,
+                Dialect.BuildAddUniqueConstraintSql,
+                Dialect.BuildAddForeignKeySql,
+                Dialect.BuildCreateIndexSql);
             var operations = builder.Build(modelTables, databaseTables, _options).ToList();
             operations.AddRange(await BuildScriptPlansAsync(cancellationToken).ConfigureAwait(false));
             return new ModelSyncResult(operations, ExecuteSqlAsync);
@@ -139,15 +150,10 @@ namespace UmbrellaFrame.ModelSync.MySql
         private async Task<IDictionary<string, DatabaseTableDefinition>> LoadDatabaseSchemaAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, DatabaseTableDefinition>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new MySqlConnection(_options.ConnectionString))
+            using (var connection = MySqlConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                const string columnsSql = @"
-SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, IS_NULLABLE,
-       CASE WHEN COLUMN_DEFAULT IS NULL THEN 0 ELSE 1 END AS HasDefault
-FROM information_schema.columns
-WHERE TABLE_SCHEMA = @Schema;";
-                using (var command = new MySqlCommand(columnsSql, connection))
+                using (var command = new MySqlCommand(Dialect.BuildReadColumnsPlan().CommandText, connection))
                 {
                     command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -181,21 +187,35 @@ WHERE TABLE_SCHEMA = @Schema;";
 
         private async Task LoadIndexesAsync(MySqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
-            const string sql = @"SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_SCHEMA = @Schema AND INDEX_NAME <> 'PRIMARY';";
-            using (var command = new MySqlCommand(sql, connection))
+            using (var command = new MySqlCommand(Dialect.BuildReadIndexesPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    var semanticIndexes = new Dictionary<string, DatabaseIndexDefinition>(StringComparer.OrdinalIgnoreCase);
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
                         if (result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
-                            table.Indexes.Add(reader.GetString(2));
+                        {
+                            var indexName = reader.GetString(2);
+                            table.Indexes.Add(indexName);
+                            var key = ModelSyncPlanBuilder.Key(reader.GetString(1), indexName);
+                            if (!semanticIndexes.TryGetValue(key, out var index))
+                            {
+                                index = new DatabaseIndexDefinition { Name = indexName, IsUnique = Convert.ToInt32(reader.GetValue(3)) == 0 };
+                                semanticIndexes[key] = index;
+                                table.SemanticIndexes.Add(index);
+                            }
+                            index.Columns.Add(reader.GetString(4));
+                        }
+                    }
+                }
             }
         }
 
         private async Task LoadConstraintsAsync(MySqlConnection connection, IDictionary<string, DatabaseTableDefinition> result, CancellationToken cancellationToken)
         {
-            const string sql = @"SELECT TABLE_SCHEMA, TABLE_NAME, CONSTRAINT_NAME, CONSTRAINT_TYPE FROM information_schema.table_constraints WHERE TABLE_SCHEMA = @Schema;";
-            using (var command = new MySqlCommand(sql, connection))
+            using (var command = new MySqlCommand(Dialect.BuildReadConstraintsPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -213,20 +233,12 @@ WHERE TABLE_SCHEMA = @Schema;";
                 }
             }
 
-            const string keyColumns = @"
-SELECT k.TABLE_SCHEMA, k.TABLE_NAME, k.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE, k.COLUMN_NAME, k.REFERENCED_TABLE_NAME
-FROM information_schema.key_column_usage k
-JOIN information_schema.table_constraints tc
-  ON tc.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA
- AND tc.TABLE_NAME = k.TABLE_NAME
- AND tc.CONSTRAINT_NAME = k.CONSTRAINT_NAME
-WHERE k.TABLE_SCHEMA = @Schema
-  AND tc.CONSTRAINT_TYPE IN ('UNIQUE', 'FOREIGN KEY');";
-            using (var command = new MySqlCommand(keyColumns, connection))
+            using (var command = new MySqlCommand(Dialect.BuildReadConstraintColumnsPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    var semanticForeignKeys = new Dictionary<string, DatabaseForeignKeyDefinition>(StringComparer.OrdinalIgnoreCase);
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         if (!result.TryGetValue(ModelSyncPlanBuilder.Key(reader.GetString(0), reader.GetString(1)), out var table))
@@ -235,14 +247,29 @@ WHERE k.TABLE_SCHEMA = @Schema
                         var type = reader.GetString(3);
                         if (type == "UNIQUE")
                             table.UniqueConstraints.Add($"UQ_{reader.GetString(1)}_{reader.GetString(4)}");
-                        if (type == "FOREIGN KEY" && !reader.IsDBNull(5))
-                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(4)}_{reader.GetString(5)}");
+                        if (type == "FOREIGN KEY" && !reader.IsDBNull(6))
+                        {
+                            table.ForeignKeys.Add($"FK_{reader.GetString(1)}_{reader.GetString(4)}_{reader.GetString(6)}");
+                            var key = ModelSyncPlanBuilder.Key(reader.GetString(1), reader.GetString(2));
+                            if (!semanticForeignKeys.TryGetValue(key, out var foreignKey))
+                            {
+                                foreignKey = new DatabaseForeignKeyDefinition
+                                {
+                                    Name = reader.GetString(2),
+                                    ReferencedSchema = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                                    ReferencedTable = reader.GetString(6)
+                                };
+                                semanticForeignKeys[key] = foreignKey;
+                                table.SemanticForeignKeys.Add(foreignKey);
+                            }
+                            foreignKey.LocalColumns.Add(reader.GetString(4));
+                            foreignKey.ReferencedColumns.Add(reader.GetString(7));
+                        }
                     }
                 }
             }
 
-            const string checks = @"SELECT CONSTRAINT_SCHEMA, TABLE_NAME, CONSTRAINT_NAME FROM information_schema.check_constraints WHERE CONSTRAINT_SCHEMA = @Schema;";
-            using (var command = new MySqlCommand(checks, connection))
+            using (var command = new MySqlCommand(Dialect.BuildReadChecksPlan().CommandText, connection))
             {
                 command.Parameters.AddWithValue("@Schema", _options.DefaultSchema);
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -253,64 +280,15 @@ WHERE k.TABLE_SCHEMA = @Schema
             }
         }
 
-        private string BuildCreateTableSql(ModelTableDefinition table)
+        private static bool IsAutoIncrement(DbColumnPrimaryKeyAttribute attribute)
         {
-            var lines = new List<string>();
-            var primaryKeys = table.Columns.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToList();
-            foreach (var column in table.Columns)
-                lines.Add("    " + BuildColumnDefinition(column, primaryKeys.Count <= 1));
-            if (primaryKeys.Count > 1)
-                lines.Add("    PRIMARY KEY (" + string.Join(", ", primaryKeys.Select(Quote)) + ")");
-            return $"CREATE TABLE {Qualify(table.Schema, table.Name)} ({Environment.NewLine}{string.Join("," + Environment.NewLine, lines)}{Environment.NewLine});";
-        }
-
-        private string BuildAddColumnSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD COLUMN {BuildColumnDefinition(column, true)};";
-
-        private string BuildColumnDefinition(ModelColumnDefinition column, bool allowInlinePrimaryKey)
-        {
-            var sql = new StringBuilder();
-            sql.Append($"{Quote(column.Name)} {column.StoreType}");
-            if (column.IsPrimaryKey && allowInlinePrimaryKey)
-                sql.Append(" " + PrimaryKeySql(column));
-            if (column.IsRequired)
-                sql.Append(" NOT NULL");
-            if (column.IsUnique)
-                sql.Append(" UNIQUE");
-            if (!string.IsNullOrWhiteSpace(column.DefaultSql))
-                sql.Append(" DEFAULT " + column.DefaultSql);
-            if (!string.IsNullOrWhiteSpace(column.CheckSql))
-                sql.Append(" CHECK (" + column.CheckSql + ")");
-            return sql.ToString();
-        }
-
-        private static string PrimaryKeySql(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.PrimaryKeySqlSnippet) ? "PRIMARY KEY" : column.PrimaryKeySqlSnippet;
-
-        private string BuildAddDefaultConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ALTER {Quote(column.Name)} SET DEFAULT {column.DefaultSql};";
-
-        private string BuildAddCheckConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"CK_{table.Name}_{column.Name}")} CHECK ({column.CheckSql});";
-
-        private string BuildAddUniqueConstraintSql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"UQ_{table.Name}_{column.Name}")} UNIQUE ({Quote(column.Name)});";
-
-        private string BuildAddForeignKeySql(ModelTableDefinition table, ModelColumnDefinition column)
-            => $"ALTER TABLE {Qualify(table.Schema, table.Name)} ADD CONSTRAINT {Quote($"FK_{table.Name}_{ForeignKeyColumn(column)}_{column.ForeignKeyTable}")} FOREIGN KEY ({Quote(ForeignKeyColumn(column))}) REFERENCES {Qualify(table.Schema, column.ForeignKeyTable)} ({Quote(column.ForeignKeyReferenceColumn)});";
-
-        private static string ForeignKeyColumn(ModelColumnDefinition column)
-            => string.IsNullOrWhiteSpace(column.ForeignKeyColumn) ? column.Name : column.ForeignKeyColumn;
-
-        private string BuildCreateIndexSql(ModelTableDefinition table, ModelColumnDefinition column)
-        {
-            var indexName = string.IsNullOrWhiteSpace(column.IndexName) ? $"idx_{table.Name}_{column.Name}" : column.IndexName;
-            return $"CREATE {(column.IsUniqueIndex ? "UNIQUE " : string.Empty)}INDEX {Quote(indexName)} ON {Qualify(table.Schema, table.Name)} ({Quote(column.Name)});";
+            var property = attribute.GetType().GetProperty("IsAutoIncrement");
+            return property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(attribute, null);
         }
 
         private async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
-            using (var connection = new MySqlConnection(_options.ConnectionString))
+            using (var connection = MySqlConnectionFactory.Create(_options.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = new MySqlCommand(sql, connection))
@@ -319,19 +297,13 @@ WHERE k.TABLE_SCHEMA = @Schema
         }
 
         private static string Qualify(string schema, string table)
-            => string.IsNullOrWhiteSpace(schema) ? Quote(table) : $"{Quote(schema)}.{Quote(table)}";
+            => Dialect.Qualify(schema, table);
 
         private static string Quote(string identifier)
-        {
-            ValidateIdentifier(identifier, nameof(identifier));
-            return "`" + identifier.Replace("`", "``") + "`";
-        }
+            => Dialect.Quote(identifier);
 
         private static void ValidateIdentifier(string identifier, string parameterName)
-        {
-            if (string.IsNullOrWhiteSpace(identifier) || !SafeIdentifierPattern.IsMatch(identifier))
-                throw new ArgumentException($"Invalid SQL identifier '{identifier}'.", parameterName);
-        }
+            => SqlIdentifierValidator.Validate(identifier, parameterName);
 
         private static string BuildMySqlStoreType(string type, long length, int precision, int scale)
         {

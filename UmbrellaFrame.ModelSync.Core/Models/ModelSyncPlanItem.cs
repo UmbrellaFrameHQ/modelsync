@@ -3,6 +3,9 @@ namespace UmbrellaFrame.ModelSync.Core
     public sealed class ModelSyncPlanItem
     {
         public System.Func<ModelSyncPlanItem, System.Threading.CancellationToken, System.Threading.Tasks.Task>? ApplyOperationAsync { get; set; }
+        public ModelSyncPlanPhase Phase { get; set; } = ModelSyncPlanPhase.BlockedReview;
+        public ModelSyncTableMode TableMode { get; set; } = ModelSyncTableMode.Inherit;
+        public ModelSyncOperationDisposition Disposition { get; set; } = ModelSyncOperationDisposition.Automatic;
         public ModelSyncChangeType ChangeType { get; set; }
         public ModelSyncOperationRisk Risk { get; set; }
         public string Schema { get; set; } = string.Empty;

@@ -9,7 +9,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         public static IReadOnlyList<string> SingleBatch(string sql)
             => new[] { sql };
 
-        public static IReadOnlyList<string> SplitSqlServerGoBatches(string sql)
+        public static IReadOnlyList<string> SplitGoBatches(string sql)
         {
             var batches = Regex.Split(sql ?? string.Empty, @"^\s*GO\s*;?\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
             var result = new List<string>();

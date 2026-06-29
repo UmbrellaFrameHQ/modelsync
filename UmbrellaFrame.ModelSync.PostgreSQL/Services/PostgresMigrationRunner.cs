@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using UmbrellaFrame.ModelSync.Core;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 using UmbrellaFrame.ModelSync.Core.Services;
 
 namespace UmbrellaFrame.ModelSync.PostgreSQL
@@ -16,23 +17,28 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
     public sealed class PostgresMigrationRunner : SqlMigrationRunnerBase
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(PostgresProviderDescriptor.Create());
         private readonly string _connectionString;
 
         public PostgresMigrationRunner(string connectionString, MigrationRunnerOptions options = null, ILogger<PostgresMigrationRunner> logger = null)
-            : base(ConfigureDefaults(options), logger ?? NullLogger<PostgresMigrationRunner>.Instance)
+            : base(ConfigureDefaults(options), logger ?? NullLogger<PostgresMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
             _connectionString = connectionString;
         }
 
+        protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(PostgresConnectionFactory.Create(_connectionString));
+
         protected override async Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
             var builder = new NpgsqlConnectionStringBuilder(_connectionString);
             var database = builder.Database;
             ValidateIdentifier(database, nameof(database));
+            ValidateResetDatabaseName(database);
             builder.Database = "postgres";
-            using (var connection = new NpgsqlConnection(builder.ConnectionString))
+            using (var connection = PostgresConnectionFactory.Create(builder.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var terminate = new NpgsqlCommand("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = @db AND pid <> pg_backend_pid();", connection))
@@ -49,13 +55,14 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
 
         protected override async Task EnsureSchemasAsync(IEnumerable<string> schemas, CancellationToken cancellationToken)
         {
-            using (var connection = new NpgsqlConnection(_connectionString))
+            using (var connection = PostgresConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var schema in schemas.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     ValidateIdentifier(schema, nameof(schema));
-                    using (var command = new NpgsqlCommand($"CREATE SCHEMA IF NOT EXISTS \"{EscapeIdentifier(schema)}\";", connection))
+                    var plan = Dialect.BuildEnsureSchemaPlan(schema);
+                    using (var command = new NpgsqlCommand(plan.CommandText, connection))
                         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -63,26 +70,19 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
 
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
-            var schema = EscapeIdentifier(HistorySchema());
-            var sql = $@"
-CREATE SCHEMA IF NOT EXISTS ""{schema}"";
-CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_Tables""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_StoredProcedures""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_Triggers""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_Seeds""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);
-CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_CustomSql""(""Id"" VARCHAR(128) PRIMARY KEY, ""Name"" VARCHAR(256) NOT NULL, ""SqlHash"" VARCHAR(128) NULL, ""AppliedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, ""UpdateAt"" TIMESTAMP NULL);";
-            await ExecuteSqlAsync(sql, cancellationToken).ConfigureAwait(false);
+            await ExecuteSqlAsync(Dialect.BuildEnsureHistoryInfrastructurePlan(HistorySchema()).CommandText, cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new NpgsqlConnection(_connectionString))
+            using (var connection = PostgresConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
-                    using (var command = new NpgsqlCommand($"SELECT \"Id\", \"SqlHash\" FROM \"{EscapeIdentifier(HistorySchema())}\".\"{HistoryTable(category)}\";", connection))
+                    var plan = Dialect.BuildReadHistoryPlan(HistorySchema(), category);
+                    using (var command = new NpgsqlCommand(plan.CommandText, connection))
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                     {
                         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_CustomSql""(""Id"" VAR
 
         protected override async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
-            using (var connection = new NpgsqlConnection(_connectionString))
+            using (var connection = PostgresConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = new NpgsqlCommand(sql, connection))
@@ -105,19 +105,13 @@ CREATE TABLE IF NOT EXISTS ""{schema}"".""SchemaMigration_CustomSql""(""Id"" VAR
 
         protected override async Task RecordHistoryAsync(MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
         {
-            var schema = EscapeIdentifier(HistorySchema());
-            var sql = $@"
-INSERT INTO ""{schema}"".""{HistoryTable(definition.Category)}""(""Id"", ""Name"", ""SqlHash"")
-VALUES (@Id, @Name, @SqlHash)
-ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = EXCLUDED.""SqlHash"", ""UpdateAt"" = CURRENT_TIMESTAMP;";
-            using (var connection = new NpgsqlConnection(_connectionString))
+            var plan = Dialect.BuildRecordHistoryPlan(HistorySchema(), definition.Category, definition.Id, definition.Name, hash);
+            using (var connection = PostgresConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                using (var command = new NpgsqlCommand(sql, connection))
+                using (var command = new NpgsqlCommand(plan.CommandText, connection))
                 {
-                    command.Parameters.AddWithValue("@Id", definition.Id);
-                    command.Parameters.AddWithValue("@Name", definition.Name);
-                    command.Parameters.AddWithValue("@SqlHash", hash);
+                    AddParameters(command, plan);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -127,7 +121,7 @@ ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = E
         {
             var columns = TableScriptColumnParser.Parse(definition.Sql, "public");
             var result = new List<string>();
-            using (var connection = new NpgsqlConnection(_connectionString))
+            using (var connection = PostgresConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var column in columns)
@@ -135,19 +129,23 @@ ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = E
                     ValidateIdentifier(column.Schema, nameof(column.Schema));
                     ValidateIdentifier(column.Table, nameof(column.Table));
                     ValidateIdentifier(column.Column, nameof(column.Column));
-                    const string existsSql = @"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = @Schema AND table_name = @Table AND column_name = @Column;";
-                    using (var command = new NpgsqlCommand(existsSql, connection))
+                    var plan = Dialect.BuildParsedColumnExistsPlan(column);
+                    using (var command = new NpgsqlCommand(plan.CommandText, connection))
                     {
-                        command.Parameters.AddWithValue("@Schema", column.Schema);
-                        command.Parameters.AddWithValue("@Table", column.Table);
-                        command.Parameters.AddWithValue("@Column", column.Column);
+                        AddParameters(command, plan);
                         var exists = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)) > 0;
                         if (!exists)
-                            result.Add($"ALTER TABLE \"{EscapeIdentifier(column.Schema)}\".\"{EscapeIdentifier(column.Table)}\" ADD COLUMN \"{EscapeIdentifier(column.Column)}\" {column.Definition};");
+                            result.Add(Dialect.BuildAddParsedColumnSql(column));
                     }
                 }
             }
             return result;
+        }
+
+        protected override bool IsMissingInfrastructureException(Exception exception)
+        {
+            var postgres = exception as PostgresException;
+            return postgres != null && (postgres.SqlState == "42P01" || postgres.SqlState == "3F000");
         }
 
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
@@ -173,18 +171,6 @@ ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = E
             return schema;
         }
 
-        private static string HistoryTable(MigrationScriptCategory category)
-        {
-            switch (category)
-            {
-                case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
-                case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
-                case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
-                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
-                default: return "SchemaMigration_Tables";
-            }
-        }
-
         private static void ValidateIdentifier(string identifier, string parameterName)
         {
             if (string.IsNullOrWhiteSpace(identifier) || !SafeIdentifierPattern.IsMatch(identifier))
@@ -193,5 +179,23 @@ ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"", ""SqlHash"" = E
 
         private static string EscapeIdentifier(string identifier)
             => identifier.Replace("\"", "\"\"");
+
+        private static void AddParameters(NpgsqlCommand command, ModelSyncSqlCommand plan)
+        {
+            foreach (var parameter in plan.Parameters)
+                command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
+        }
+
+        protected override void ValidateResetDatabaseName(string databaseName)
+        {
+            base.ValidateResetDatabaseName(databaseName);
+            var blocked = new[] { "postgres", "template0", "template1" };
+            if (blocked.Contains(databaseName, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"PostgreSQL system database '{databaseName}' cannot be reset.");
+
+            var expected = Options.ResetOptions?.ExpectedDatabaseName;
+            if (!string.IsNullOrWhiteSpace(expected) && !string.Equals(expected, databaseName, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Expected database name does not match the PostgreSQL target database.");
+        }
     }
 }

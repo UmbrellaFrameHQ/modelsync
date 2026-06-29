@@ -1,4 +1,4 @@
-﻿
+
 namespace UmbrellaFrame.ModelSync.SqlServer
 {
     public enum SqlServerColumnType

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySqlConnector;
 using UmbrellaFrame.ModelSync.Core;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 using UmbrellaFrame.ModelSync.Core.Services;
 
 namespace UmbrellaFrame.ModelSync.MySql
@@ -16,24 +17,29 @@ namespace UmbrellaFrame.ModelSync.MySql
     public sealed class MySqlMigrationRunner : SqlMigrationRunnerBase
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(MySqlProviderDescriptor.Create());
         private readonly string _connectionString;
 
         public MySqlMigrationRunner(string connectionString, MigrationRunnerOptions options = null, ILogger<MySqlMigrationRunner> logger = null)
-            : base(options, logger ?? NullLogger<MySqlMigrationRunner>.Instance)
+            : base(options, logger ?? NullLogger<MySqlMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
             _connectionString = connectionString;
         }
 
+        protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(MySqlConnectionFactory.Create(_connectionString));
+
         protected override async Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
             var builder = new MySqlConnectionStringBuilder(_connectionString);
             var database = builder.Database;
             ValidateIdentifier(database, nameof(database));
+            ValidateResetDatabaseName(database);
             builder.Database = string.Empty;
 
-            using (var connection = new MySqlConnection(builder.ConnectionString))
+            using (var connection = MySqlConnectionFactory.Create(builder.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var drop = new MySqlCommand($"DROP DATABASE IF EXISTS `{EscapeIdentifier(database)}`;", connection))
@@ -48,55 +54,21 @@ namespace UmbrellaFrame.ModelSync.MySql
 
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
-            const string sql = @"
-CREATE TABLE IF NOT EXISTS `SchemaMigration_Tables`(
-    `Id` VARCHAR(128) NOT NULL PRIMARY KEY,
-    `Name` VARCHAR(256) NOT NULL,
-    `SqlHash` VARCHAR(128) NULL,
-    `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `UpdateAt` DATETIME NULL
-);
-CREATE TABLE IF NOT EXISTS `SchemaMigration_StoredProcedures`(
-    `Id` VARCHAR(128) NOT NULL PRIMARY KEY,
-    `Name` VARCHAR(256) NOT NULL,
-    `SqlHash` VARCHAR(128) NULL,
-    `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `UpdateAt` DATETIME NULL
-);
-CREATE TABLE IF NOT EXISTS `SchemaMigration_Triggers`(
-    `Id` VARCHAR(128) NOT NULL PRIMARY KEY,
-    `Name` VARCHAR(256) NOT NULL,
-    `SqlHash` VARCHAR(128) NULL,
-    `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `UpdateAt` DATETIME NULL
-);
-CREATE TABLE IF NOT EXISTS `SchemaMigration_Seeds`(
-    `Id` VARCHAR(128) NOT NULL PRIMARY KEY,
-    `Name` VARCHAR(256) NOT NULL,
-    `SqlHash` VARCHAR(128) NULL,
-    `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `UpdateAt` DATETIME NULL
-);
-CREATE TABLE IF NOT EXISTS `SchemaMigration_CustomSql`(
-    `Id` VARCHAR(128) NOT NULL PRIMARY KEY,
-    `Name` VARCHAR(256) NOT NULL,
-    `SqlHash` VARCHAR(128) NULL,
-    `AppliedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `UpdateAt` DATETIME NULL
-);";
-            foreach (var statement in sql.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+            var plan = Dialect.BuildEnsureHistoryInfrastructurePlan(string.Empty);
+            foreach (var statement in plan.CommandText.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                 await ExecuteSqlAsync(statement, cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new MySqlConnection(_connectionString))
+            using (var connection = MySqlConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
-                    using (var command = new MySqlCommand($"SELECT `Id`, `SqlHash` FROM `{HistoryTable(category)}`;", connection))
+                    var plan = Dialect.BuildReadHistoryPlan(string.Empty, category);
+                    using (var command = new MySqlCommand(plan.CommandText, connection))
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                     {
                         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -111,7 +83,7 @@ CREATE TABLE IF NOT EXISTS `SchemaMigration_CustomSql`(
 
         protected override async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
-            using (var connection = new MySqlConnection(_connectionString))
+            using (var connection = MySqlConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = new MySqlCommand(sql, connection))
@@ -121,18 +93,13 @@ CREATE TABLE IF NOT EXISTS `SchemaMigration_CustomSql`(
 
         protected override async Task RecordHistoryAsync(MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
         {
-            var sql = $@"
-INSERT INTO `{HistoryTable(definition.Category)}`(`Id`, `Name`, `SqlHash`)
-VALUES (@Id, @Name, @SqlHash)
-ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`), `SqlHash` = VALUES(`SqlHash`), `UpdateAt` = CURRENT_TIMESTAMP;";
-            using (var connection = new MySqlConnection(_connectionString))
+            var plan = Dialect.BuildRecordHistoryPlan(string.Empty, definition.Category, definition.Id, definition.Name, hash);
+            using (var connection = MySqlConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                using (var command = new MySqlCommand(sql, connection))
+                using (var command = new MySqlCommand(plan.CommandText, connection))
                 {
-                    command.Parameters.AddWithValue("@Id", definition.Id);
-                    command.Parameters.AddWithValue("@Name", definition.Name);
-                    command.Parameters.AddWithValue("@SqlHash", hash);
+                    AddParameters(command, plan);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -143,7 +110,7 @@ ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`), `SqlHash` = VALUES(`SqlHash`), 
             var database = new MySqlConnectionStringBuilder(_connectionString).Database;
             var columns = TableScriptColumnParser.Parse(definition.Sql, database);
             var result = new List<string>();
-            using (var connection = new MySqlConnection(_connectionString))
+            using (var connection = MySqlConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var column in columns)
@@ -151,31 +118,23 @@ ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`), `SqlHash` = VALUES(`SqlHash`), 
                     ValidateIdentifier(column.Schema, nameof(column.Schema));
                     ValidateIdentifier(column.Table, nameof(column.Table));
                     ValidateIdentifier(column.Column, nameof(column.Column));
-                    const string existsSql = @"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = @Schema AND table_name = @Table AND column_name = @Column;";
-                    using (var command = new MySqlCommand(existsSql, connection))
+                    var plan = Dialect.BuildParsedColumnExistsPlan(column);
+                    using (var command = new MySqlCommand(plan.CommandText, connection))
                     {
-                        command.Parameters.AddWithValue("@Schema", column.Schema);
-                        command.Parameters.AddWithValue("@Table", column.Table);
-                        command.Parameters.AddWithValue("@Column", column.Column);
+                        AddParameters(command, plan);
                         var exists = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)) > 0;
                         if (!exists)
-                            result.Add($"ALTER TABLE `{EscapeIdentifier(column.Schema)}`.`{EscapeIdentifier(column.Table)}` ADD COLUMN `{EscapeIdentifier(column.Column)}` {column.Definition};");
+                            result.Add(Dialect.BuildAddParsedColumnSql(column));
                     }
                 }
             }
             return result;
         }
 
-        private static string HistoryTable(MigrationScriptCategory category)
+        protected override bool IsMissingInfrastructureException(Exception exception)
         {
-            switch (category)
-            {
-                case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
-                case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
-                case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
-                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
-                default: return "SchemaMigration_Tables";
-            }
+            var mysql = exception as MySqlException;
+            return mysql != null && (mysql.Number == 1146 || mysql.Number == 1049);
         }
 
         private static void ValidateIdentifier(string identifier, string parameterName)
@@ -186,5 +145,22 @@ ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`), `SqlHash` = VALUES(`SqlHash`), 
 
         private static string EscapeIdentifier(string identifier)
             => identifier.Replace("`", "``");
+
+        private static void AddParameters(MySqlCommand command, ModelSyncSqlCommand plan)
+        {
+            foreach (var parameter in plan.Parameters)
+                command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
+        }
+
+        protected override void ValidateResetDatabaseName(string databaseName)
+        {
+            base.ValidateResetDatabaseName(databaseName);
+            if (Dialect.SystemDatabaseNames.Contains(databaseName, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"MySQL/MariaDB system database '{databaseName}' cannot be reset.");
+
+            var expected = Options.ResetOptions?.ExpectedDatabaseName;
+            if (!string.IsNullOrWhiteSpace(expected) && !string.Equals(expected, databaseName, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Expected database name does not match the MySQL/MariaDB target database.");
+        }
     }
 }

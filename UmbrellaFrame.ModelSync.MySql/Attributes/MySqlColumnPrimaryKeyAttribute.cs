@@ -1,4 +1,4 @@
-﻿
+
 using UmbrellaFrame.ModelSync.Core;
 
 namespace UmbrellaFrame.ModelSync.MySql
@@ -18,7 +18,7 @@ namespace UmbrellaFrame.ModelSync.MySql
 
             if (IsAutoIncrement)
             {
-                snippet += " AUTO_INCREMENT";
+                snippet = "AUTO_INCREMENT PRIMARY KEY";
             }
 
             return snippet;

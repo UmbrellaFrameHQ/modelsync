@@ -1,4 +1,4 @@
-﻿
+
 using UmbrellaFrame.ModelSync.Core;
 
 namespace UmbrellaFrame.ModelSync.SQLite

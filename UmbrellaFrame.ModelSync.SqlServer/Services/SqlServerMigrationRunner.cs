@@ -8,6 +8,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using UmbrellaFrame.ModelSync.Core;
+using UmbrellaFrame.ModelSync.Core.SqlGeneration;
 using UmbrellaFrame.ModelSync.Core.Services;
 
 namespace UmbrellaFrame.ModelSync.SqlServer
@@ -16,13 +17,14 @@ namespace UmbrellaFrame.ModelSync.SqlServer
     public sealed class SqlServerMigrationRunner : SqlMigrationRunnerBase
     {
         private static readonly Regex SafeIdentifierPattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+        private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(SqlServerProviderDescriptor.Create());
         private readonly string _connectionString;
 
         public SqlServerMigrationRunner(
             string connectionString,
             MigrationRunnerOptions options = null,
             ILogger<SqlServerMigrationRunner> logger = null)
-            : base(ConfigureDefaults(options), logger ?? NullLogger<SqlServerMigrationRunner>.Instance)
+            : base(ConfigureDefaults(options), logger ?? NullLogger<SqlServerMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
@@ -30,7 +32,10 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         }
 
         protected override IReadOnlyList<string> SplitBatches(string sql)
-            => SqlBatchSplitter.SplitSqlServerGoBatches(sql);
+            => SqlBatchSplitter.SplitGoBatches(sql);
+
+        protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(SqlServerConnectionFactory.Create(_connectionString));
 
         protected override async Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
@@ -40,9 +45,10 @@ namespace UmbrellaFrame.ModelSync.SqlServer
                 throw new InvalidOperationException("SQL Server reset requires Initial Catalog in the connection string.");
 
             ValidateIdentifier(targetDb, nameof(targetDb));
+            ValidateResetDatabaseName(targetDb);
             builder.InitialCatalog = "master";
 
-            using (var connection = new SqlConnection(builder.ConnectionString))
+            using (var connection = SqlServerConnectionFactory.Create(builder.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 var sql = $@"
@@ -61,15 +67,16 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
 
         protected override async Task EnsureSchemasAsync(IEnumerable<string> schemas, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = SqlServerConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var schema in schemas.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     ValidateIdentifier(schema, nameof(schema));
-                    var sql = $"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{EscapeLiteral(schema)}') EXEC('CREATE SCHEMA [{EscapeIdentifier(schema)}] AUTHORIZATION dbo;');";
-                    using (var command = new SqlCommand(sql, connection))
+                    var plan = Dialect.BuildEnsureSchemaPlan(schema);
+                    using (var command = new SqlCommand(plan.CommandText, connection))
                     {
+                        AddParameters(command, plan);
                         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                     }
                 }
@@ -78,70 +85,19 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
 
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
-            var schema = HistorySchema();
-            var escapedSchema = EscapeIdentifier(schema);
-            var literalSchema = EscapeLiteral(schema);
-            var sql = $@"
-IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{literalSchema}') EXEC('CREATE SCHEMA [{escapedSchema}] AUTHORIZATION dbo;');
-
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Tables' AND schema_id = SCHEMA_ID('{literalSchema}'))
-CREATE TABLE [{escapedSchema}].[SchemaMigration_Tables](
-    [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
-    [Name] NVARCHAR(256) NOT NULL,
-    [SqlHash] NVARCHAR(128) NULL,
-    [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_Tables_AppliedAt DEFAULT SYSUTCDATETIME(),
-    [UpdateAt] DATETIME2 NULL
-);
-
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_StoredProcedures' AND schema_id = SCHEMA_ID('{literalSchema}'))
-CREATE TABLE [{escapedSchema}].[SchemaMigration_StoredProcedures](
-    [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
-    [Name] NVARCHAR(256) NOT NULL,
-    [SqlHash] NVARCHAR(128) NULL,
-    [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_StoredProcedures_AppliedAt DEFAULT SYSUTCDATETIME(),
-    [UpdateAt] DATETIME2 NULL
-);
-
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Triggers' AND schema_id = SCHEMA_ID('{literalSchema}'))
-CREATE TABLE [{escapedSchema}].[SchemaMigration_Triggers](
-    [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
-    [Name] NVARCHAR(256) NOT NULL,
-    [SqlHash] NVARCHAR(128) NULL,
-    [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_Triggers_AppliedAt DEFAULT SYSUTCDATETIME(),
-    [UpdateAt] DATETIME2 NULL
-);
-
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_Seeds' AND schema_id = SCHEMA_ID('{literalSchema}'))
-CREATE TABLE [{escapedSchema}].[SchemaMigration_Seeds](
-    [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
-    [Name] NVARCHAR(256) NOT NULL,
-    [SqlHash] NVARCHAR(128) NULL,
-    [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_Seeds_AppliedAt DEFAULT SYSUTCDATETIME(),
-    [UpdateAt] DATETIME2 NULL
-);
-
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SchemaMigration_CustomSql' AND schema_id = SCHEMA_ID('{literalSchema}'))
-CREATE TABLE [{escapedSchema}].[SchemaMigration_CustomSql](
-    [Id] NVARCHAR(128) NOT NULL PRIMARY KEY,
-    [Name] NVARCHAR(256) NOT NULL,
-    [SqlHash] NVARCHAR(128) NULL,
-    [AppliedAt] DATETIME2 NOT NULL CONSTRAINT DF_ModelSync_CustomSql_AppliedAt DEFAULT SYSUTCDATETIME(),
-    [UpdateAt] DATETIME2 NULL
-);";
-
-            await ExecuteSqlAsync(sql, cancellationToken).ConfigureAwait(false);
+            await ExecuteCommandAsync(Dialect.BuildEnsureHistoryInfrastructurePlan(HistorySchema()), cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = SqlServerConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
-                    var table = HistoryTable(category);
-                    using (var command = new SqlCommand($"SELECT [Id], [SqlHash] FROM [{EscapeIdentifier(HistorySchema())}].[{table}]", connection))
+                    var plan = Dialect.BuildReadHistoryPlan(HistorySchema(), category);
+                    using (var command = new SqlCommand(plan.CommandText, connection))
                     using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                     {
                         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -159,7 +115,7 @@ CREATE TABLE [{escapedSchema}].[SchemaMigration_CustomSql](
 
         protected override async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = SqlServerConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var command = new SqlCommand(sql, connection))
@@ -171,23 +127,13 @@ CREATE TABLE [{escapedSchema}].[SchemaMigration_CustomSql](
 
         protected override async Task RecordHistoryAsync(MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
         {
-            var table = HistoryTable(definition.Category);
-            var schema = EscapeIdentifier(HistorySchema());
-            var sql = $@"
-MERGE [{schema}].[{table}] AS target
-USING (SELECT @Id AS Id, @Name AS Name, @SqlHash AS SqlHash) AS source
-ON target.Id = source.Id
-WHEN MATCHED THEN UPDATE SET [Name] = source.Name, [SqlHash] = source.SqlHash, [UpdateAt] = SYSUTCDATETIME()
-WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source.Name, source.SqlHash);";
-
-            using (var connection = new SqlConnection(_connectionString))
+            var plan = Dialect.BuildRecordHistoryPlan(HistorySchema(), definition.Category, definition.Id, definition.Name, hash);
+            using (var connection = SqlServerConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = new SqlCommand(plan.CommandText, connection))
                 {
-                    command.Parameters.AddWithValue("@Id", definition.Id);
-                    command.Parameters.AddWithValue("@Name", definition.Name);
-                    command.Parameters.AddWithValue("@SqlHash", hash);
+                    AddParameters(command, plan);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -197,7 +143,7 @@ WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source
         {
             var columns = TableScriptColumnParser.Parse(definition.Sql, "dbo");
             var result = new List<string>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = SqlServerConnectionFactory.Create(_connectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var column in columns)
@@ -206,21 +152,55 @@ WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source
                     ValidateIdentifier(column.Table, nameof(column.Table));
                     ValidateIdentifier(column.Column, nameof(column.Column));
 
-                    using (var command = new SqlCommand("SELECT COL_LENGTH(@ObjectName, @ColumnName)", connection))
+                    var plan = Dialect.BuildParsedColumnExistsPlan(column);
+                    using (var command = new SqlCommand(plan.CommandText, connection))
                     {
-                        command.Parameters.AddWithValue("@ObjectName", $"{column.Schema}.{column.Table}");
-                        command.Parameters.AddWithValue("@ColumnName", column.Column);
+                        AddParameters(command, plan);
                         var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
                         var exists = value != null && value != DBNull.Value;
                         if (!exists)
                         {
-                            result.Add($"ALTER TABLE [{EscapeIdentifier(column.Schema)}].[{EscapeIdentifier(column.Table)}] ADD [{EscapeIdentifier(column.Column)}] {column.Definition};");
+                            result.Add(Dialect.BuildAddParsedColumnSql(column));
                         }
                     }
                 }
             }
 
             return result;
+        }
+
+        protected override bool IsMissingInfrastructureException(Exception exception)
+        {
+            var sql = exception as SqlException;
+            if (sql == null)
+                return false;
+
+            foreach (SqlError error in sql.Errors)
+            {
+                if (error.Number == 208 || error.Number == 2760 || error.Number == 15151)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private async Task ExecuteCommandAsync(ModelSyncSqlCommand plan, CancellationToken cancellationToken)
+        {
+            using (var connection = SqlServerConnectionFactory.Create(_connectionString))
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                using (var command = new SqlCommand(plan.CommandText, connection))
+                {
+                    AddParameters(command, plan);
+                    await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        private static void AddParameters(SqlCommand command, ModelSyncSqlCommand plan)
+        {
+            foreach (var parameter in plan.Parameters)
+                command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
         }
 
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
@@ -257,23 +237,67 @@ WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source
             await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
         }
 
+        protected override async Task<MigrationExecutionItemResult> ApplyPlanWithResultAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
+        {
+            if (plan.Definition.Category != MigrationScriptCategory.StoredProcedures)
+                return await base.ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
+
+            var startedAt = DateTimeOffset.UtcNow;
+            var result = new MigrationExecutionItemResult
+            {
+                Category = plan.Definition.Category,
+                ScriptId = plan.Definition.Id,
+                Name = plan.Definition.Name,
+                Source = plan.Definition.Source,
+                Action = plan.ChangeType == MigrationChangeType.Reapply ? MigrationExecutionAction.Reapplied : MigrationExecutionAction.Applied,
+                ExistingHash = plan.CurrentHash,
+                TargetHash = plan.TargetHash,
+                StartedAt = startedAt
+            };
+
+            try
+            {
+                var batches = SplitBatches(SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(plan.SqlToApply))
+                    .Where(batch => !string.IsNullOrWhiteSpace(batch))
+                    .ToList();
+                result.BatchCount = batches.Count;
+                foreach (var batch in batches)
+                {
+                    await ExecuteSqlAsync(batch, cancellationToken).ConfigureAwait(false);
+                    result.CompletedBatchCount++;
+                }
+
+                await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+                result.CompletedAt = DateTimeOffset.UtcNow;
+                return result;
+            }
+            catch (Exception ex) when (!(ex is OperationCanceledException))
+            {
+                result.Action = MigrationExecutionAction.Failed;
+                result.FailureStage = result.CompletedBatchCount < result.BatchCount ? "ExecuteBatch" : "RecordHistory";
+                result.ErrorCode = ex.GetType().Name;
+                result.CompletedAt = DateTimeOffset.UtcNow;
+                return result;
+            }
+        }
+
+        protected override void ValidateResetDatabaseName(string databaseName)
+        {
+            base.ValidateResetDatabaseName(databaseName);
+            var blocked = new[] { "master", "model", "msdb", "tempdb" };
+            if (blocked.Contains(databaseName, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"SQL Server system database '{databaseName}' cannot be reset.");
+
+            var expected = Options.ResetOptions?.ExpectedDatabaseName;
+            if (!string.IsNullOrWhiteSpace(expected) && !string.Equals(expected, databaseName, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Expected database name does not match the SQL Server target database.");
+        }
+
         private string HistorySchema()
         {
             var schema = string.IsNullOrWhiteSpace(Options.HistorySchema) ? "sec" : Options.HistorySchema;
             ValidateIdentifier(schema, nameof(Options.HistorySchema));
             return schema;
-        }
-
-        private static string HistoryTable(MigrationScriptCategory category)
-        {
-            switch (category)
-            {
-                case MigrationScriptCategory.StoredProcedures: return "SchemaMigration_StoredProcedures";
-                case MigrationScriptCategory.Triggers: return "SchemaMigration_Triggers";
-                case MigrationScriptCategory.Seeds: return "SchemaMigration_Seeds";
-                case MigrationScriptCategory.CustomSql: return "SchemaMigration_CustomSql";
-                default: return "SchemaMigration_Tables";
-            }
         }
 
         private static void ValidateIdentifier(string identifier, string parameterName)
@@ -287,5 +311,6 @@ WHEN NOT MATCHED THEN INSERT ([Id], [Name], [SqlHash]) VALUES (source.Id, source
 
         private static string EscapeLiteral(string value)
             => value.Replace("'", "''");
+
     }
 }

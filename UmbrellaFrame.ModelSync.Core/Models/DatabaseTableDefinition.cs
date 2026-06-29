@@ -14,5 +14,9 @@ namespace UmbrellaFrame.ModelSync.Core
             = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         public ISet<string> ForeignKeys { get; }
             = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        public IList<DatabaseIndexDefinition> SemanticIndexes { get; }
+            = new List<DatabaseIndexDefinition>();
+        public IList<DatabaseForeignKeyDefinition> SemanticForeignKeys { get; }
+            = new List<DatabaseForeignKeyDefinition>();
     }
 }

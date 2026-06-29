@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -51,7 +51,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             return $"DELETE FROM {QuoteIdentifier(tableName)};";
         }
 
-        // ── DDL execution ───────────────────────────────────────────────────
+        // �� DDL execution ���������������������������������������������������
 
         /// <inheritdoc/>
         /// <remarks>SQLite automatically creates the database file on first connection. This is a no-op.</remarks>
@@ -67,7 +67,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
         {
             foreach (var sqlCommand in SqlCache.Values)
             {
-                using var connection = new SqliteConnection(_connectionString);
+                using var connection = SQLiteConnectionFactory.Create(_connectionString);
                 connection.Open();
                 using var command = new SqliteCommand(sqlCommand, connection);
                 command.ExecuteNonQuery();
@@ -80,7 +80,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             foreach (var sqlCommand in SqlCache.Values)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                using var connection = new SqliteConnection(_connectionString);
+                using var connection = SQLiteConnectionFactory.Create(_connectionString);
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using var command = new SqliteCommand(sqlCommand, connection);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -99,7 +99,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             foreach (var type in SqlCache.Keys)
             {
                 var sql = BuildDropTableSql(type);
-                using var connection = new SqliteConnection(_connectionString);
+                using var connection = SQLiteConnectionFactory.Create(_connectionString);
                 connection.Open();
                 using var command = new SqliteCommand(sql, connection);
                 command.ExecuteNonQuery();
@@ -119,20 +119,20 @@ namespace UmbrellaFrame.ModelSync.SQLite
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var sql = BuildDropTableSql(type);
-                using var connection = new SqliteConnection(_connectionString);
+                using var connection = SQLiteConnectionFactory.Create(_connectionString);
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using var command = new SqliteCommand(sql, connection);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 
-        // ── ALTER TABLE ─────────────────────────────────────────────────────
+        // �� ALTER TABLE �����������������������������������������������������
 
         /// <inheritdoc/>
         public void AddColumn<T>(string columnName) where T : class, new()
         {
             var sql = BuildAddColumnSql<T>(columnName);
-            using var connection = new SqliteConnection(_connectionString);
+            using var connection = SQLiteConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqliteCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -142,7 +142,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
         public async Task AddColumnAsync<T>(string columnName, CancellationToken cancellationToken = default) where T : class, new()
         {
             var sql = BuildAddColumnSql<T>(columnName);
-            using var connection = new SqliteConnection(_connectionString);
+            using var connection = SQLiteConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqliteCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -158,7 +158,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             RequireDestructivePermission(options, nameof(DropColumn));
 
             var sql = BuildDropColumnSql<T>(columnName);
-            using var connection = new SqliteConnection(_connectionString);
+            using var connection = SQLiteConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqliteCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -174,7 +174,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             RequireDestructivePermission(options, nameof(DropColumnAsync));
 
             var sql = BuildDropColumnSql<T>(columnName);
-            using var connection = new SqliteConnection(_connectionString);
+            using var connection = SQLiteConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqliteCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -184,7 +184,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
         public void RenameColumn<T>(string oldColumnName, string newColumnName) where T : class, new()
         {
             var sql = BuildRenameColumnSql<T>(oldColumnName, newColumnName);
-            using var connection = new SqliteConnection(_connectionString);
+            using var connection = SQLiteConnectionFactory.Create(_connectionString);
             connection.Open();
             using var command = new SqliteCommand(sql, connection);
             command.ExecuteNonQuery();
@@ -194,7 +194,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
         public async Task RenameColumnAsync<T>(string oldColumnName, string newColumnName, CancellationToken cancellationToken = default) where T : class, new()
         {
             var sql = BuildRenameColumnSql<T>(oldColumnName, newColumnName);
-            using var connection = new SqliteConnection(_connectionString);
+            using var connection = SQLiteConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             using var command = new SqliteCommand(sql, connection);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -226,4 +226,3 @@ namespace UmbrellaFrame.ModelSync.SQLite
         }
     }
 }
-

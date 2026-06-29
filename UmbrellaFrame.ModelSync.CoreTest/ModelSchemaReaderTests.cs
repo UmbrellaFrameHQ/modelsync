@@ -12,6 +12,14 @@ public class ModelSchemaReaderTests
         [FakeColumnType("INT")]
         [FakePrimaryKey("PRIMARY KEY GENERATED")]
         public int Id { get; set; }
+
+        [DbColumnName("ProductCode")]
+        [FakeColumnType("VARCHAR(32)")]
+        public string Code { get; set; } = string.Empty;
+
+        [DbIgnore]
+        [FakeColumnType("INT")]
+        public int Ignored { get; set; }
     }
 
     [OtherTableName("other_products")]
@@ -48,7 +56,25 @@ public class ModelSchemaReaderTests
         Assert.That(tables, Has.Count.EqualTo(1));
         Assert.That(tables[0].Name, Is.EqualTo("provider_products"));
         Assert.That(tables[0].Columns[0].StoreType, Is.EqualTo("INT"));
-        Assert.That(tables[0].Columns[0].PrimaryKeySqlSnippet, Is.EqualTo("PRIMARY KEY GENERATED"));
+        Assert.That(tables[0].Columns.Any(c => c.Name == "Ignored"), Is.False);
+        Assert.That(tables[0].Columns.Any(c => c.Name == "ProductCode"), Is.True);
+    }
+
+    [Test]
+    public void FromTypes_WithProviderAttributeSet_ShouldReadStructuredValueGeneration()
+    {
+        var provider = new ProviderAttributeSet(
+            typeof(FakeTableNameAttribute),
+            typeof(FakeColumnTypeAttribute),
+            typeof(FakePrimaryKeyAttribute),
+            typeof(FakeNotNullAttribute),
+            typeof(FakeUniqueAttribute),
+            typeof(FakeForeignKeyAttribute),
+            (pk, column) => DbValueGenerationKind.Identity);
+
+        var table = ModelSchemaReader.FromTypes("app", provider, typeof(ProviderProduct)).Single();
+
+        Assert.That(table.Columns.Single(c => c.Name == "Id").ValueGeneration, Is.EqualTo(DbValueGenerationKind.Identity));
     }
 
     [Test]
@@ -114,6 +140,29 @@ public class ModelSchemaReaderTests
 
         public override string GetSqlSnippet()
             => _snippet;
+    }
+
+    private sealed class FakeNotNullAttribute : DbColumnNotNullAttribute
+    {
+        public override string GetSqlSnippet()
+            => "NOT NULL";
+    }
+
+    private sealed class FakeUniqueAttribute : DbColumnUniqueAttribute
+    {
+        public override string GetSqlSnippet()
+            => "UNIQUE";
+    }
+
+    private sealed class FakeForeignKeyAttribute : DbColumnForeignKeyAttribute
+    {
+        public FakeForeignKeyAttribute()
+            : base("Id", "Other", "Id")
+        {
+        }
+
+        public override string GetSqlSnippet()
+            => "FOREIGN KEY (Id) REFERENCES Other(Id)";
     }
 
     [AttributeUsage(AttributeTargets.Class)]

@@ -1,4 +1,4 @@
-﻿
+
 namespace UmbrellaFrame.ModelSync.MySql
 {
     public enum MySqlColumnType

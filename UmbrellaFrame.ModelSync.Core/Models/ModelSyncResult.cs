@@ -18,11 +18,20 @@ namespace UmbrellaFrame.ModelSync.Core
 
         public IReadOnlyList<ModelSyncPlanItem> Operations { get; }
 
+        public IReadOnlyList<ModelSyncPlanItem> AutomaticOperations
+            => Operations.Where(o => o.Disposition == ModelSyncOperationDisposition.Automatic && o.Risk == ModelSyncOperationRisk.Safe && o.CanApplyAutomatically && (o.HasSql || o.HasApplyOperation)).ToList();
+
         public IReadOnlyList<ModelSyncPlanItem> SafeOperations
-            => Operations.Where(o => o.Risk == ModelSyncOperationRisk.Safe && o.CanApplyAutomatically && (o.HasSql || o.HasApplyOperation)).ToList();
+            => AutomaticOperations;
+
+        public IReadOnlyList<ModelSyncPlanItem> ManualOperations
+            => Operations.Where(o => o.Disposition == ModelSyncOperationDisposition.Manual).ToList();
+
+        public IReadOnlyList<ModelSyncPlanItem> SkippedOperations
+            => Operations.Where(o => o.Disposition == ModelSyncOperationDisposition.Skipped || o.Risk == ModelSyncOperationRisk.SkippedByOption).ToList();
 
         public IReadOnlyList<ModelSyncPlanItem> BlockedOperations
-            => Operations.Where(o => o.Risk != ModelSyncOperationRisk.Safe || !o.CanApplyAutomatically).ToList();
+            => Operations.Where(o => o.Disposition == ModelSyncOperationDisposition.Blocked).ToList();
 
         public bool HasChanges => Operations.Any(o => o.ChangeType != ModelSyncChangeType.None);
         public bool HasBlockedOperations => BlockedOperations.Count > 0;
@@ -42,7 +51,7 @@ namespace UmbrellaFrame.ModelSync.Core
         {
             await ThrowIfUnsupportedOrDestructiveAsync().ConfigureAwait(false);
 
-            foreach (var operation in SafeOperations)
+            foreach (var operation in AutomaticOperations)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (operation.ApplyOperationAsync != null)

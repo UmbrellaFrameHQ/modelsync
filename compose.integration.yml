@@ -1,0 +1,57 @@
+services:
+  modelsync-sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: modelsync-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "ModelSync_Pass123"
+    ports:
+      - "14333:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ModelSync_Pass123 -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ModelSync_Pass123 -Q \"SELECT 1\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  modelsync-mysql:
+    image: mysql:8.4
+    container_name: modelsync-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "ModelSync_Pass123"
+      MYSQL_DATABASE: "modelsync_integration"
+    ports:
+      - "13306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -pModelSync_Pass123 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  modelsync-mariadb:
+    image: mariadb:11
+    container_name: modelsync-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: "ModelSync_Pass123"
+      MARIADB_DATABASE: "modelsync_integration"
+    ports:
+      - "13307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  modelsync-postgresql:
+    image: postgres:16
+    container_name: modelsync-postgresql
+    environment:
+      POSTGRES_USER: "modelsync_test"
+      POSTGRES_PASSWORD: "ModelSync_Pass123"
+      POSTGRES_DB: "modelsync_integration"
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modelsync_test -d modelsync_integration"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
