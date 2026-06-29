@@ -8,6 +8,27 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-29 - Legacy Migration Compatibility
+
+### Added
+- Added category execution modes for migration scripts: `RunOnce`, `HashTracked`, and `EveryRun`.
+- Added `MigrationRunnerOptions.CategoryPolicies` and the `LegacyEmbeddedSql` compatibility profile.
+- Added additive legacy `SqlHash` history upgrade support for existing history tables.
+- Added legacy hash adoption so matching legacy history rows can be upgraded without rerunning `RunOnce` scripts.
+- Added `LegacyResetConfigurationAdapter` for mapping legacy reset flags into explicit safe reset options.
+- Added repository gates for migration execution policy, legacy history compatibility, and all-provider legacy fixture coverage.
+- Added all-provider legacy compatibility fixture coverage for SQL Server, MySQL, MariaDB, PostgreSQL, and SQLite.
+- Added Expertis-oriented migration guidance for replacing legacy embedded SQL runners with ModelSync.
+
+### Changed
+- Stored procedure and trigger categories can be configured as `EveryRun`; seed categories can be configured as `RunOnce`; custom SQL remains hash tracked by default.
+- Compare paths remain read-only and report required adoption/upgrade work without writing history state.
+- Provider services continue to delegate framework SQL generation to the Core descriptor-driven compiler.
+
+### Release validation
+- SQL Server, MySQL, MariaDB, PostgreSQL, and SQLite legacy fixtures passed with no skipped mandatory cases.
+- Package versions were bumped to `1.2.0` after the all-provider release gate passed.
+
 ---
 
 ## [1.1.0] - 2026-06-29 - Operational Hardening and Live Provider Release Gate

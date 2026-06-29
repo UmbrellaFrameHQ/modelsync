@@ -39,7 +39,9 @@ Safe operations can still be skipped by configuration. Skipped items are exposed
 
 ## Table Execution Policies
 
-ModelSync 1.1.0 adds runtime table policies for mixed migration ownership. Policies are configured on options, not on model attributes, because migration ownership is usually environment-specific:
+ModelSync 1.2.0 adds runtime table policies for mixed migration ownership. Policies are configured on options, not on model attributes, because migration ownership is usually environment-specific:
+
+Legacy runner compatibility work for the 1.2.0 line keeps the same safety boundary: model synchronizer safe ALTER rules do not become looser because migration history tables can receive a controlled `SqlHash` infrastructure upgrade. Model tables still block drop, narrowing, risky not-null, risky rename, and destructive constraint changes unless explicitly handled outside automatic safe apply.
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;

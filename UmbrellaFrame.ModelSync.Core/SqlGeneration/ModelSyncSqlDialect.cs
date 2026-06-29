@@ -101,6 +101,48 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
             }
         }
 
+        public ModelSyncSqlCommand BuildEnsureHistoryHashColumnsPlan(string schema)
+        {
+            var tables = new[]
+            {
+                "SchemaMigration_Tables",
+                "SchemaMigration_StoredProcedures",
+                "SchemaMigration_Triggers",
+                "SchemaMigration_Seeds",
+                "SchemaMigration_CustomSql"
+            };
+
+            if (_descriptor.HistoryStyle == HistorySqlStyle.QualifiedMerge)
+            {
+                var quotedSchema = Quote(schema);
+                var sql = string.Concat(tables.Select(table =>
+                    "IF EXISTS (SELECT 1 FROM sys.tables WHERE name = '" + table + "' AND schema_id = SCHEMA_ID(@SchemaName)) " +
+                    "AND COL_LENGTH(N'" + schema.Replace("'", "''") + "." + table + "', 'SqlHash') IS NULL " +
+                    "ALTER TABLE " + quotedSchema + "." + Quote(table) + " ADD " + Quote("SqlHash") + " NVARCHAR(128) NULL;"));
+                return new ModelSyncSqlCommand(sql, ModelSyncSqlPurpose.History, new[] { new ModelSyncSqlParameter("@SchemaName", schema) });
+            }
+
+            if (_descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate)
+            {
+                var sql = string.Concat(tables.Select(table =>
+                    "SET @ModelSyncSqlHashUpgrade = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '" + table + "' AND COLUMN_NAME = 'SqlHash') = 0, " +
+                    "'ALTER TABLE " + Quote(table) + " ADD COLUMN " + Quote("SqlHash") + " VARCHAR(128) NULL', 'SELECT 1');" +
+                    "PREPARE ModelSyncSqlHashUpgradeStatement FROM @ModelSyncSqlHashUpgrade;" +
+                    "EXECUTE ModelSyncSqlHashUpgradeStatement;" +
+                    "DEALLOCATE PREPARE ModelSyncSqlHashUpgradeStatement;"));
+                return new ModelSyncSqlCommand(sql, ModelSyncSqlPurpose.History);
+            }
+
+            if (_descriptor.HistoryStyle == HistorySqlStyle.ConflictUpdate)
+            {
+                var sql = string.Concat(tables.Select(table =>
+                    "ALTER TABLE " + Qualify(schema, table) + " ADD COLUMN IF NOT EXISTS " + Quote("SqlHash") + " VARCHAR(128) NULL;"));
+                return new ModelSyncSqlCommand(sql, ModelSyncSqlPurpose.History);
+            }
+
+            return new ModelSyncSqlCommand(string.Empty, ModelSyncSqlPurpose.History);
+        }
+
         public ModelSyncSqlCommand BuildReadHistoryPlan(string schema, MigrationScriptCategory category)
         {
             var table = HistoryTableName(category);
@@ -110,6 +152,24 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
             var id = Quote("Id");
             var hash = Quote("SqlHash");
             return new ModelSyncSqlCommand("SELECT " + id + ", " + hash + " FROM " + target + ";", ModelSyncSqlPurpose.History);
+        }
+
+        public ModelSyncSqlCommand BuildReadLegacyHistoryPlan(string schema, MigrationScriptCategory category)
+        {
+            var table = HistoryTableName(category);
+            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate
+                ? Quote(table)
+                : Qualify(schema, table);
+            return new ModelSyncSqlCommand("SELECT " + Quote("Id") + " FROM " + target + ";", ModelSyncSqlPurpose.History);
+        }
+
+        public string BuildAddHistoryHashColumnSql(string schema, MigrationScriptCategory category)
+        {
+            var table = HistoryTableName(category);
+            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate
+                ? Quote(table)
+                : Qualify(schema, table);
+            return "ALTER TABLE " + target + " " + _descriptor.AddColumnKeyword + " " + Quote("SqlHash") + " VARCHAR(128) NULL;";
         }
 
         public ModelSyncSqlCommand BuildRecordHistoryPlan(string schema, MigrationScriptCategory category, string id, string name, string hash)

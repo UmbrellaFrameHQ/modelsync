@@ -2,7 +2,7 @@
 
 Installation, model definition, SQL generation, DDL execution, migration runner, stored procedure synchronization, live model synchronization, analyzers, testing, troubleshooting, and production usage.
 
-**Version scope:** 1.1.0
+**Version scope:** 1.2.0
 **Author:** UmbrellaFrame / ModelSync
 
 # Table Of Contents
@@ -30,13 +30,21 @@ Installation, model definition, SQL generation, DDL execution, migration runner,
 21. [Production Guide](#production-guide)
 22. [Complete Project Structure](#complete-project-structure)
 23. [Quick API Reference](#quick-api-reference)
-24. [Version 1.1.0 Limits](#version-108-limits)
+24. [Version 1.2.0 Limits](#version-108-limits)
 25. [FAQ](#faq)
 26. [Conclusion](#conclusion)
 
 # About This Guide
 
-This guide is written for .NET developers who install **ModelSync 1.1.0** from NuGet and want to use it correctly without reading the source code first.
+This guide is written for .NET developers who install **ModelSync 1.2.0** from NuGet and want to use it correctly without reading the source code first.
+
+> Legacy runner note: ModelSync 1.2.0 includes compatibility support for embedded SQL runners. See [Legacy Runner Migration - English](legacy-runner-migration-en.md).
+
+### Legacy Execution Modes Preview
+
+The upcoming compatibility work introduces `RunOnce`, `HashTracked`, and `EveryRun` migration script execution modes through `MigrationRunnerOptions.CategoryPolicies`.
+
+`MigrationCompatibilityProfiles.LegacyEmbeddedSql` maps stored procedures and triggers to `EveryRun`, seeds to `RunOnce`, and custom SQL to `HashTracked`. Compare APIs remain read-only: they can report required `SqlHash` upgrade and legacy hash adoption, but they do not mutate history tables or execute scripts.
 
 It covers installation, model definition, SQL generation, table creation, index generation, column operations, migration scripts, stored procedure synchronization, dependency injection, logging, analyzers, testing, and production safety.
 
@@ -90,31 +98,31 @@ Install only the provider you need.
 SQL Server / Azure SQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
 ```
 
 MySQL / MariaDB:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
 ```
 
 PostgreSQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
 ```
 
 SQLite:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
 ```
 
 Analyzer:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
 Common namespaces:
@@ -338,7 +346,7 @@ Every public property intended as a column should have a provider column type at
 public string Email { get; set; } = string.Empty;
 ```
 
-By default, the column name is the property name. In the current repository, `DbColumnName("database_column")` can override the database column name and `DbIgnore` can exclude public helper properties from schema discovery. The latest NuGet package remains `1.1.0`; these mapping attributes are included in the 1.1.0 package line.
+By default, the column name is the property name. In the current repository, `DbColumnName("database_column")` can override the database column name and `DbIgnore` can exclude public helper properties from schema discovery. The latest NuGet package remains `1.2.0`; these mapping attributes are included in the 1.2.0 package line.
 
 ## Primary Key
 
@@ -407,7 +415,7 @@ Cross-provider attributes:
 [SQLiteColumnForeignKey("UserId", "users", "Id")]
 ```
 
-Foreign key snippets are intentionally simple in 1.1.0. Avoid spaces, dots, brackets, quoted names, and schema-qualified names in foreign key parameters. Use migration scripts for advanced cascade behavior or schema-qualified constraints.
+Foreign key snippets are intentionally simple in 1.2.0. Avoid spaces, dots, brackets, quoted names, and schema-qualified names in foreign key parameters. Use migration scripts for advanced cascade behavior or schema-qualified constraints.
 
 # Provider Column Types
 
@@ -741,12 +749,12 @@ Rules:
 - Each file should contain one procedure definition.
 - The SQL procedure name must match the registered name.
 - Do not use SQL Server `GO` in stored procedure synchronizer files.
-- PostgreSQL overloaded procedure signatures are not supported in 1.1.0.
+- PostgreSQL overloaded procedure signatures are not supported in 1.2.0.
 - MySQL procedure updates drop and recreate the procedure; review production plans carefully.
 
 # Live Model Synchronization
 
-Model synchronizers are the 1.1.0 dry-run-first layer for comparing attribute models with a live database.
+Model synchronizers are the 1.2.0 dry-run-first layer for comparing attribute models with a live database.
 
 Use them when the database already exists and you want ModelSync to answer:
 
@@ -810,7 +818,7 @@ var result = await SqlServerModelSynchronizer
 
 ## Table Execution Policies
 
-ModelSync 1.1.0 lets one run mix manual and automatic table ownership:
+ModelSync 1.2.0 lets one run mix manual and automatic table ownership:
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
@@ -873,7 +881,7 @@ For the focused reference, see [14 - Model Synchronizer](14-model-synchronizer.m
 Install:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
 Rules:
@@ -1038,7 +1046,7 @@ MyApplication/
   appsettings.json
 ```
 
-Keep schema models separate from domain entities and API DTOs when possible. ModelSync 1.1.0 can exclude helpers with `DbIgnore`.
+Keep schema models separate from domain entities and API DTOs when possible. ModelSync 1.2.0 can exclude helpers with `DbIgnore`.
 
 # Quick API Reference
 
@@ -1095,10 +1103,10 @@ Keep schema models separate from domain entities and API DTOs when possible. Mod
 | `ModelSyncResult.SkippedOperations` | Safe operations intentionally skipped by configuration. |
 | `ApplyAsync()` | Applies only when no blocked operations exist. |
 
-# Version 1.1.0 Limits
+# Version 1.2.0 Limits
 
 - Model-to-live-database diff is additive/safety-first, not a full destructive migration engine.
-- ModelSync 1.1.0 includes `DbIgnore` and `DbColumnName` for schema discovery control.
+- ModelSync 1.2.0 includes `DbIgnore` and `DbColumnName` for schema discovery control.
 - Schema-qualified table-name attributes are intentionally limited by strict identifier validation.
 - Index SQL is not executed automatically.
 - Foreign key attributes do not model advanced quoting or cascade behavior.
@@ -1122,7 +1130,7 @@ Usually no. Install the provider package you use; it brings Core as a dependency
 
 ## Can a ModelSync model also be my domain entity?
 
-Technically yes, but separate schema models are safer. Published `1.1.0` packages treat all public properties as columns; ModelSync 1.1.0 can exclude helpers with `DbIgnore`.
+Technically yes, but separate schema models are safer. Published `1.2.0` packages treat all public properties as columns; ModelSync 1.2.0 can exclude helpers with `DbIgnore`.
 
 ## Does `ifNotExists: true` replace migrations?
 

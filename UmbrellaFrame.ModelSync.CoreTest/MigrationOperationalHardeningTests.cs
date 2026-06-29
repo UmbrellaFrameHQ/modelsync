@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UmbrellaFrame.ModelSync.Core;
@@ -111,6 +112,90 @@ public class MigrationOperationalHardeningTests
     }
 
     [Test]
+    public async Task CompareRegisteredAsync_RunOnceExistingChangedHash_ShouldSkipWithDriftDiagnostic()
+    {
+        var options = MigrationRunnerOptions.Default();
+        options.CategoryPolicies.ForCategory(MigrationScriptCategory.Seeds, MigrationScriptExecutionMode.RunOnce);
+        var runner = new FakeRunner(options);
+        runner.SetHistory(MigrationScriptCategory.Seeds, "001", "old-hash");
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "Seed", MigrationScriptCategory.Seeds, "INSERT INTO Seed VALUES (1);"));
+
+        var plan = (await runner.CompareRegisteredAsync()).Single();
+
+        Assert.That(plan.ChangeType, Is.EqualTo(MigrationChangeType.None));
+        Assert.That(plan.ExecutionMode, Is.EqualTo(MigrationScriptExecutionMode.RunOnce));
+        Assert.That(plan.DecisionReason, Does.Contain("RunOnceScriptChanged"));
+    }
+
+    [Test]
+    public async Task CompareRegisteredAsync_HashTrackedChangedHash_ShouldReapply()
+    {
+        var runner = new FakeRunner();
+        runner.SetHistory(MigrationScriptCategory.CustomSql, "001", "old-hash");
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "Custom", MigrationScriptCategory.CustomSql, "SELECT 1;"));
+
+        var plan = (await runner.CompareRegisteredAsync()).Single();
+
+        Assert.That(plan.ChangeType, Is.EqualTo(MigrationChangeType.Reapply));
+        Assert.That(plan.ExecutionMode, Is.EqualTo(MigrationScriptExecutionMode.HashTracked));
+    }
+
+    [Test]
+    public async Task CompareRegisteredAsync_EveryRunSameHash_ShouldReapply()
+    {
+        var options = MigrationRunnerOptions.Default();
+        options.CategoryPolicies.ForCategory(MigrationScriptCategory.StoredProcedures, MigrationScriptExecutionMode.EveryRun);
+        var runner = new FakeRunner(options);
+        var sql = "CREATE PROCEDURE Test AS SELECT 1;";
+        runner.SetHistory(MigrationScriptCategory.StoredProcedures, "001", SqlDefinitionNormalizer.ComputeHash(sql));
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "Proc", MigrationScriptCategory.StoredProcedures, sql));
+
+        var plan = (await runner.CompareRegisteredAsync()).Single();
+
+        Assert.That(plan.ChangeType, Is.EqualTo(MigrationChangeType.Reapply));
+        Assert.That(plan.DecisionReason, Does.Contain("ExecutionModeEveryRun"));
+    }
+
+    [Test]
+    public async Task RunWithResultAsync_LegacyHashMissingForRunOnceSeed_ShouldAdoptHashWithoutExecuting()
+    {
+        var options = MigrationRunnerOptions.Default();
+        options.CategoryPolicies.ForCategory(MigrationScriptCategory.Seeds, MigrationScriptExecutionMode.RunOnce);
+        var runner = new FakeRunner(options);
+        runner.SetHistory(MigrationScriptCategory.Seeds, "001", string.Empty);
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "Seed", MigrationScriptCategory.Seeds, "INSERT INTO Seed VALUES (1);"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(runner.ExecutedSqlCount, Is.EqualTo(0));
+        Assert.That(runner.RecordedHistoryCount, Is.EqualTo(1));
+        Assert.That(result.Items.Single().LegacyHashAdopted, Is.True);
+    }
+
+    [Test]
+    public void LegacyResetConfigurationAdapter_WhenFlagFalse_ShouldDisableReset()
+    {
+        var reset = LegacyResetConfigurationAdapter.Create(false, "Expertis", "Staging", false, "Staging");
+
+        Assert.That(reset.Enabled, Is.False);
+        Assert.That(reset.Approval, Is.Null);
+        Assert.That(reset.ExpectedDatabaseName, Is.EqualTo("Expertis"));
+    }
+
+    [Test]
+    public void ApplyCompatibilityProfile_LegacyEmbeddedSql_ShouldSetExpectedCategoryModes()
+    {
+        var options = MigrationRunnerOptions.Default()
+            .ApplyCompatibilityProfile(MigrationCompatibilityProfiles.LegacyEmbeddedSql);
+
+        Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.StoredProcedures), Is.EqualTo(MigrationScriptExecutionMode.EveryRun));
+        Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.Triggers), Is.EqualTo(MigrationScriptExecutionMode.EveryRun));
+        Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.Seeds), Is.EqualTo(MigrationScriptExecutionMode.RunOnce));
+        Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.CustomSql), Is.EqualTo(MigrationScriptExecutionMode.HashTracked));
+    }
+
+    [Test]
     public void RunWithResultAsync_WhenTransactionRequiredButUnsupported_ShouldFailFast()
     {
         var runner = new FakeRunner(new MigrationRunnerOptions
@@ -200,6 +285,10 @@ public class MigrationOperationalHardeningTests
 
         public bool ResetCalled { get; private set; }
         public int RecordedHistoryCount { get; private set; }
+        public int ExecutedSqlCount { get; private set; }
+
+        public void SetHistory(MigrationScriptCategory category, string id, string hash)
+            => _history[$"{category}:{id}"] = hash;
 
         protected override Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
@@ -215,6 +304,7 @@ public class MigrationOperationalHardeningTests
         {
             if (sql.Contains("FAIL", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Batch failed.");
+            ExecutedSqlCount++;
             return Task.CompletedTask;
         }
 

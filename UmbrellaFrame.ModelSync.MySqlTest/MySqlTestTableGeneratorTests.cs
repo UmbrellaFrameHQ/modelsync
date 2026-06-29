@@ -8,6 +8,8 @@ using UmbrellaFrame.ModelSync.Core.Interfaces;
 using UmbrellaFrame.ModelSync.Core.Services;
 using UmbrellaFrame.ModelSync.MySql;
 
+// [LegacyCompatibilityFixture("mysql")]
+// [LegacyCompatibilityFixture("mariadb")]
 /// <summary>No-op generator that skips real DDL execution for unit tests.</summary>
 internal class FakeMySqlTestGenerator : MySqlTableGenerator, ITableGenerator
 {

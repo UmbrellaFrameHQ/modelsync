@@ -18,5 +18,8 @@ namespace UmbrellaFrame.ModelSync.Core
         public int CompletedBatchCount { get; set; }
         public string FailureStage { get; set; } = string.Empty;
         public string ErrorCode { get; set; } = string.Empty;
+        public MigrationScriptExecutionMode ExecutionMode { get; set; } = MigrationScriptExecutionMode.HashTracked;
+        public string DecisionReason { get; set; } = string.Empty;
+        public bool LegacyHashAdopted { get; set; }
     }
 }

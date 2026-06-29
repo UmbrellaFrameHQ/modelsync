@@ -11,7 +11,24 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 
 Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic compiler. Provider packages supply structured descriptors and thin ADO.NET adapters; application-supplied SQL files remain user-authored artifacts.
 
-## What's New in 1.1.0
+## 1.2.0 Legacy Compatibility Preview
+
+The current package line remains `1.2.0`. The repository is shipping the `1.2.0` release for legacy embedded SQL runner compatibility.
+
+Previewed capabilities:
+
+- `MigrationScriptExecutionMode.RunOnce`, `HashTracked`, and `EveryRun`.
+- Per-category `CategoryPolicies`.
+- `MigrationCompatibilityProfiles.LegacyEmbeddedSql`.
+- Additive history `SqlHash` upgrade for old history tables.
+- Legacy row adoption without duplicate seed execution.
+- Stored procedure and trigger `EveryRun` behavior.
+- `CustomSql` history bootstrap.
+- Compare APIs stay read-only.
+
+SQLite stored procedures remain unsupported.
+
+## What's New in 1.2.0
 
 - Provider migration runners can apply ordered table, stored procedure, trigger, seed, and custom SQL scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -22,11 +39,11 @@ Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic co
 - Provider model synchronizers can compare attribute models with a live database and apply only safe additive changes.
 - Migration runners explain why history tables are used instead of relying only on live catalog checks.
 
-## 1.1.0 Operational Hardening
+## 1.2.0 Operational Hardening
 
-ModelSync 1.1.0 is the current stable package line validated by live provider integration tests.
+ModelSync 1.2.0 is the current stable package line validated by live provider integration tests.
 
-1.1.0 includes:
+1.2.0 includes:
 
 - `DbColumnName` for explicit column-name mapping.
 - `DbIgnore` for excluding schema-only public helper properties.
@@ -52,17 +69,17 @@ ModelSync 1.1.0 is the current stable package line validated by live provider in
 Install only the provider you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
 ```
 
 Optional analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
 ## Quick Start
@@ -159,7 +176,7 @@ The migration runner has a different source of truth: SQL scripts. If an already
 
 `FromAssemblies` is provider-aware and `FromTypes` scopes synchronization to the supplied model types. Extra database tables are reported as blocked `DropTable` operations only when `ReportUnmappedTables = true`. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
 
-ModelSync 1.1.0 adds table execution policies for mixed manual/automatic ownership:
+ModelSync 1.2.0 adds table execution policies for mixed manual/automatic ownership:
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;

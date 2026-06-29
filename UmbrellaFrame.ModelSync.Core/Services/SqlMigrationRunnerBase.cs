@@ -68,19 +68,26 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var key = CreateHistoryKey(definition.Category, definition.Id);
-                history.TryGetValue(key, out var currentHash);
+                var historyRowExists = history.TryGetValue(key, out var currentHash);
                 var targetHash = SqlDefinitionNormalizer.ComputeHash(definition.Sql);
-                var isApplied = !string.IsNullOrWhiteSpace(currentHash);
-                var changed = isApplied && !string.Equals(currentHash, targetHash, StringComparison.Ordinal);
+                var legacyHashMissing = historyRowExists && string.IsNullOrWhiteSpace(currentHash);
+                var mode = Options.CategoryPolicies.Resolve(definition.Category, Options.DefaultExecutionMode);
+                var changed = historyRowExists && !legacyHashMissing && !string.Equals(currentHash, targetHash, StringComparison.Ordinal);
+                var changeType = ResolveChangeType(mode, historyRowExists, legacyHashMissing, changed);
+                var reason = ResolveDecisionReason(mode, historyRowExists, legacyHashMissing, changed);
 
                 plans.Add(new MigrationSyncPlan
                 {
                     Definition = definition,
-                    ChangeType = !isApplied ? MigrationChangeType.Apply : changed ? MigrationChangeType.Reapply : MigrationChangeType.None,
+                    ChangeType = changeType,
                     CurrentHash = currentHash,
                     TargetHash = targetHash,
-                    SqlToApply = !isApplied || changed ? definition.Sql : string.Empty,
-                    Reason = !isApplied ? "Script has not been applied." : changed ? "Script hash changed." : "Script already applied."
+                    SqlToApply = changeType != MigrationChangeType.None ? definition.Sql : string.Empty,
+                    Reason = reason,
+                    DecisionReason = reason,
+                    ExecutionMode = mode,
+                    HistoryRowExists = historyRowExists,
+                    LegacyHashAdoptionRequired = legacyHashMissing
                 });
             }
 
@@ -121,6 +128,12 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 await EnsureInfrastructureAsync(cancellationToken).ConfigureAwait(false);
 
                 var plans = await CompareRegisteredAsync(cancellationToken).ConfigureAwait(false);
+                foreach (var plan in plans.Where(p => !p.HasChanges && p.LegacyHashAdoptionRequired))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
+                }
+
                 foreach (var plan in plans.Where(p => p.HasChanges))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -181,6 +194,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
                 foreach (var plan in plans.Where(p => !p.HasChanges))
                 {
+                    if (plan.LegacyHashAdoptionRequired)
+                        await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
+
                     var now = DateTimeOffset.UtcNow;
                     items.Add(new MigrationExecutionItemResult
                     {
@@ -191,6 +207,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                         Action = MigrationExecutionAction.Skipped,
                         ExistingHash = plan.CurrentHash,
                         TargetHash = plan.TargetHash,
+                        ExecutionMode = plan.ExecutionMode,
+                        DecisionReason = plan.DecisionReason,
+                        LegacyHashAdopted = plan.LegacyHashAdoptionRequired,
                         StartedAt = now,
                         CompletedAt = now
                     });
@@ -242,6 +261,8 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 Action = plan.ChangeType == MigrationChangeType.Reapply ? MigrationExecutionAction.Reapplied : MigrationExecutionAction.Applied,
                 ExistingHash = plan.CurrentHash,
                 TargetHash = plan.TargetHash,
+                ExecutionMode = plan.ExecutionMode,
+                DecisionReason = plan.DecisionReason,
                 StartedAt = startedAt
             };
 
@@ -272,7 +293,10 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
                 if (scripts.Count > 0)
                     await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+                else if (plan.LegacyHashAdoptionRequired)
+                    await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
 
+                result.LegacyHashAdopted = plan.LegacyHashAdoptionRequired;
                 result.CompletedAt = DateTimeOffset.UtcNow;
                 return result;
             }
@@ -285,6 +309,47 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 return result;
             }
         }
+
+        private static MigrationChangeType ResolveChangeType(
+            MigrationScriptExecutionMode mode,
+            bool historyRowExists,
+            bool legacyHashMissing,
+            bool changed)
+        {
+            if (!historyRowExists)
+                return MigrationChangeType.Apply;
+            if (legacyHashMissing)
+                return mode == MigrationScriptExecutionMode.EveryRun ? MigrationChangeType.Reapply : MigrationChangeType.None;
+            if (mode == MigrationScriptExecutionMode.EveryRun)
+                return MigrationChangeType.Reapply;
+            if (mode == MigrationScriptExecutionMode.HashTracked && changed)
+                return MigrationChangeType.Reapply;
+            return MigrationChangeType.None;
+        }
+
+        private static string ResolveDecisionReason(
+            MigrationScriptExecutionMode mode,
+            bool historyRowExists,
+            bool legacyHashMissing,
+            bool changed)
+        {
+            if (!historyRowExists)
+                return "Script has not been applied.";
+            if (legacyHashMissing && mode == MigrationScriptExecutionMode.EveryRun)
+                return "LegacyHashAdopted; ExecutionModeEveryRun.";
+            if (legacyHashMissing)
+                return "LegacyHashAdopted.";
+            if (mode == MigrationScriptExecutionMode.EveryRun)
+                return "ExecutionModeEveryRun.";
+            if (mode == MigrationScriptExecutionMode.RunOnce && changed)
+                return "RunOnceScriptChanged.";
+            if (changed)
+                return "Script hash changed.";
+            return "Script already applied.";
+        }
+
+        protected virtual Task AdoptLegacyHashAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
+            => RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken);
 
         protected virtual void ValidateResetSafety()
         {

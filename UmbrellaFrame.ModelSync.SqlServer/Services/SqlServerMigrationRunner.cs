@@ -86,6 +86,7 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
             await ExecuteCommandAsync(Dialect.BuildEnsureHistoryInfrastructurePlan(HistorySchema()), cancellationToken).ConfigureAwait(false);
+            await ExecuteCommandAsync(Dialect.BuildEnsureHistoryHashColumnsPlan(HistorySchema()), cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
@@ -97,15 +98,25 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
                     var plan = Dialect.BuildReadHistoryPlan(HistorySchema(), category);
-                    using (var command = new SqlCommand(plan.CommandText, connection))
-                    using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                    try
                     {
-                        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                        using (var command = new SqlCommand(plan.CommandText, connection))
+                        using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                         {
-                            var id = reader.GetString(0);
-                            var hash = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
-                            result[CreateHistoryKey(category, id)] = hash;
+                            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                var id = reader.GetString(0);
+                                var hash = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                                result[CreateHistoryKey(category, id)] = hash;
+                            }
                         }
+                    }
+                    catch (SqlException ex) when (IsMissingHistoryTable(ex))
+                    {
+                    }
+                    catch (SqlException ex) when (IsMissingHistoryHashColumn(ex))
+                    {
+                        await ReadLegacyHistoryAsync(connection, category, result, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -184,6 +195,23 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             return false;
         }
 
+        private async Task ReadLegacyHistoryAsync(SqlConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
+        {
+            var plan = Dialect.BuildReadLegacyHistoryPlan(HistorySchema(), category);
+            using (var command = new SqlCommand(plan.CommandText, connection))
+            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    result[CreateHistoryKey(category, reader.GetString(0))] = string.Empty;
+            }
+        }
+
+        private static bool IsMissingHistoryTable(SqlException exception)
+            => exception.Errors.Cast<SqlError>().Any(error => error.Number == 208 || error.Number == 2760 || error.Number == 15151);
+
+        private static bool IsMissingHistoryHashColumn(SqlException exception)
+            => exception.Errors.Cast<SqlError>().Any(error => error.Number == 207);
+
         private async Task ExecuteCommandAsync(ModelSyncSqlCommand plan, CancellationToken cancellationToken)
         {
             using (var connection = SqlServerConnectionFactory.Create(_connectionString))
@@ -252,6 +280,8 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
                 Action = plan.ChangeType == MigrationChangeType.Reapply ? MigrationExecutionAction.Reapplied : MigrationExecutionAction.Applied,
                 ExistingHash = plan.CurrentHash,
                 TargetHash = plan.TargetHash,
+                ExecutionMode = plan.ExecutionMode,
+                DecisionReason = plan.DecisionReason,
                 StartedAt = startedAt
             };
 
@@ -268,6 +298,7 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
                 }
 
                 await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+                result.LegacyHashAdopted = plan.LegacyHashAdoptionRequired;
                 result.CompletedAt = DateTimeOffset.UtcNow;
                 return result;
             }

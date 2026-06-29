@@ -2,7 +2,7 @@
 
 Kurulum, model tanýmlama, SQL üretimi, DDL yürütme, migration, stored procedure, canlý model senkronizasyonu ve production kullanýmý.
 
-**Sürüm kapsamý:** 1.1.0
+**Sürüm kapsamý:** 1.2.0
 **Hazýrlayan:** UmbrellaFrame / ModelSync
 
 # Ýçindekiler
@@ -28,13 +28,13 @@ Kurulum, model tanýmlama, SQL üretimi, DDL yürütme, migration, stored procedure,
 19. [Production kullaným rehberi](#production-kullaným-rehberi)
 20. [Tam örnek proje yapýsý](#tam-örnek-proje-yapýsý)
 21. [API hýzlý referans](#api-hýzlý-referans)
-22. [Sürüm 1.1.0 sýnýrlarý](#sürüm-108-sýnýrlarý)
+22. [Sürüm 1.2.0 sýnýrlarý](#sürüm-108-sýnýrlarý)
 23. [Sýk sorulan sorular](#sýk-sorulan-sorular)
 24. [Sonuç](#sonuç)
 
 # Belge hakkýnda
 
-Bu kýlavuz, **ModelSync 1.1.0** paketlerini NuGet üzerinden yükleyen bir .NET geliþtiricisinin projeyi kaynak koda bakmadan doðru biçimde kullanabilmesi için hazýrlanmýþtýr. Kurulumdan baþlayarak model tanýmlama, SQL üretme, tablo oluþturma, indeks yürütme, kolon iþlemleri, migration scriptleri, stored procedure senkronizasyonu, dependency injection, logging, analyzer, test ve production güvenliði ele alýnýr.
+Bu kýlavuz, **ModelSync 1.2.0** paketlerini NuGet üzerinden yükleyen bir .NET geliþtiricisinin projeyi kaynak koda bakmadan doðru biçimde kullanabilmesi için hazýrlanmýþtýr. Kurulumdan baþlayarak model tanýmlama, SQL üretme, tablo oluþturma, indeks yürütme, kolon iþlemleri, migration scriptleri, stored procedure senkronizasyonu, dependency injection, logging, analyzer, test ve production güvenliði ele alýnýr.
 
 > **En önemli taným:** ModelSync bir ORM deðildir. Nesneleri satýrlara kaydetmez, LINQ sorgusu üretmez, change tracking yapmaz ve CRUD repository saðlamaz. ModelSync’in iþi; C# model metadata’sýndan DDL üretmek, DDL’i isteðe baðlý çalýþtýrmak ve proje tarafýndaki SQL scriptlerini kontrollü biçimde yönetmektir.
 
@@ -102,34 +102,34 @@ Yalnýz kullandýðýnýz provider’ý yükleyin.
 ### SQL Server / Azure SQL
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
 ```
 
 ### MySQL / MariaDB
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
 ```
 
 ### PostgreSQL
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
 ```
 
 ### SQLite
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
 ```
 
 ### Analyzer
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
-`--version` kaldýrýlýrsa NuGet’teki mevcut kararlý sürüm yüklenir. Bu belge 1.1.0 API’sine göre hazýrlanmýþtýr.
+`--version` kaldýrýlýrsa NuGet’teki mevcut kararlý sürüm yüklenir. Bu belge 1.2.0 API’sine göre hazýrlanmýþtýr.
 
 ## 6. Namespace’ler
 
@@ -452,7 +452,7 @@ Her public property’nin provider’a uygun kolon tipi attribute’ü olmalýdýr.
 public string Email { get; set; } = string.Empty;
 ```
 
-Varsayilan kolon adi property adidir. ModelSync 1.1.0 ile DbColumnName database kolon adini degistirebilir, DbIgnore ise public yardimci propertyleri schema discovery disina cikarabilir.
+Varsayilan kolon adi property adidir. ModelSync 1.2.0 ile DbColumnName database kolon adini degistirebilir, DbIgnore ise public yardimci propertyleri schema discovery disina cikarabilir.
 
 ## 17. Primary key
 
@@ -469,7 +469,7 @@ Provider karþýlýklarý:
 | SQL Server | `SqlServerColumnPrimaryKey(isAutoIncrement: true)` | `IDENTITY(1,1)` |
 | MySQL | `MySqlColumnPrimaryKey(isAutoIncrement: true)` | `AUTO_INCREMENT` |
 | PostgreSQL | `PostgresColumnPrimaryKey` | Otomatik artýþ için kolon tipi `SERIAL`/`BIGSERIAL` seçilir. |
-| SQLite | `SQLiteColumnPrimaryKey` | 1.1.0 `PRIMARY KEY AUTOINCREMENT` üretir; yalnýz `INTEGER` kolonla kullanýn. |
+| SQLite | `SQLiteColumnPrimaryKey` | 1.2.0 `PRIMARY KEY AUTOINCREMENT` üretir; yalnýz `INTEGER` kolonla kullanýn. |
 
 ## 18. Composite primary key
 
@@ -619,10 +619,10 @@ Parametreler:
 ### Foreign key kullaným kurallarý
 
 - Parametre adlarýný property ve gerçek database adlarýyla birebir eþleþtirin.
-- Boþluk, tire, nokta veya schema-qualified ad kullanmayýn; 1.1.0 foreign key snippet’i bu adlarý ayrýca quote etmez.
+- Boþluk, tire, nokta veya schema-qualified ad kullanmayýn; 1.2.0 foreign key snippet’i bu adlarý ayrýca quote etmez.
 - Parent tabloyu child tablodan önce oluþturun.
 - Ayný generator cache’indeki tablo yürütme sýrasý baðýmlýlýk sýrasýný garanti etmez. Ýliþkili tablolar için ayrý kontrollü aþamalar veya migration scriptleri tercih edin.
-- Cascade seçenekleri için 1.1.0’de hazýr attribute parametresi yoktur; migration scripti kullanýn.
+- Cascade seçenekleri için 1.2.0’de hazýr attribute parametresi yoktur; migration scripti kullanýn.
 
 # Provider kolon tipleri
 
@@ -713,7 +713,7 @@ BIT, VARBIT, HSTORE, ARRAY, RANGE
 [PostgresColumnType(PostgresColumnType.DOUBLE_PRECISION)]
 ```
 
-`ARRAY`, `RANGE` ve bazý extension tabanlý tiplerde üretilecek SQL’i mutlaka kontrol edin; 1.1.0 yalnýz enum adýný/uzunluðu birleþtirir ve geliþmiþ type declaration modellemesi yapmaz.
+`ARRAY`, `RANGE` ve bazý extension tabanlý tiplerde üretilecek SQL’i mutlaka kontrol edin; 1.2.0 yalnýz enum adýný/uzunluðu birleþtirir ve geliþmiþ type declaration modellemesi yapmaz.
 
 ## 28. SQLite kolon tipleri
 
@@ -988,7 +988,7 @@ public sealed class SchemaInitializer
 }
 ```
 
-SQL Server 1.1.0’de provider-specific `ifNotExists` guard’ý için initializer’a doðrudan `SqlServerTableGenerator` enjekte edip `GenerateSqlServerTable<T>(true)` kullanýn.
+SQL Server 1.2.0’de provider-specific `ifNotExists` guard’ý için initializer’a doðrudan `SqlServerTableGenerator` enjekte edip `GenerateSqlServerTable<T>(true)` kullanýn.
 
 ## 42. Hosted service
 
@@ -1260,7 +1260,7 @@ Stored procedure synchronizer dosyalarýnda `GO` kullanmayýn. Migration runner il
 
 ## 55. Migration production güvenlik kurallarý
 
-ModelSync 1.1.0 kullanýrken aþaðýdaki kurallarý zorunlu süreç kabul edin:
+ModelSync 1.2.0 kullanýrken aþaðýdaki kurallarý zorunlu süreç kabul edin:
 
 1. **Uygulanmýþ migration dosyasýný deðiþtirmeyin.** Yeni deðiþiklik için yeni ID’li dosya ekleyin.
 2. Production’da `AutoAddMissingColumnsFromTableScripts = false` önerilir.
@@ -1269,7 +1269,7 @@ ModelSync 1.1.0 kullanýrken aþaðýdaki kurallarý zorunlu süreç kabul edin:
 5. Database yedeði alýn.
 6. Ayný migration runner’ý eþ zamanlý birden fazla uygulama instance’ýnda çalýþtýrmayýn.
 7. Baþarýsýzlýk sonrasý database’i kontrol etmeden tekrar çalýþtýrmayýn.
-8. 1.1.0’de batch/script/history iþlemleri tüm provider’larda tek atomik transaction olarak garanti edilmez.
+8. 1.2.0’de batch/script/history iþlemleri tüm provider’larda tek atomik transaction olarak garanti edilmez.
 9. Otomatik eksik kolon onarýmý kolon tipi, constraint, rename veya drop farkýný çözmez.
 10. Duplicate migration ID kullanmayýn; ID’leri repository seviyesinde unique tutun.
 
@@ -1400,7 +1400,7 @@ var plans = await synchronizer.CompareRegisteredAsync(cancellationToken);
 await synchronizer.SyncRegisteredAsync(cancellationToken);
 ```
 
-1.1.0 PostgreSQL overloaded procedure signature’larýný desteklemez. Ayný schema ve adla farklý parametre listesine sahip procedure’ler kullanýyorsanýz manuel migration yönetin.
+1.2.0 PostgreSQL overloaded procedure signature’larýný desteklemez. Ayný schema ve adla farklý parametre listesine sahip procedure’ler kullanýyorsanýz manuel migration yönetin.
 
 ## 61. Inline stored procedure tanýmý
 
@@ -1441,7 +1441,7 @@ if (plan.HasChanges)
 
 # Canlý model senkronizasyonu
 
-Model synchronizer sýnýflarý, 1.1.0 ile gelen dry-run-first canlý veritabaný karþýlaþtýrma katmanýdýr.
+Model synchronizer sýnýflarý, 1.2.0 ile gelen dry-run-first canlý veritabaný karþýlaþtýrma katmanýdýr.
 
 Bu katmaný þu sorular için kullanýn:
 
@@ -1572,7 +1572,7 @@ Runtime’da SQL üretirken karþýlaþacaðýnýz bazý model hatalarýný daha kod yazarke
 Kurulum:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
 ## 65. Analyzer kurallarý
@@ -1617,7 +1617,7 @@ Neden: Public property üzerinde provider `ColumnType` attribute’ü yok.
 public int Count { get; set; }
 ```
 
-ModelSync 1.1.0 DbIgnore ve DbColumnName destegi icerir. Database kolonu olmayacak hesaplanmis public propertyler DbIgnore ile schema discovery disina alinabilir.
+ModelSync 1.2.0 DbIgnore ve DbColumnName destegi icerir. Database kolonu olmayacak hesaplanmis public propertyler DbIgnore ile schema discovery disina alinabilir.
 
 ### “Invalid SQL identifier”
 
@@ -1787,7 +1787,7 @@ MyApplication/
   appsettings.json
 ```
 
-Þema modellerini domain entity veya API DTO’larýndan ayýrmak hâlâ faydalýdýr. Yayýnlanmýþ 1.1.0 paketleri tüm public property’leri kolon kabul eder; mevcut repository’deki yayýnlanmamýþ `DbIgnore` desteði bu riski azaltýr.
+Þema modellerini domain entity veya API DTO’larýndan ayýrmak hâlâ faydalýdýr. Yayýnlanmýþ 1.2.0 paketleri tüm public property’leri kolon kabul eder; mevcut repository’deki yayýnlanmamýþ `DbIgnore` desteði bu riski azaltýr.
 
 ## 73. Uçtan uca SQL Server startup örneði
 
@@ -1923,12 +1923,12 @@ public sealed class DatabaseBootstrapper
 | `ModelSyncResult.SkippedOperations` | Konfigürasyonla bilinçli atlanan güvenli iþlemler. |
 | `ApplyAsync()` | Yalnýz blocked operation yoksa uygular. |
 
-# Sürüm 1.1.0 sýnýrlarý
+# Sürüm 1.2.0 sýnýrlarý
 
 ## 78. Bilinmesi gereken güncel sýnýrlar
 
 - Model synchronizer yýkýcý/riskli farklarý sessiz uygulamaz; drop, rename, tip deðiþikliði ve nullable-to-not-null iþlemleri review-only kalýr.
-- Yayýnlanmýþ `1.1.0` paketlerinde public property ignore ve column-name override attribute’leri yoktur; mevcut repository’deki `DbIgnore` ve `DbColumnName` yayýnlanmamýþ sertleþtirme çalýþmasýdýr.
+- Yayýnlanmýþ `1.2.0` paketlerinde public property ignore ve column-name override attribute’leri yoktur; mevcut repository’deki `DbIgnore` ve `DbColumnName` yayýnlanmamýþ sertleþtirme çalýþmasýdýr.
 - Schema-qualified table-name attribute kullanýmý identifier doðrulamasýna takýlýr.
 - Ýndeks SQL’i otomatik çalýþtýrýlmaz.
 - Foreign key parametreleri geliþmiþ quoting/cascade modellemesi saðlamaz.
@@ -1953,7 +1953,7 @@ Normal kullanýcý hayýr. Provider paketi Core’u dependency olarak getirir. Yalnýz
 
 ## 81. ModelSync model sýnýfýný veri entity’si olarak da kullanabilir miyim?
 
-Teknik olarak evet; ancak sema modellerini ayri tutmak hala daha guvenlidir. ModelSync 1.1.0 DbIgnore destegi yardimci propertyleri haric tutabilir.
+Teknik olarak evet; ancak sema modellerini ayri tutmak hala daha guvenlidir. ModelSync 1.2.0 DbIgnore destegi yardimci propertyleri haric tutabilir.
 
 ## 82. `ifNotExists: true` migration yerine geçer mi?
 

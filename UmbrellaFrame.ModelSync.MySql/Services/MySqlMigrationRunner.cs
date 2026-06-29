@@ -57,6 +57,9 @@ namespace UmbrellaFrame.ModelSync.MySql
             var plan = Dialect.BuildEnsureHistoryInfrastructurePlan(string.Empty);
             foreach (var statement in plan.CommandText.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                 await ExecuteSqlAsync(statement, cancellationToken).ConfigureAwait(false);
+            var upgrade = Dialect.BuildEnsureHistoryHashColumnsPlan(string.Empty);
+            if (!string.IsNullOrWhiteSpace(upgrade.CommandText))
+                await ExecuteSqlAsync(upgrade.CommandText, cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
@@ -68,13 +71,21 @@ namespace UmbrellaFrame.ModelSync.MySql
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
                     var plan = Dialect.BuildReadHistoryPlan(string.Empty, category);
-                    using (var command = new MySqlCommand(plan.CommandText, connection))
-                    using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                    try
                     {
-                        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                        using (var command = new MySqlCommand(plan.CommandText, connection))
+                        using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                         {
-                            result[CreateHistoryKey(category, reader.GetString(0))] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                                result[CreateHistoryKey(category, reader.GetString(0))] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
                         }
+                    }
+                    catch (MySqlException ex) when (ex.Number == 1146)
+                    {
+                    }
+                    catch (MySqlException ex) when (ex.Number == 1054)
+                    {
+                        await ReadLegacyHistoryAsync(connection, category, result, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -135,6 +146,17 @@ namespace UmbrellaFrame.ModelSync.MySql
         {
             var mysql = exception as MySqlException;
             return mysql != null && (mysql.Number == 1146 || mysql.Number == 1049);
+        }
+
+        private static async Task ReadLegacyHistoryAsync(MySqlConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
+        {
+            var plan = Dialect.BuildReadLegacyHistoryPlan(string.Empty, category);
+            using (var command = new MySqlCommand(plan.CommandText, connection))
+            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    result[CreateHistoryKey(category, reader.GetString(0))] = string.Empty;
+            }
         }
 
         private static void ValidateIdentifier(string identifier, string parameterName)

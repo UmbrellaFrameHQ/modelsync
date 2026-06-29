@@ -65,6 +65,24 @@ public class ModelSyncSqlDialectTests
     }
 
     [Test]
+    public void ConflictUpdateHistoryStyle_ShouldCompileIdempotentHashColumnUpgrade()
+    {
+        var dialect = new ModelSyncSqlDialect(new ModelSyncProviderDescriptor
+        {
+            ProviderId = "conflict-update-provider",
+            OpenQuote = "\"",
+            CloseQuote = "\"",
+            SupportsSchemas = true,
+            HistoryStyle = HistorySqlStyle.ConflictUpdate
+        });
+
+        var plan = dialect.BuildEnsureHistoryHashColumnsPlan("sec");
+
+        Assert.That(plan.CommandText, Does.Contain("ALTER TABLE \"sec\".\"SchemaMigration_Tables\" ADD COLUMN IF NOT EXISTS \"SqlHash\" VARCHAR(128) NULL;"));
+        Assert.That(plan.CommandText, Does.Contain("ALTER TABLE \"sec\".\"SchemaMigration_CustomSql\" ADD COLUMN IF NOT EXISTS \"SqlHash\" VARCHAR(128) NULL;"));
+    }
+
+    [Test]
     public void DescriptorDrivenLockCompiler_ShouldCreateNativeLockPlans()
     {
         var application = new ModelSyncSqlDialect(new ModelSyncProviderDescriptor

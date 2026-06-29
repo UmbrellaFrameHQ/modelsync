@@ -71,6 +71,9 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
             await ExecuteSqlAsync(Dialect.BuildEnsureHistoryInfrastructurePlan(HistorySchema()).CommandText, cancellationToken).ConfigureAwait(false);
+            var upgrade = Dialect.BuildEnsureHistoryHashColumnsPlan(HistorySchema()).CommandText;
+            if (!string.IsNullOrWhiteSpace(upgrade))
+                await ExecuteSqlAsync(upgrade, cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
@@ -82,11 +85,21 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
                     var plan = Dialect.BuildReadHistoryPlan(HistorySchema(), category);
-                    using (var command = new NpgsqlCommand(plan.CommandText, connection))
-                    using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                    try
                     {
-                        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                            result[CreateHistoryKey(category, reader.GetString(0))] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                        using (var command = new NpgsqlCommand(plan.CommandText, connection))
+                        using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                                result[CreateHistoryKey(category, reader.GetString(0))] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                        }
+                    }
+                    catch (PostgresException ex) when (ex.SqlState == "42P01" || ex.SqlState == "3F000")
+                    {
+                    }
+                    catch (PostgresException ex) when (ex.SqlState == "42703")
+                    {
+                        await ReadLegacyHistoryAsync(connection, category, result, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -146,6 +159,17 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         {
             var postgres = exception as PostgresException;
             return postgres != null && (postgres.SqlState == "42P01" || postgres.SqlState == "3F000");
+        }
+
+        private async Task ReadLegacyHistoryAsync(NpgsqlConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
+        {
+            var plan = Dialect.BuildReadLegacyHistoryPlan(HistorySchema(), category);
+            using (var command = new NpgsqlCommand(plan.CommandText, connection))
+            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    result[CreateHistoryKey(category, reader.GetString(0))] = string.Empty;
+            }
         }
 
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)

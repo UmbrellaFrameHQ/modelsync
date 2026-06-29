@@ -47,6 +47,8 @@ namespace UmbrellaFrame.ModelSync.SQLite
         protected override async Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
         {
             await ExecuteSqlAsync(Dialect.BuildEnsureHistoryInfrastructurePlan(string.Empty).CommandText, cancellationToken).ConfigureAwait(false);
+            foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
+                await EnsureHistoryHashColumnAsync(category, cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken)
@@ -57,14 +59,27 @@ namespace UmbrellaFrame.ModelSync.SQLite
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 foreach (MigrationScriptCategory category in Enum.GetValues(typeof(MigrationScriptCategory)))
                 {
-                    using (var command = connection.CreateCommand())
+                    try
                     {
-                        command.CommandText = Dialect.BuildReadHistoryPlan(string.Empty, category).CommandText;
-                        using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                        if (!await HasHistoryHashColumnAsync(connection, category, cancellationToken).ConfigureAwait(false))
                         {
-                            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                                result[CreateHistoryKey(category, reader.GetString(0))] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                            await TryReadLegacyHistoryAsync(connection, category, result, cancellationToken).ConfigureAwait(false);
+                            continue;
                         }
+
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = Dialect.BuildReadHistoryPlan(string.Empty, category).CommandText;
+                            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                                    result[CreateHistoryKey(category, reader.GetString(0))] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                            }
+                        }
+                    }
+                    catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
+                    {
+                        await TryReadLegacyHistoryAsync(connection, category, result, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -284,6 +299,73 @@ namespace UmbrellaFrame.ModelSync.SQLite
         {
             var sqlite = exception as SqliteException;
             return sqlite != null && sqlite.SqliteErrorCode == 1;
+        }
+
+        private static async Task ReadLegacyHistoryAsync(SqliteConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
+        {
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = Dialect.BuildReadLegacyHistoryPlan(string.Empty, category).CommandText;
+                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                        result[CreateHistoryKey(category, reader.GetString(0))] = string.Empty;
+                }
+            }
+        }
+
+        private static async Task TryReadLegacyHistoryAsync(SqliteConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await ReadLegacyHistoryAsync(connection, category, result, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
+            {
+            }
+        }
+
+        private static async Task<bool> HasHistoryHashColumnAsync(SqliteConnection connection, MigrationScriptCategory category, CancellationToken cancellationToken)
+        {
+            var table = Dialect.HistoryTableName(category);
+            var seenTable = false;
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = Dialect.BuildReadFileCatalogTableInfoPlan(table).CommandText;
+                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        seenTable = true;
+                        if (string.Equals(reader.GetString(1), "SqlHash", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                }
+            }
+
+            return !seenTable ? throw new SqliteException("History table was not found.", 1) : false;
+        }
+
+        private async Task EnsureHistoryHashColumnAsync(MigrationScriptCategory category, CancellationToken cancellationToken)
+        {
+            var table = Dialect.HistoryTableName(category);
+            using (var connection = SQLiteConnectionFactory.Create(_connectionString))
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = Dialect.BuildReadFileCatalogTableInfoPlan(table).CommandText;
+                    using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                            columns.Add(reader.GetString(1));
+                    }
+                }
+
+                if (!columns.Contains("SqlHash"))
+                    await ExecuteNonQueryAsync(connection, Dialect.BuildAddHistoryHashColumnSql(string.Empty, category), cancellationToken).ConfigureAwait(false);
+            }
         }
 
         private static void ValidateIdentifier(string identifier, string parameterName)

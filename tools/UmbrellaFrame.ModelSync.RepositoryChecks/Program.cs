@@ -8,7 +8,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.1.0";
+    private const string CurrentReleaseVersion = "1.2.0";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -107,6 +107,13 @@ internal static class Program
                     VerifyVersionConsistency(root);
                 }),
                 "verify-release-documentation" => Run("release documentation", () => VerifyReleaseDocumentation(root)),
+                "verify-migration-execution-policies" => Run("migration execution policy gate", () => VerifyMigrationExecutionPolicies(root)),
+                "verify-legacy-history-compatibility" => Run("legacy history compatibility gate", () => VerifyLegacyHistoryCompatibility(root)),
+                "verify-all-provider-legacy-fixtures" => Run("all-provider legacy fixture gate", () =>
+                {
+                    VerifyLegacyFixtureMarkersSelfTest();
+                    VerifyAllProviderLegacyFixtures(root);
+                }),
                 "verify-all" => Run("repository checks", () =>
                 {
                     VerifyNoShell(root);
@@ -117,6 +124,10 @@ internal static class Program
                     VerifyVersionConsistencySelfTest();
                     VerifyVersionConsistency(root);
                     VerifyReleaseDocumentation(root);
+                    VerifyMigrationExecutionPolicies(root);
+                    VerifyLegacyHistoryCompatibility(root);
+                    VerifyLegacyFixtureMarkersSelfTest();
+                    VerifyAllProviderLegacyFixtures(root);
                 }),
                 "verify-package-smoke" => Run("package smoke", () => VerifyPackageSmoke(root, args)),
                 _ => Fail($"Unknown command '{command}'.")
@@ -493,7 +504,7 @@ internal static class Program
 
         var nugetReadme = ReadRequired(root, "docs/nuget/README.md", violations);
         if (!nugetReadme.Contains($"What's New in {CurrentReleaseVersion}", StringComparison.Ordinal) &&
-            !nugetReadme.Contains($"1.1.0 Operational Hardening", StringComparison.Ordinal))
+            !nugetReadme.Contains($"1.2.0 Operational Hardening", StringComparison.Ordinal))
         {
             violations.Add($"docs/nuget/README.md: current version heading is missing {CurrentReleaseVersion}");
         }
@@ -509,7 +520,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.1.0</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.2.0</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -520,6 +531,200 @@ internal static class Program
         {
             throw new CheckFailedException("Known-bad version fixture was accepted.");
         }
+    }
+
+    private static void VerifyMigrationExecutionPolicies(string root)
+    {
+        var violations = new List<string>();
+        var mode = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Models/MigrationScriptExecutionMode.cs", violations);
+        RequireContains(mode, "RunOnce", "MigrationScriptExecutionMode.RunOnce is missing.", violations);
+        RequireContains(mode, "HashTracked", "MigrationScriptExecutionMode.HashTracked is missing.", violations);
+        RequireContains(mode, "EveryRun", "MigrationScriptExecutionMode.EveryRun is missing.", violations);
+
+        var options = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Models/MigrationRunnerOptions.cs", violations);
+        RequireContains(options, "CategoryPolicies", "MigrationRunnerOptions.CategoryPolicies is missing.", violations);
+        RequireContains(options, "DefaultExecutionMode", "DefaultExecutionMode is missing.", violations);
+        RequireContains(options, "MigrationScriptExecutionMode.HashTracked", "Default execution mode must stay HashTracked for 1.2.0 compatibility.", violations);
+        RequireContains(options, "LegacyEmbeddedSql", "LegacyEmbeddedSql profile application is missing.", violations);
+
+        var profile = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Models/MigrationCompatibilityProfiles.cs", violations);
+        RequireContains(profile, "LegacyEmbeddedSql", "MigrationCompatibilityProfiles.LegacyEmbeddedSql is missing.", violations);
+
+        foreach (var file in EnumerateRepositoryFiles(root).Where(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+        {
+            var text = File.ReadAllText(file);
+            if (Regex.IsMatch(text, @"class\s+\w*MigrationEngine\b", RegexOptions.CultureInvariant))
+                violations.Add($"{Relative(root, file)}: second migration engine class is not allowed.");
+        }
+
+        ThrowIfViolations(violations, "Migration execution policy verification failed.");
+    }
+
+    private static void VerifyLegacyHistoryCompatibility(string root)
+    {
+        var violations = new List<string>();
+        var dialect = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/SqlGeneration/ModelSyncSqlDialect.cs", violations);
+        RequireContains(dialect, "BuildEnsureHistoryHashColumnsPlan", "Core SQL compiler must own history SqlHash upgrade.", violations);
+        RequireContains(dialect, "BuildAddHistoryHashColumnSql", "Core SQL compiler must expose history SqlHash column add SQL.", violations);
+        RequireContains(dialect, "BuildReadLegacyHistoryPlan", "Core SQL compiler must expose legacy history read SQL.", violations);
+
+        VerifyNoRawLegacyAlterInProviders(root, violations);
+
+        var item = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Models/MigrationExecutionItemResult.cs", violations);
+        RequireContains(item, "ExecutionMode", "ExecutionMode result metadata is missing.", violations);
+        RequireContains(item, "DecisionReason", "DecisionReason result metadata is missing.", violations);
+        RequireContains(item, "LegacyHashAdopted", "LegacyHashAdopted result metadata is missing.", violations);
+
+        var plan = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Models/MigrationSyncPlan.cs", violations);
+        RequireContains(plan, "HistoryRowExists", "HistoryRowExists plan metadata is missing.", violations);
+        RequireContains(plan, "LegacyHashAdoptionRequired", "LegacyHashAdoptionRequired plan metadata is missing.", violations);
+
+        var runner = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Services/SqlMigrationRunnerBase.cs", violations);
+        var compareBody = ExtractMethodBody(runner, "CompareRegisteredAsync");
+        if (compareBody.Contains("EnsureHistory", StringComparison.Ordinal) ||
+            compareBody.Contains("AdoptLegacyHash", StringComparison.Ordinal) ||
+            compareBody.Contains("RecordHistory", StringComparison.Ordinal))
+        {
+            violations.Add("SqlMigrationRunnerBase.CompareRegisteredAsync: compare path must not mutate history infrastructure or adoption state.");
+        }
+
+        var coreProject = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/UmbrellaFrame.ModelSync.Core.csproj", violations);
+        if (coreProject.Contains("Microsoft.Extensions.Configuration", StringComparison.OrdinalIgnoreCase))
+            violations.Add("Core project must not depend on IConfiguration packages.");
+
+        var sqlite = ReadRequired(root, "UmbrellaFrame.ModelSync.SQLite/SQLiteProviderDescriptor.cs", violations);
+        RequireContains(sqlite, "SupportsStoredProcedures = false", "SQLite stored procedures must remain unsupported.", violations);
+
+        ThrowIfViolations(violations, "Legacy history compatibility verification failed.");
+    }
+
+    private static void VerifyNoRawLegacyAlterInProviders(string root, List<string> violations)
+    {
+        foreach (var providerDirectory in ProviderDirectories)
+        {
+            var providerPath = Path.Combine(root, providerDirectory);
+            if (!Directory.Exists(providerPath))
+                continue;
+
+            foreach (var file in EnumerateFiles(providerPath, "*.cs"))
+            {
+                var relative = Relative(root, file);
+                var text = File.ReadAllText(file);
+                if (Regex.IsMatch(text, @"ALTER\s+TABLE[^;\n]+SqlHash", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                    violations.Add($"{relative}: provider service must not contain raw legacy ALTER SqlHash SQL.");
+            }
+        }
+    }
+
+    private static void VerifyAllProviderLegacyFixtures(string root)
+    {
+        var violations = new List<string>();
+        var sources = EnumerateRepositoryFiles(root)
+            .Where(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && Relative(root, f).Contains("Test/", StringComparison.Ordinal))
+            .Select(f => new SourceFile(Relative(root, f), File.ReadAllLines(f)))
+            .ToArray();
+
+        var requiredProviders = new[] { "sqlserver", "mysql", "mariadb", "postgresql", "sqlite" };
+        var requiredScenarios = new[]
+        {
+            "CompareReadOnly",
+            "LegacyUpgradeFirstRun",
+            "LegacyUpgradeSecondRun",
+            "ChangedResourceRun",
+            "FailureSafetyRun"
+        };
+
+        var markers = ScanLegacyFixtureMarkers(sources);
+        foreach (var provider in requiredProviders)
+        {
+            if (!markers.Contains(provider))
+            {
+                violations.Add($"{provider}: legacy compatibility fixture marker was not found.");
+                continue;
+            }
+
+            foreach (var scenario in requiredScenarios)
+            {
+                if (!sources.Any(source =>
+                        source.Lines.Any(line => line.Contains($"LegacyCompatibilityFixture(\"{provider}\")", StringComparison.OrdinalIgnoreCase)) &&
+                        source.Lines.Any(line => line.Contains(scenario, StringComparison.Ordinal))))
+                {
+                    violations.Add($"{provider}: legacy compatibility fixture scenario '{scenario}' was not found.");
+                }
+            }
+        }
+
+        ThrowIfViolations(violations, "All-provider legacy fixture verification failed.");
+    }
+
+    private static void VerifyLegacyFixtureMarkersSelfTest()
+    {
+        var clean = new SourceFile("CleanTest/Clean.cs", new[]
+        {
+            "[LegacyCompatibilityFixture(\"sqlserver\")]",
+            "public void CompareReadOnly() {}",
+            "public void LegacyUpgradeFirstRun() {}",
+            "public void LegacyUpgradeSecondRun() {}",
+            "public void ChangedResourceRun() {}",
+            "public void FailureSafetyRun() {}",
+            "public sealed class SqlServerLegacyCompatibilityTests {}"
+        });
+        var bad = new SourceFile("BadTest/Bad.cs", new[]
+        {
+            "public sealed class SqlServerLegacyCompatibilityTests {}"
+        });
+
+        if (!ScanLegacyFixtureMarkers(new[] { clean }).Contains("sqlserver"))
+            throw new CheckFailedException("Known-clean legacy fixture marker was rejected.");
+        if (ScanLegacyFixtureMarkers(new[] { bad }).Contains("sqlserver"))
+            throw new CheckFailedException("Known-bad legacy fixture marker was accepted.");
+    }
+
+    private static HashSet<string> ScanLegacyFixtureMarkers(IEnumerable<SourceFile> sources)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var source in sources)
+        {
+            foreach (var line in source.Lines)
+            {
+                var match = Regex.Match(line, @"LegacyCompatibilityFixture\s*\(\s*""(?<provider>sqlserver|mysql|mariadb|postgresql|sqlite)""\s*\)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (match.Success)
+                    result.Add(match.Groups["provider"].Value.ToLowerInvariant());
+            }
+        }
+
+        return result;
+    }
+
+    private static void RequireContains(string text, string expected, string message, List<string> violations)
+    {
+        if (!text.Contains(expected, StringComparison.Ordinal))
+            violations.Add(message);
+    }
+
+    private static string ExtractMethodBody(string source, string methodName)
+    {
+        var index = source.IndexOf(methodName, StringComparison.Ordinal);
+        if (index < 0)
+            return string.Empty;
+        var brace = source.IndexOf('{', index);
+        if (brace < 0)
+            return string.Empty;
+
+        var depth = 0;
+        for (var i = brace; i < source.Length; i++)
+        {
+            if (source[i] == '{')
+                depth++;
+            else if (source[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                    return source.Substring(brace, i - brace + 1);
+            }
+        }
+
+        return source.Substring(brace);
     }
 
     private static void VerifyReleaseDocumentation(string root)

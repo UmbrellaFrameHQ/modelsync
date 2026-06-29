@@ -40,6 +40,32 @@ Kalan compatibility alanları:
 
 ---
 
+## Legacy Runner Compatibility Architecture
+
+ModelSync 1.2.0 hazırlığı, legacy embedded SQL runner davranışını yeni bir migration engine oluşturmadan kapatmayı hedefler.
+
+- Execution mode kararı Core runner içinde verilir: `RunOnce`, `HashTracked`, `EveryRun`.
+- Category policy kaynağı `MigrationRunnerOptions.CategoryPolicies` nesnesidir.
+- `LegacyEmbeddedSql` profile stored procedure ve trigger scriptlerini `EveryRun`, seed scriptlerini `RunOnce`, custom SQL scriptlerini `HashTracked` ayarlar.
+- History table adı, history read/write SQL'i, `SqlHash` upgrade SQL'i ve legacy read SQL'i Core `ModelSyncSqlDialect` tarafından üretilir.
+- Provider servisleri raw legacy `ALTER TABLE ... SqlHash` SQL'i yazmaz; provider yalnız connection, command, lock ve capability davranışını yönetir.
+- Compare path read-only kalır. `CompareRegisteredAsync` history table oluşturmaz, `SqlHash` eklemez, hash adoption yazmaz ve script çalıştırmaz.
+- Mutation path `EnsureInfrastructureAsync`, `RunAsync` veya `RunWithResultAsync` üzerinden ilerler.
+
+Provider capability farkları:
+
+| Provider | Lock | Stored procedure | Transaction/atomicity |
+|---|---|---|---|
+| SQL Server | application lock | supported | DDL behavior provider/database ayarına bağlıdır |
+| MySQL | named lock | supported | DDL için full atomicity iddiası yoktur |
+| MariaDB | named lock | supported | MySQL ile aynı sayılmaz, ayrı doğrulanır |
+| PostgreSQL | advisory lock | supported | transactional DDL desteklenir |
+| SQLite | immediate write lock | unsupported | file transaction scope |
+
+Safe ALTER kuralı değişmez: framework history tablosuna kontrollü `SqlHash` eklenmesi infrastructure upgrade'dir; model tablolarında drop, narrowing, risky not-null, risky rename veya destructive constraint değişiklikleri otomatik uygulanmaz.
+
+---
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                  Kullanıcı Kodu / Uygulama              │

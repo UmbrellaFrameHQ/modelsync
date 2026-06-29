@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: Type PUBLISH-1.1.0 to confirm publishing
+        description: Type PUBLISH-1.2.0 to confirm publishing
         required: true
         type: string
 
@@ -24,14 +24,14 @@ jobs:
     steps:
       - name: Validate dispatch input
         run: |
-          test "${{ inputs.version }}" = "1.1.0"
-          test "${{ inputs.confirmation }}" = "PUBLISH-1.1.0"
-          test "${GITHUB_REF}" = "refs/tags/v1.1.0"
+          test "${{ inputs.version }}" = "1.2.0"
+          test "${{ inputs.confirmation }}" = "PUBLISH-1.2.0"
+          test "${GITHUB_REF}" = "refs/tags/v1.2.0"
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: v1.1.0
+          ref: v1.2.0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -54,7 +54,7 @@ jobs:
         run: dotnet pack ModelSync.sln --configuration Release --no-build --output ./artifacts
 
       - name: Package smoke
-        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke artifacts 1.1.0
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke artifacts 1.2.0
 
       - name: Publish packages
         run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

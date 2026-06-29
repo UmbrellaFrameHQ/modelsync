@@ -30,11 +30,41 @@ UmbrellaFrame.ModelSync.SQLite        SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer package
 ```
 
-Current package version: `1.1.0`
+Current package version: `1.2.0`
 
-Development status: the repository contains released 1.1.0 hardening work. NuGet packages are validated by the 1.1.0 provider integration gate.
+Development status: the repository contains released 1.2.0 hardening work. NuGet packages are validated by the 1.2.0 provider integration gate.
 
 Architecture rule: `UmbrellaFrame.ModelSync.Core` owns SQL generation and migration planning through a provider-agnostic compiler. Provider packages supply structured descriptors, capabilities, mappings, attributes, connection adapters, and execution integration; they do not maintain independent framework SQL engines.
+
+### 1.2.0 Legacy Compatibility Work
+
+The repository is shipping the 1.2.0 line for legacy embedded SQL runner compatibility. The package version stays `1.2.0` until every release gate passes.
+
+Planned 1.2.0 compatibility scope:
+
+- `RunOnce`, `HashTracked`, and `EveryRun` migration execution modes.
+- `CategoryPolicies` for per-category script execution behavior.
+- `MigrationCompatibilityProfiles.LegacyEmbeddedSql` for legacy table/seed/procedure/trigger ownership.
+- Additive `SqlHash` upgrade for existing history tables that were created before hash tracking.
+- Legacy history row adoption without rerunning matching `RunOnce` seed scripts.
+- Stored procedure and trigger `EveryRun` behavior for legacy runner parity.
+- `CustomSql` history bootstrap and hash tracking.
+- Read-only compare behavior: compare reports required work but does not create tables, add columns, adopt hashes, or execute scripts.
+
+Provider support matrix for the 1.2.0 compatibility gate:
+
+| Provider | Legacy history upgrade | Row adoption | SP scripts | Trigger scripts | CustomSql | Native lock | Transaction note |
+|---|---|---|---|---|---|---|---|
+| SQL Server | Planned full fixture | Planned full fixture | EveryRun | EveryRun | HashTracked | `sp_getapplock` | DDL behavior depends on SQL Server/database settings |
+| MySQL | Planned full fixture | Planned full fixture | EveryRun | EveryRun | HashTracked | `GET_LOCK` | DDL must not be reported as fully atomic |
+| MariaDB | Planned separate fixture | Planned separate fixture | EveryRun | EveryRun | HashTracked | named lock | Separate from MySQL results |
+| PostgreSQL | Planned full fixture | Planned full fixture | EveryRun | EveryRun | HashTracked | advisory lock | Transactional DDL expected |
+| SQLite | Initial real fixture present | Initial real fixture present | Unsupported | Trigger/generic EveryRun | HashTracked | `BEGIN IMMEDIATE` | File transaction/rollback scoped |
+
+Legacy runner migration guides:
+
+- [Legacy Runner Migration - English](docs/legacy-runner-migration-en.md)
+- [Legacy Runner Migration - Turkish](docs/legacy-runner-migration-tr.md)
 
 ### What ModelSync Does
 
@@ -63,11 +93,11 @@ Registered SQL scripts are treated as trusted project artifacts. ModelSync risk-
 Install the provider package you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
 ```
 
 Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
@@ -75,7 +105,7 @@ Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
 Analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
 ### Quick Start
@@ -237,7 +267,7 @@ Safe automatic operations include missing tables, safe missing columns, indexes,
 
 `FromAssemblies` is provider-aware and `FromTypes` scopes synchronization to the supplied model types. Extra database tables are reported as blocked `DropTable` operations only when `ReportUnmappedTables = true`. Registered SQL scripts are trusted project artifacts; ModelSync does not parse arbitrary script text for destructive SQL.
 
-ModelSync 1.1.0 adds table execution policies for mixed ownership:
+ModelSync 1.2.0 adds table execution policies for mixed ownership:
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
@@ -425,9 +455,9 @@ UmbrellaFrame.ModelSync.SQLite        SQLite sağlayıcısı
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer paketi
 ```
 
-Güncel paket sürümü: `1.1.0`
+Güncel paket sürümü: `1.2.0`
 
-Gelistirme durumu: 1.1.0 sertlestirme calismalari provider entegrasyon kapilariyla dogrulanmistir. NuGet paketleri 1.1.0 surumundedir.
+Gelistirme durumu: 1.2.0 sertlestirme calismalari provider entegrasyon kapilariyla dogrulanmistir. NuGet paketleri 1.2.0 surumundedir.
 
 Mimari kural: SQL üretimi ve migration planlama, provider-agnostic compiler ile `UmbrellaFrame.ModelSync.Core` katmanına aittir. Provider paketleri structured descriptor, capability, mapping, attribute, connection adapter ve execution entegrasyonu sağlar; bağımsız framework SQL motoru tutmaz.
 
@@ -456,11 +486,11 @@ ModelSync sessiz ve kontrolsüz bir production mutasyon motoru değildir. Canlı
 İhtiyacınız olan sağlayıcı paketini kurun:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.1.0
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
 ```
 
 Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak getirir.
@@ -468,7 +498,7 @@ Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak 
 Analyzer paketi:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.1.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
 ```
 
 ### Hızlı Başlangıç
@@ -759,7 +789,7 @@ MODELSYNC_RUN_SP_INTEGRATION=1 dotnet test ModelSync.sln -c Release --filter "Ca
 
 | Kaynak | Açıklama |
 |---|---|
-| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.1.0 için kapsamlı Türkçe kullanım kılavuzu |
+| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.2.0 için kapsamlı Türkçe kullanım kılavuzu |
 | [Makaleler](articles/README.md) | ModelSync'i anlatmak için hazırlanmış yazılar |
 | [Örnekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive operation ve stored procedure örnekleri |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | Stored procedure senkronizasyon davranışı |
