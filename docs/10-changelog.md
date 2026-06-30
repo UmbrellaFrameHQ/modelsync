@@ -8,7 +8,7 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
-## [1.2.1] - 2026-06-30 - Provider API Clarity and Operational Hardening
+## [1.2.1] - 2026-07-01 - Provider API Clarity and Operational Hardening
 
 ### Added
 - Added provider-specific default, raw default SQL, check and index attributes.

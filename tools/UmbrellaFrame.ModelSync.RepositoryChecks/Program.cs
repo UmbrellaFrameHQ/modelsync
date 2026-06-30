@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.IO.Compression;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace UmbrellaFrame.ModelSync.RepositoryChecks;
@@ -116,6 +118,12 @@ internal static class Program
                     VerifyOperationalHardening(root);
                 }),
                 "verify-1-2-0-consumer-compatibility" => Run("1.2.0 consumer compatibility", () => VerifyConsumerCompatibility(root)),
+                "verify-consumer-compatibility" => Run("external consumer compatibility", () => VerifyExternalConsumerCompatibility(root, args)),
+                "verify-publication-hygiene" => Run("publication hygiene", () =>
+                {
+                    VerifyPublicationHygieneSelfTest();
+                    VerifyPublicationHygiene(root);
+                }),
                 "verify-migration-execution-policies" => Run("migration execution policy gate", () => VerifyMigrationExecutionPolicies(root)),
                 "verify-legacy-history-compatibility" => Run("legacy history compatibility gate", () => VerifyLegacyHistoryCompatibility(root)),
                 "verify-all-provider-legacy-fixtures" => Run("all-provider legacy fixture gate", () =>
@@ -139,6 +147,8 @@ internal static class Program
                     VerifyOperationalHardeningSelfTest();
                     VerifyOperationalHardening(root);
                     VerifyConsumerCompatibility(root);
+                    VerifyPublicationHygieneSelfTest();
+                    VerifyPublicationHygiene(root);
                     VerifyMigrationExecutionPolicies(root);
                     VerifyLegacyHistoryCompatibility(root);
                     VerifyLegacyFixtureMarkersSelfTest();
@@ -825,13 +835,13 @@ internal static class Program
         RequireContains(readme, "docs/migrations/1.2.0-to-1.2.1.md", "README.md: 1.2.0 to 1.2.1 migration guide link is missing.", violations);
 
         var release = ReadRequired(root, "docs/releases/1.2.1.md", violations);
-        RequireContains(release, "2026-06-30", "docs/releases/1.2.1.md: final release date is missing.", violations);
+        RequireContains(release, "2026-07-01", "docs/releases/1.2.1.md: final release date is missing.", violations);
         RequireContains(release, "ModelSync 1.2.1 - Provider API Clarity and Operational Hardening", "docs/releases/1.2.1.md: release title is missing.", violations);
         RequireContains(release, "| Capability | Core | SQL Server | MySQL/MariaDB | PostgreSQL | SQLite |", "docs/releases/1.2.1.md: provider impact matrix is missing.", violations);
         RequireContains(release, "Fixed", "docs/releases/1.2.1.md: closed bug list is missing.", violations);
 
         var changelog = ReadRequired(root, "CHANGELOG.md", violations);
-        RequireContains(changelog, "## [1.2.1] - 2026-06-30", "CHANGELOG.md: final 1.2.1 entry is missing.", violations);
+        RequireContains(changelog, "## [1.2.1] - 2026-07-01", "CHANGELOG.md: final 1.2.1 entry is missing.", violations);
 
         foreach (var packageId in SupportedPackageIds())
         {
@@ -1114,9 +1124,10 @@ internal static class Program
 
         foreach (var marker in new[]
                  {
-                     "Source: `NuGet.org`",
-                     "ModelSync version: `1.2.0`",
-                     "ModelSync version: `1.2.1-rc.local`",
+                     "NuGet.org package version: `1.2.0`",
+                     "Candidate version: supplied by release gate",
+                     "Final validation version: `1.2.1`",
+                     "Candidate source: supplied explicitly by release command",
                      "NewWarningDelta: `0`",
                      "TreatWarningsAsErrors: `PASS`",
                      "ProjectReferenceDetected: `false`",
@@ -1127,17 +1138,358 @@ internal static class Program
             RequireContains(evidence, marker, $"Consumer compatibility evidence is missing '{marker}'.", violations);
         }
 
-        var packageDirectory = Path.Combine(root, "artifacts", "consumer-candidate");
-        foreach (var package in SupportedPackageIds())
+        ThrowIfViolations(violations, "1.2.0 consumer compatibility verification failed.");
+    }
+
+    private static void VerifyPublicationHygieneSelfTest()
+    {
+        var localVersion = "1.2.1-" + "rc.local";
+        var obsoleteArtifactPath = "artifacts/" + "consumer" + "-candidate";
+        var localProjectPath = "D:" + @"\Projeler\UmbrellaFrame\ModelSync";
+        var userProfilePath = "C:" + @"\Users\someone\.nuget\packages";
+        var secretLikeValue = "oy" + "2abcdefghijklmnopqrstuvwxyz";
+        var unsafePassword = "Password=" + "real-production-password";
+        var bad = string.Join(Environment.NewLine, new[]
         {
-            var expected = Path.Combine(packageDirectory, package + ".1.2.1-rc.local.nupkg");
-            if (!File.Exists(expected))
+            "Package candidate: `" + localVersion + "`",
+            "Source: `" + obsoleteArtifactPath + "`",
+            localProjectPath,
+            userProfilePath,
+            unsafePassword,
+            secretLikeValue
+        });
+        var clean = string.Join(Environment.NewLine, new[]
+        {
+            "NuGet.org package version: `1.2.0`",
+            "Candidate version: supplied by release gate",
+            "Candidate source: supplied explicitly by release command",
+            "Password=secret",
+            "--candidate-source artifacts\\publication-1.2.1"
+        });
+
+        if (FindPublicationHygieneViolations("bad.md", bad).Count == 0)
+        {
+            throw new CheckFailedException("Publication hygiene self-test failed: known-bad fixture was accepted.");
+        }
+
+        var cleanViolations = FindPublicationHygieneViolations("clean.md", clean);
+        if (cleanViolations.Count != 0)
+        {
+            throw new CheckFailedException("Publication hygiene self-test failed: known-clean fixture was rejected: " + string.Join("; ", cleanViolations));
+        }
+    }
+
+    private static void VerifyPublicationHygiene(string root)
+    {
+        var result = RunProcess(root, "git", "ls-files");
+        if (result.ExitCode != 0)
+        {
+            throw new CheckFailedException("Could not enumerate tracked files for publication hygiene verification: " + result.SafeOutput);
+        }
+
+        var violations = new List<string>();
+        foreach (var relativePath in result.StdOut.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(path))
             {
-                violations.Add($"{package}: local candidate package was not found at artifacts/consumer-candidate.");
+                continue;
+            }
+
+            string text;
+            try
+            {
+                text = File.ReadAllText(path);
+            }
+            catch
+            {
+                continue;
+            }
+
+            violations.AddRange(FindPublicationHygieneViolations(relativePath, text));
+        }
+
+        ThrowIfViolations(violations, "Publication hygiene verification failed.");
+    }
+
+    private static List<string> FindPublicationHygieneViolations(string relativePath, string text)
+    {
+        var violations = new List<string>();
+        var normalizedPath = relativePath.Replace('\\', '/');
+
+        AddIfContains(text, "1.2.1-" + "rc.local", $"{relativePath}: pre-release local version leaked into tracked content.", violations);
+        AddIfContains(text, "artifacts/" + "consumer" + "-candidate", $"{relativePath}: obsolete consumer candidate artifact path leaked into tracked content.", violations);
+        AddIfContains(text, @"artifacts\" + "consumer" + "-candidate", $"{relativePath}: obsolete consumer candidate artifact path leaked into tracked content.", violations);
+        AddIfContains(text, "D:" + @"\Projeler", $"{relativePath}: local machine path leaked into tracked content.", violations);
+        AddIfContains(text, "D:" + "/Projeler", $"{relativePath}: local machine path leaked into tracked content.", violations);
+        AddIfContains(text, "local" + "-content", $"{relativePath}: local content marker leaked into publication metadata.", violations);
+
+        var windowsUserProfilePattern = @"[A-Za-z]:\\" + "Users" + @"\\[^\\\r\n]+\\";
+        var unixUserProfilePattern = @"(?:/" + "Users" + @"/|/" + "home" + @"/)[^/\r\n]+/";
+        if (Regex.IsMatch(text, windowsUserProfilePattern, RegexOptions.IgnoreCase) ||
+            Regex.IsMatch(text, unixUserProfilePattern, RegexOptions.IgnoreCase))
+        {
+            violations.Add($"{relativePath}: user profile absolute path leaked into tracked content.");
+        }
+
+        if (normalizedPath.Contains("ConsumerCompatibility/", StringComparison.OrdinalIgnoreCase) &&
+            Regex.IsMatch(text, @"<\s*ProjectReference\b", RegexOptions.IgnoreCase))
+        {
+            violations.Add($"{relativePath}: package consumer validation must not use ProjectReference.");
+        }
+
+        if (Regex.IsMatch(text, @"oy2[a-z0-9]{20,}", RegexOptions.IgnoreCase) ||
+            Regex.IsMatch(text, @"(?i)(api[-_ ]?key|token)\s*=\s*[""']?[A-Za-z0-9_\-]{20,}"))
+        {
+            violations.Add($"{relativePath}: secret-like value leaked into tracked content.");
+        }
+
+        foreach (Match match in Regex.Matches(text, @"(?i)Password\s*=\s*([^;`""'\s]+)"))
+        {
+            var value = match.Groups[1].Value;
+            if (value.Equals("real-production-password", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("production", StringComparison.OrdinalIgnoreCase))
+            {
+                violations.Add($"{relativePath}: connection string password value is not a safe placeholder.");
+                break;
             }
         }
 
-        ThrowIfViolations(violations, "1.2.0 consumer compatibility verification failed.");
+        return violations;
+    }
+
+    private static void AddIfContains(string text, string value, string message, List<string> violations)
+    {
+        if (text.Contains(value, StringComparison.OrdinalIgnoreCase))
+        {
+            violations.Add(message);
+        }
+    }
+
+    private static void VerifyExternalConsumerCompatibility(string root, string[] args)
+    {
+        var baselineVersion = RequiredOption(args, "--baseline-version");
+        var candidateVersion = RequiredOption(args, "--candidate-version");
+        var candidateSource = RequiredOption(args, "--candidate-source");
+        var evidenceOutput = OptionalOption(args, "--evidence-output");
+
+        if (baselineVersion != "1.2.0")
+        {
+            throw new CheckFailedException("Consumer compatibility baseline version must be 1.2.0.");
+        }
+
+        if (candidateVersion != CurrentReleaseVersion)
+        {
+            throw new CheckFailedException($"Consumer compatibility candidate version must be {CurrentReleaseVersion}.");
+        }
+
+        var candidateSourcePath = Path.GetFullPath(Path.Combine(root, candidateSource));
+        if (!Directory.Exists(candidateSourcePath))
+        {
+            throw new CheckFailedException("Consumer compatibility candidate source directory was not found.");
+        }
+
+        foreach (var packageId in SupportedPackageIds())
+        {
+            var expected = Path.Combine(candidateSourcePath, packageId + "." + candidateVersion + ".nupkg");
+            if (!File.Exists(expected))
+            {
+                throw new CheckFailedException($"{packageId}: final candidate package was not found in the supplied candidate source.");
+            }
+        }
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ModelSync-consumer-compatibility-" + Guid.NewGuid().ToString("N"));
+        var legacySource = File.ReadAllText(Path.Combine(root, "tools", "UmbrellaFrame.ModelSync.RepositoryChecks", "ConsumerCompatibility", "LegacyConsumer", "Program.cs"));
+        var canonicalSource = File.ReadAllText(Path.Combine(root, "tools", "UmbrellaFrame.ModelSync.RepositoryChecks", "ConsumerCompatibility", "CanonicalProviderConsumer", "Program.cs"));
+
+        try
+        {
+            var baseline = CreateConsumerProject(tempRoot, "BaselineLegacyConsumer", legacySource, baselineVersion, null);
+            BuildConsumerProject(baseline, "baseline");
+
+            var legacyCandidate = CreateConsumerProject(tempRoot, "CandidateLegacyConsumer", legacySource, candidateVersion, candidateSourcePath);
+            BuildConsumerProject(legacyCandidate, "legacy candidate");
+
+            var canonicalCandidate = CreateConsumerProject(tempRoot, "CanonicalCandidateConsumer", canonicalSource, candidateVersion, candidateSourcePath);
+            BuildConsumerProject(canonicalCandidate, "canonical candidate");
+
+            ValidateConsumerAssets(baseline, baselineVersion, forbiddenVersion: candidateVersion, "baseline");
+            ValidateConsumerAssets(legacyCandidate, candidateVersion, forbiddenVersion: baselineVersion, "legacy candidate");
+            ValidateConsumerAssets(canonicalCandidate, candidateVersion, forbiddenVersion: baselineVersion, "canonical candidate");
+
+            if (!string.IsNullOrWhiteSpace(evidenceOutput))
+            {
+                var evidencePath = Path.GetFullPath(Path.Combine(root, evidenceOutput));
+                Directory.CreateDirectory(Path.GetDirectoryName(evidencePath)!);
+                File.WriteAllText(evidencePath, BuildConsumerCompatibilityEvidenceJson(baselineVersion, candidateVersion), Encoding.UTF8);
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temp consumer projects.
+            }
+        }
+    }
+
+    private static string RequiredOption(string[] args, string name)
+        => OptionalOption(args, name) ?? throw new CheckFailedException($"Missing required option: {name}");
+
+    private static string? OptionalOption(string[] args, string name)
+    {
+        for (var i = 1; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+            {
+                return args[i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    private static string CreateConsumerProject(string root, string name, string source, string version, string? localPackageSource)
+    {
+        var projectDirectory = Path.Combine(root, name);
+        Directory.CreateDirectory(projectDirectory);
+        File.WriteAllText(Path.Combine(projectDirectory, "Program.cs"), source, Encoding.UTF8);
+        File.WriteAllText(Path.Combine(projectDirectory, name + ".csproj"), BuildConsumerProjectFile(version), Encoding.UTF8);
+        File.WriteAllText(Path.Combine(projectDirectory, "NuGet.Config"), BuildNuGetConfig(localPackageSource), Encoding.UTF8);
+        return projectDirectory;
+    }
+
+    private static string BuildConsumerProjectFile(string version)
+    {
+        var packageReferences = string.Join(Environment.NewLine, SupportedPackageIds().Select(packageId =>
+            $"    <PackageReference Include=\"{packageId}\" Version=\"{version}\" />"));
+
+        return $"""
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+{packageReferences}
+  </ItemGroup>
+</Project>
+""";
+    }
+
+    private static string BuildNuGetConfig(string? localPackageSource)
+    {
+        var source = string.IsNullOrWhiteSpace(localPackageSource)
+            ? "https://api.nuget.org/v3/index.json"
+            : localPackageSource.Replace("&", "&amp;").Replace("\"", "&quot;");
+
+        return $"""
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="ModelSyncConsumerSource" value="{source}" />
+  </packageSources>
+</configuration>
+""";
+    }
+
+    private static void BuildConsumerProject(string projectDirectory, string label)
+    {
+        var restore = RunProcess(projectDirectory, "dotnet", "restore", "--no-cache", "--force-evaluate");
+        if (restore.ExitCode != 0)
+        {
+            throw new CheckFailedException($"Consumer compatibility {label} restore failed: {restore.SafeOutput}");
+        }
+
+        var build = RunProcess(projectDirectory, "dotnet", "build", "--configuration", "Release", "--no-restore", "-p:TreatWarningsAsErrors=true");
+        if (build.ExitCode != 0)
+        {
+            throw new CheckFailedException($"Consumer compatibility {label} build failed: {build.SafeOutput}");
+        }
+    }
+
+    private static void ValidateConsumerAssets(string projectDirectory, string requiredVersion, string forbiddenVersion, string label)
+    {
+        var assetsPath = Path.Combine(projectDirectory, "obj", "project.assets.json");
+        if (!File.Exists(assetsPath))
+        {
+            throw new CheckFailedException($"Consumer compatibility {label} assets file was not produced.");
+        }
+
+        var assets = File.ReadAllText(assetsPath);
+        foreach (var packageId in SupportedPackageIds())
+        {
+            if (!assets.Contains(packageId + "/" + requiredVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new CheckFailedException($"Consumer compatibility {label} did not restore {packageId} {requiredVersion}.");
+            }
+
+            if (assets.Contains(packageId + "/" + forbiddenVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new CheckFailedException($"Consumer compatibility {label} restored mixed ModelSync versions.");
+            }
+        }
+
+        if (assets.Contains("1.2.1-" + "rc.local", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CheckFailedException($"Consumer compatibility {label} restored a local rc package.");
+        }
+    }
+
+    private static string BuildConsumerCompatibilityEvidenceJson(string baselineVersion, string candidateVersion)
+        => $$"""
+{
+  "BaselineVersion": "{{baselineVersion}}",
+  "CandidateVersion": "{{candidateVersion}}",
+  "CandidateSource": "supplied-explicitly",
+  "BaselineRestore": "PASS",
+  "BaselineBuild": "PASS",
+  "LegacyCandidateRestore": "PASS",
+  "LegacyCandidateBuild": "PASS",
+  "CanonicalCandidateRestore": "PASS",
+  "CanonicalCandidateBuild": "PASS",
+  "LegacyErrors": 0,
+  "LegacyWarnings": 0,
+  "CanonicalErrors": 0,
+  "CanonicalWarnings": 0,
+  "NewWarningDelta": 0,
+  "ProjectReferenceDetected": false,
+  "UnexpectedPackageSourceDetected": false,
+  "MixedModelSyncVersionsDetected": false
+}
+""";
+
+    private static ProcessResult RunProcess(string workingDirectory, string fileName, params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo(fileName)
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new CheckFailedException($"Could not start process: {fileName}");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        return new ProcessResult(process.ExitCode, stdout, stderr);
     }
 
     private static string ReadRequired(string root, string relativePath, List<string> violations)
@@ -1313,6 +1665,20 @@ internal static class Program
     private sealed record SourceFile(string Path, string[] Lines);
     private sealed record SqlRule(string Name, string Pattern);
     private sealed record PackageExpectation(string Id, bool RequiresCoreDependency, bool IsAnalyzer);
+    private sealed record ProcessResult(int ExitCode, string StdOut, string StdErr)
+    {
+        public string SafeOutput
+        {
+            get
+            {
+                var text = (StdOut + Environment.NewLine + StdErr)
+                    .Replace('\r', ' ')
+                    .Replace('\n', ' ');
+                text = Regex.Replace(text, @"(?i)(password|token|api[-_ ]?key)\s*=\s*[^;\s]+", "$1=<redacted>");
+                return text.Length <= 1024 ? text : text[..1024];
+            }
+        }
+    }
     private sealed record Violation(string File, int Line, string Rule, string Text)
     {
         public override string ToString() => $"{File}:{Line}: {Rule}: {Text}";

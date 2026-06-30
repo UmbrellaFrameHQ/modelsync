@@ -1,11 +1,13 @@
-# Consumer Compatibility Evidence
+# Consumer Compatibility Evidence Template
 
-Package candidate: `1.2.1-rc.local`
+Candidate version: supplied by release gate
+Candidate source: supplied explicitly by release command
+Final validation version: `1.2.1`
 
 ## Baseline
 
 - Source: `NuGet.org`
-- ModelSync version: `1.2.0`
+- NuGet.org package version: `1.2.0`
 - Restore: `PASS`
 - Build: `PASS`
 - Warnings: `0`
@@ -14,8 +16,8 @@ Package candidate: `1.2.1-rc.local`
 
 ## Candidate Legacy Consumer
 
-- Source: `artifacts/consumer-candidate`
-- ModelSync version: `1.2.1-rc.local`
+- Source: supplied explicitly by release command
+- ModelSync version: supplied by release gate
 - Restore: `PASS`
 - Build: `PASS`
 - Warnings: `0`
@@ -25,8 +27,8 @@ Package candidate: `1.2.1-rc.local`
 
 ## Canonical Provider Consumer
 
-- Source: `artifacts/consumer-candidate`
-- ModelSync version: `1.2.1-rc.local`
+- Source: supplied explicitly by release command
+- ModelSync version: supplied by release gate
 - Restore: `PASS`
 - Build: `PASS`
 - Warnings: `0`

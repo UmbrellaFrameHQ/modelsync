@@ -2,7 +2,7 @@
 
 All notable ModelSync changes are tracked here.
 
-## [1.2.1] - 2026-06-30
+## [1.2.1] - 2026-07-01
 
 Provider API Clarity and Operational Hardening
 
