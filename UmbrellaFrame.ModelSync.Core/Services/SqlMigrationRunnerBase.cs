@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -280,21 +281,38 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
             try
             {
-                foreach (var sql in scripts)
+                using (var scope = await OpenExecutionScopeAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    var batches = SplitBatches(sql).Where(batch => !string.IsNullOrWhiteSpace(batch)).ToList();
-                    result.BatchCount += batches.Count;
-                    foreach (var batch in batches)
+                    foreach (var sql in scripts)
                     {
-                        await ExecuteSqlAsync(batch, cancellationToken).ConfigureAwait(false);
-                        result.CompletedBatchCount++;
+                        var batches = SplitBatches(PrepareScriptSql(plan.Definition, sql)).Where(batch => !string.IsNullOrWhiteSpace(batch)).ToList();
+                        result.BatchCount += batches.Count;
+                        foreach (var batch in batches)
+                        {
+                            try
+                            {
+                                await scope.ExecuteSqlAsync(batch, cancellationToken).ConfigureAwait(false);
+                                result.CompletedBatchCount++;
+                            }
+                            catch (Exception ex) when (!(ex is OperationCanceledException))
+                            {
+                                result.Action = MigrationExecutionAction.Failed;
+                                result.FailureStage = "ExecuteBatch";
+                                result.ErrorCode = ex.GetType().Name;
+                                result.FailedBatchIndex = result.CompletedBatchCount + 1;
+                                result.FailedBatchPreview = CreateBatchPreview(batch);
+                                PopulateProviderError(result, ex);
+                                result.CompletedAt = DateTimeOffset.UtcNow;
+                                return result;
+                            }
+                        }
                     }
-                }
 
-                if (scripts.Count > 0)
-                    await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
-                else if (plan.LegacyHashAdoptionRequired)
-                    await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
+                    if (scripts.Count > 0)
+                        await RecordHistoryAsync(scope, plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+                    else if (plan.LegacyHashAdoptionRequired)
+                        await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
+                }
 
                 result.LegacyHashAdopted = plan.LegacyHashAdoptionRequired;
                 result.CompletedAt = DateTimeOffset.UtcNow;
@@ -305,6 +323,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 result.Action = MigrationExecutionAction.Failed;
                 result.FailureStage = result.CompletedBatchCount < result.BatchCount ? "ExecuteBatch" : "RecordHistory";
                 result.ErrorCode = ex.GetType().Name;
+                PopulateProviderError(result, ex);
                 result.CompletedAt = DateTimeOffset.UtcNow;
                 return result;
             }
@@ -427,6 +446,38 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         protected virtual IReadOnlyList<string> SplitBatches(string sql)
             => SqlBatchSplitter.SingleBatch(sql);
 
+        protected virtual string PrepareScriptSql(MigrationScriptDefinition definition, string sql)
+            => sql;
+
+        protected virtual Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IMigrationExecutionScope>(new DelegatingMigrationExecutionScope(ExecuteSqlAsync));
+
+        protected virtual Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
+            => RecordHistoryAsync(definition, hash, cancellationToken);
+
+        protected virtual void PopulateProviderError(MigrationExecutionItemResult result, Exception exception)
+        {
+            result.ErrorMessage = Redact(exception.Message);
+            result.InnerErrorMessage = Redact(exception.InnerException?.Message ?? string.Empty);
+        }
+
+        protected static string CreateBatchPreview(string sql)
+        {
+            var normalized = Regex.Replace(sql ?? string.Empty, @"\s+", " ").Trim();
+            normalized = Redact(normalized);
+            return normalized.Length <= 1024 ? normalized : normalized.Substring(0, 1024);
+        }
+
+        protected static string Redact(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+
+            var redacted = Regex.Replace(value, @"(?i)(password|pwd|token|api[_-]?key|secret|access[_-]?key)\s*=\s*[^;\s]+", "$1=<redacted>");
+            redacted = Regex.Replace(redacted, @"(?i)(password|pwd|token|api[_-]?key|secret|access[_-]?key)\s*[:=]\s*['""]?[^,'""\s;]+", "$1=<redacted>");
+            return redacted;
+        }
+
         protected virtual Task<IReadOnlyList<string>> BuildMissingColumnScriptsAsync(MigrationScriptDefinition definition, CancellationToken cancellationToken)
             => Task.FromResult((IReadOnlyList<string>)new List<string>());
 
@@ -454,5 +505,27 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         protected abstract Task<IDictionary<string, string>> ReadHistoryAsync(CancellationToken cancellationToken);
         protected abstract Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken);
         protected abstract Task RecordHistoryAsync(MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken);
+
+        protected interface IMigrationExecutionScope : IDisposable
+        {
+            Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken);
+        }
+
+        private sealed class DelegatingMigrationExecutionScope : IMigrationExecutionScope
+        {
+            private readonly Func<string, CancellationToken, Task> _execute;
+
+            public DelegatingMigrationExecutionScope(Func<string, CancellationToken, Task> execute)
+            {
+                _execute = execute;
+            }
+
+            public Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
+                => _execute(sql, cancellationToken);
+
+            public void Dispose()
+            {
+            }
+        }
     }
 }

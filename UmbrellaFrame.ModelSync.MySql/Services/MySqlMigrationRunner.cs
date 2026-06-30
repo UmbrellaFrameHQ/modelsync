@@ -159,6 +159,37 @@ namespace UmbrellaFrame.ModelSync.MySql
             }
         }
 
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        {
+            var connection = MySqlConnectionFactory.Create(_connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return new MySqlExecutionScope(connection);
+        }
+
+        protected override async Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
+        {
+            var mysqlScope = (MySqlExecutionScope)scope;
+            var plan = Dialect.BuildRecordHistoryPlan(string.Empty, definition.Category, definition.Id, definition.Name, hash);
+            using (var command = new MySqlCommand(plan.CommandText, mysqlScope.Connection))
+            {
+                AddParameters(command, plan);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        protected override void PopulateProviderError(MigrationExecutionItemResult result, Exception exception)
+        {
+            base.PopulateProviderError(result, exception);
+            var mysql = exception as MySqlException;
+            if (mysql == null)
+                return;
+
+            result.ProviderErrorCode = mysql.SqlState ?? string.Empty;
+            result.ProviderErrorNumber = mysql.Number;
+            result.ProviderErrorState = mysql.SqlState ?? string.Empty;
+            result.ErrorMessage = Redact(mysql.Message);
+        }
+
         private static void ValidateIdentifier(string identifier, string parameterName)
         {
             if (string.IsNullOrWhiteSpace(identifier) || !SafeIdentifierPattern.IsMatch(identifier))
@@ -183,6 +214,27 @@ namespace UmbrellaFrame.ModelSync.MySql
             var expected = Options.ResetOptions?.ExpectedDatabaseName;
             if (!string.IsNullOrWhiteSpace(expected) && !string.Equals(expected, databaseName, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Expected database name does not match the MySQL/MariaDB target database.");
+        }
+
+        private sealed class MySqlExecutionScope : IMigrationExecutionScope
+        {
+            public MySqlExecutionScope(MySqlConnection connection)
+            {
+                Connection = connection;
+            }
+
+            public MySqlConnection Connection { get; }
+
+            public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
+            {
+                using (var command = new MySqlCommand(sql, Connection))
+                    await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            public void Dispose()
+            {
+                Connection.Dispose();
+            }
         }
     }
 }

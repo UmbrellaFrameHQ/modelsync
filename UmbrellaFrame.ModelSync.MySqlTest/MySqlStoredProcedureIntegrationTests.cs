@@ -21,7 +21,7 @@ public class MySqlStoredProcedureIntegrationTests
         sync.RegisterProcedure(StoredProcedureDefinition.Create(
             "usp_ModelSyncSmoke",
             "CREATE PROCEDURE usp_ModelSyncSmoke()\nBEGIN\n    SELECT 1 AS Value;\nEND",
-            schema: "modelsync_sp"));
+            schema: "modelsync_integration"));
 
         var first = await sync.SyncRegisteredAsync();
         var second = await sync.CompareRegisteredAsync();

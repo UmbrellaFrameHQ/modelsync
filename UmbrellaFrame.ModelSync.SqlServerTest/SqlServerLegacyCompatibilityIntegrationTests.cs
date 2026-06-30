@@ -68,13 +68,38 @@ public sealed class SqlServerLegacyCompatibilityIntegrationTests
         Assert.That(MigrationCompatibilityProfiles.LegacyEmbeddedSql, Is.EqualTo("LegacyEmbeddedSql"));
     }
 
-    private static SqlServerMigrationRunner CreateRunner(string seedSql = "IF OBJECT_ID(N'dbo.ModelSyncLegacySeed', N'U') IS NULL CREATE TABLE dbo.ModelSyncLegacySeed(Id INT IDENTITY(1,1) PRIMARY KEY, Name NVARCHAR(100) NOT NULL);")
+    [Test]
+    public async Task PerScriptSessionContinuity_WithTempTableAcrossGoBatches_ShouldPass()
+    {
+        RequireIntegration();
+        var scriptId = "991_" + Guid.NewGuid().ToString("N");
+        var runner = CreateRunner(@"CREATE TABLE #ModelSyncSessionProbe (Id INT);
+GO
+INSERT INTO #ModelSyncSessionProbe (Id) VALUES (1);
+GO
+IF NOT EXISTS (
+    SELECT 1
+    FROM #ModelSyncSessionProbe
+    WHERE Id = 1
+)
+    THROW 51000, 'Session continuity failed.', 1;", scriptId, "SessionContinuity");
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(result.Items.Single(i => i.ScriptId == scriptId).BatchCount, Is.EqualTo(3));
+    }
+
+    private static SqlServerMigrationRunner CreateRunner(
+        string seedSql = "IF OBJECT_ID(N'dbo.ModelSyncLegacySeed', N'U') IS NULL CREATE TABLE dbo.ModelSyncLegacySeed(Id INT IDENTITY(1,1) PRIMARY KEY, Name NVARCHAR(100) NOT NULL);",
+        string id = "001",
+        string name = "LegacySeed")
     {
         var connectionString = GetConnectionString();
         EnsureDatabase(connectionString);
         var runner = new SqlServerMigrationRunner(connectionString, MigrationRunnerOptions.Default()
             .ApplyCompatibilityProfile(MigrationCompatibilityProfiles.LegacyEmbeddedSql));
-        runner.RegisterScript(MigrationScriptDefinition.Create("001", "LegacySeed", MigrationScriptCategory.Seeds, seedSql));
+        runner.RegisterScript(MigrationScriptDefinition.Create(id, name, MigrationScriptCategory.Seeds, seedSql));
         return runner;
     }
 

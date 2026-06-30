@@ -102,31 +102,31 @@ Yalnýz kullandýðýnýz provider’ý yükleyin.
 ### SQL Server / Azure SQL
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.1
 ```
 
 ### MySQL / MariaDB
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.1
 ```
 
 ### PostgreSQL
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.1
 ```
 
 ### SQLite
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.1
 ```
 
 ### Analyzer
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
 ```
 
 `--version` kaldýrýlýrsa NuGet’teki mevcut kararlý sürüm yüklenir. Bu belge 1.2.0 API’sine göre hazýrlanmýþtýr.
@@ -1572,7 +1572,7 @@ Runtime’da SQL üretirken karþýlaþacaðýnýz bazý model hatalarýný daha kod yazarke
 Kurulum:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
 ```
 
 ## 65. Analyzer kurallarý

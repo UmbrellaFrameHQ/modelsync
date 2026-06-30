@@ -64,7 +64,7 @@ jobs:
         run: dotnet pack ModelSync.sln --configuration Release --no-build --output ./nupkg
 
       - name: Package smoke test
-        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke nupkg 1.2.0
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke nupkg 1.2.1
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

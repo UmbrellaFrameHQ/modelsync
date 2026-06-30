@@ -150,6 +150,24 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             }
         }
 
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        {
+            var connection = SqlServerConnectionFactory.Create(_connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return new SqlServerExecutionScope(connection);
+        }
+
+        protected override async Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
+        {
+            var sqlScope = (SqlServerExecutionScope)scope;
+            var plan = Dialect.BuildRecordHistoryPlan(HistorySchema(), definition.Category, definition.Id, definition.Name, hash);
+            using (var command = new SqlCommand(plan.CommandText, sqlScope.Connection))
+            {
+                AddParameters(command, plan);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         protected override async Task<IReadOnlyList<string>> BuildMissingColumnScriptsAsync(MigrationScriptDefinition definition, CancellationToken cancellationToken)
         {
             var columns = TableScriptColumnParser.Parse(definition.Sql, "dbo");
@@ -247,69 +265,33 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             return configured;
         }
 
-        protected override async Task ApplyPlanAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
+        protected override string PrepareScriptSql(MigrationScriptDefinition definition, string sql)
         {
-            if (plan.Definition.Category != MigrationScriptCategory.StoredProcedures)
-            {
-                await base.ApplyPlanAsync(plan, cancellationToken).ConfigureAwait(false);
-                return;
-            }
+            if (definition.Category != MigrationScriptCategory.StoredProcedures)
+                return sql;
 
-            var sql = SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(plan.SqlToApply);
-            foreach (var batch in SplitBatches(sql))
-            {
-                if (!string.IsNullOrWhiteSpace(batch))
-                    await ExecuteSqlAsync(batch, cancellationToken).ConfigureAwait(false);
-            }
+            var routineSql = IsLegacyEmbeddedSqlEnabled()
+                ? SqlServerLegacyRoutineNormalizer.Normalize(sql)
+                : sql;
 
-            await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+            return SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(routineSql);
         }
 
-        protected override async Task<MigrationExecutionItemResult> ApplyPlanWithResultAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
+        protected override void PopulateProviderError(MigrationExecutionItemResult result, Exception exception)
         {
-            if (plan.Definition.Category != MigrationScriptCategory.StoredProcedures)
-                return await base.ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
+            base.PopulateProviderError(result, exception);
+            var sql = exception as SqlException;
+            if (sql == null || sql.Errors.Count == 0)
+                return;
 
-            var startedAt = DateTimeOffset.UtcNow;
-            var result = new MigrationExecutionItemResult
-            {
-                Category = plan.Definition.Category,
-                ScriptId = plan.Definition.Id,
-                Name = plan.Definition.Name,
-                Source = plan.Definition.Source,
-                Action = plan.ChangeType == MigrationChangeType.Reapply ? MigrationExecutionAction.Reapplied : MigrationExecutionAction.Applied,
-                ExistingHash = plan.CurrentHash,
-                TargetHash = plan.TargetHash,
-                ExecutionMode = plan.ExecutionMode,
-                DecisionReason = plan.DecisionReason,
-                StartedAt = startedAt
-            };
-
-            try
-            {
-                var batches = SplitBatches(SqlServerStoredProcedureSynchronizer.ToCreateOrAlterSql(plan.SqlToApply))
-                    .Where(batch => !string.IsNullOrWhiteSpace(batch))
-                    .ToList();
-                result.BatchCount = batches.Count;
-                foreach (var batch in batches)
-                {
-                    await ExecuteSqlAsync(batch, cancellationToken).ConfigureAwait(false);
-                    result.CompletedBatchCount++;
-                }
-
-                await RecordHistoryAsync(plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
-                result.LegacyHashAdopted = plan.LegacyHashAdoptionRequired;
-                result.CompletedAt = DateTimeOffset.UtcNow;
-                return result;
-            }
-            catch (Exception ex) when (!(ex is OperationCanceledException))
-            {
-                result.Action = MigrationExecutionAction.Failed;
-                result.FailureStage = result.CompletedBatchCount < result.BatchCount ? "ExecuteBatch" : "RecordHistory";
-                result.ErrorCode = ex.GetType().Name;
-                result.CompletedAt = DateTimeOffset.UtcNow;
-                return result;
-            }
+            var error = sql.Errors[0];
+            result.ProviderErrorCode = error.Number.ToString();
+            result.ProviderErrorNumber = error.Number;
+            result.ProviderErrorState = error.State.ToString();
+            result.ProviderErrorSeverity = error.Class.ToString();
+            result.ErrorLineNumber = error.LineNumber > 0 ? error.LineNumber : (int?)null;
+            result.ErrorObjectName = Redact(error.Procedure ?? string.Empty);
+            result.ErrorMessage = Redact(error.Message);
         }
 
         protected override void ValidateResetDatabaseName(string databaseName)
@@ -342,6 +324,30 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
 
         private static string EscapeLiteral(string value)
             => value.Replace("'", "''");
+
+        private bool IsLegacyEmbeddedSqlEnabled()
+            => Options.AppliedCompatibilityProfiles.Contains(MigrationCompatibilityProfiles.LegacyEmbeddedSql);
+
+        private sealed class SqlServerExecutionScope : IMigrationExecutionScope
+        {
+            public SqlServerExecutionScope(SqlConnection connection)
+            {
+                Connection = connection;
+            }
+
+            public SqlConnection Connection { get; }
+
+            public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
+            {
+                using (var command = new SqlCommand(sql, Connection))
+                    await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            public void Dispose()
+            {
+                Connection.Dispose();
+            }
+        }
 
     }
 }

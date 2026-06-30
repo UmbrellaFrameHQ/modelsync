@@ -8,7 +8,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.2.0";
+    private const string CurrentReleaseVersion = "1.2.1";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -107,6 +107,15 @@ internal static class Program
                     VerifyVersionConsistency(root);
                 }),
                 "verify-release-documentation" => Run("release documentation", () => VerifyReleaseDocumentation(root)),
+                "verify-release-documentation-contract" => Run("release documentation contract", () => VerifyReleaseDocumentationContract(root)),
+                "verify-provider-specific-api-usage" => Run("provider-specific API usage", () => VerifyProviderSpecificApiUsage(root)),
+                "verify-core-provider-boundary" => Run("Core/provider boundary", () => VerifyCoreProviderBoundary(root)),
+                "verify-operational-hardening" => Run("operational hardening", () =>
+                {
+                    VerifyOperationalHardeningSelfTest();
+                    VerifyOperationalHardening(root);
+                }),
+                "verify-1-2-0-consumer-compatibility" => Run("1.2.0 consumer compatibility", () => VerifyConsumerCompatibility(root)),
                 "verify-migration-execution-policies" => Run("migration execution policy gate", () => VerifyMigrationExecutionPolicies(root)),
                 "verify-legacy-history-compatibility" => Run("legacy history compatibility gate", () => VerifyLegacyHistoryCompatibility(root)),
                 "verify-all-provider-legacy-fixtures" => Run("all-provider legacy fixture gate", () =>
@@ -124,6 +133,12 @@ internal static class Program
                     VerifyVersionConsistencySelfTest();
                     VerifyVersionConsistency(root);
                     VerifyReleaseDocumentation(root);
+                    VerifyReleaseDocumentationContract(root);
+                    VerifyProviderSpecificApiUsage(root);
+                    VerifyCoreProviderBoundary(root);
+                    VerifyOperationalHardeningSelfTest();
+                    VerifyOperationalHardening(root);
+                    VerifyConsumerCompatibility(root);
                     VerifyMigrationExecutionPolicies(root);
                     VerifyLegacyHistoryCompatibility(root);
                     VerifyLegacyFixtureMarkersSelfTest();
@@ -371,6 +386,7 @@ internal static class Program
                     }
 
                     if (IsAllowedProviderDescriptorLine(source.Path, trimmed) ||
+                        IsAllowedProviderBatchNormalizerLine(source.Path, trimmed) ||
                         IsAllowedCommandFacadeLine(trimmed) ||
                         IsAllowedReaderOrdinalLine(trimmed))
                     {
@@ -441,6 +457,19 @@ internal static class Program
         return !Regex.IsMatch(line, @"\b(CREATE|SELECT|ALTER|DROP|SHOW|PRAGMA|MERGE|INSERT|UPDATE|DELETE)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
+    private static bool IsAllowedProviderBatchNormalizerLine(string file, string line)
+    {
+        if (!file.EndsWith("LegacyRoutineNormalizer.cs", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return line.Contains("Regex", StringComparison.Ordinal) ||
+               line.Contains("ProcedureHeaderPattern", StringComparison.Ordinal) ||
+               line.Contains("SplitGoBatches", StringComparison.Ordinal) ||
+               line.Contains("HasProcedureBody", StringComparison.Ordinal);
+    }
+
     private static bool IsAllowedCommandFacadeLine(string line)
     {
         return Regex.IsMatch(line, @"CommandText\s*=\s*[^;]+\.CommandText", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) ||
@@ -504,7 +533,7 @@ internal static class Program
 
         var nugetReadme = ReadRequired(root, "docs/nuget/README.md", violations);
         if (!nugetReadme.Contains($"What's New in {CurrentReleaseVersion}", StringComparison.Ordinal) &&
-            !nugetReadme.Contains($"1.2.0 Operational Hardening", StringComparison.Ordinal))
+            !nugetReadme.Contains($"{CurrentReleaseVersion} Operational Hardening", StringComparison.Ordinal))
         {
             violations.Add($"docs/nuget/README.md: current version heading is missing {CurrentReleaseVersion}");
         }
@@ -520,7 +549,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.2.0</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.2.1</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -766,6 +795,349 @@ internal static class Program
         }
 
         ThrowIfViolations(violations, "Release documentation verification failed.");
+    }
+
+    private static void VerifyReleaseDocumentationContract(string root)
+    {
+        var violations = new List<string>();
+        var requiredFiles = new[]
+        {
+            "CHANGELOG.md",
+            "docs/releases/README.md",
+            "docs/releases/_template.md",
+            "docs/releases/1.2.1.md",
+            "docs/migrations/README.md",
+            "docs/migrations/_template.md",
+            "docs/migrations/1.2.0-to-1.2.1.md",
+            "docs/versioning-and-compatibility.md",
+            "docs/deprecation-policy.md",
+            "docs/roadmap-1.3.md"
+        };
+
+        foreach (var file in requiredFiles)
+        {
+            ReadRequired(root, file, violations);
+        }
+
+        var readme = ReadRequired(root, "README.md", violations);
+        RequireContains(readme, "Versioning, Release Notes and Migration Guides", "README.md: versioning/release navigation section is missing.", violations);
+        RequireContains(readme, "docs/releases/1.2.1.md", "README.md: current 1.2.1 release note link is missing.", violations);
+        RequireContains(readme, "docs/migrations/1.2.0-to-1.2.1.md", "README.md: 1.2.0 to 1.2.1 migration guide link is missing.", violations);
+
+        var release = ReadRequired(root, "docs/releases/1.2.1.md", violations);
+        RequireContains(release, "2026-06-30", "docs/releases/1.2.1.md: final release date is missing.", violations);
+        RequireContains(release, "ModelSync 1.2.1 - Provider API Clarity and Operational Hardening", "docs/releases/1.2.1.md: release title is missing.", violations);
+        RequireContains(release, "| Capability | Core | SQL Server | MySQL/MariaDB | PostgreSQL | SQLite |", "docs/releases/1.2.1.md: provider impact matrix is missing.", violations);
+        RequireContains(release, "Fixed", "docs/releases/1.2.1.md: closed bug list is missing.", violations);
+
+        var changelog = ReadRequired(root, "CHANGELOG.md", violations);
+        RequireContains(changelog, "## [1.2.1] - 2026-06-30", "CHANGELOG.md: final 1.2.1 entry is missing.", violations);
+
+        foreach (var packageId in SupportedPackageIds())
+        {
+            var expected = $"dotnet add package {packageId} --version {CurrentReleaseVersion}";
+            RequireContains(readme, expected, $"README.md: missing 1.2.1 install snippet for {packageId}.", violations);
+        }
+
+        foreach (var project in new[]
+                 {
+                     "UmbrellaFrame.ModelSync.Core/UmbrellaFrame.ModelSync.Core.csproj",
+                     "UmbrellaFrame.ModelSync.SqlServer/UmbrellaFrame.ModelSync.SqlServer.csproj",
+                     "UmbrellaFrame.ModelSync.MySql/UmbrellaFrame.ModelSync.MySql.csproj",
+                     "UmbrellaFrame.ModelSync.PostgreSQL/UmbrellaFrame.ModelSync.PostgreSQL.csproj",
+                     "UmbrellaFrame.ModelSync.SQLite/UmbrellaFrame.ModelSync.SQLite.csproj",
+                     "UmbrellaFrame.ModelSync.Analyzers/UmbrellaFrame.ModelSync.Core.Analyzers.csproj"
+                 })
+        {
+            var projectText = ReadRequired(root, project, violations);
+            RequireContains(projectText, $"<Version>{CurrentReleaseVersion}</Version>", $"{project}: package version is not {CurrentReleaseVersion}.", violations);
+            RequireContains(projectText, "PackageReleaseNotes", $"{project}: package release notes are missing.", violations);
+        }
+
+        var roadmap = ReadRequired(root, "docs/roadmap-1.3.md", violations);
+        RequireContains(roadmap, "Composite indexes", "docs/roadmap-1.3.md: composite index roadmap item is missing.", violations);
+        RequireContains(roadmap, "Filtered indexes", "docs/roadmap-1.3.md: filtered index roadmap item is missing.", violations);
+        RequireContains(roadmap, "Expression indexes", "docs/roadmap-1.3.md: expression index roadmap item is missing.", violations);
+
+        ThrowIfViolations(violations, "Release documentation contract verification failed.");
+    }
+
+    private static void VerifyProviderSpecificApiUsage(string root)
+    {
+        var violations = new List<string>();
+        var release = ReadRequired(root, "docs/releases/1.2.1.md", violations);
+        RequireContains(release, "SqlServerColumnDefault", "docs/releases/1.2.1.md: provider-specific default example is missing.", violations);
+        RequireContains(release, "SqlServerColumnCheck", "docs/releases/1.2.1.md: provider-specific check example is missing.", violations);
+        RequireContains(release, "SqlServerColumnIndex", "docs/releases/1.2.1.md: provider-specific index example is missing.", violations);
+
+        var migration = ReadRequired(root, "docs/migrations/1.2.0-to-1.2.1.md", violations);
+        RequireContains(migration, "legacy Core attributes remain supported", "docs/migrations/1.2.0-to-1.2.1.md: legacy compatibility statement is missing.", violations);
+        RequireContains(migration, "SqlServerColumnDefault", "docs/migrations/1.2.0-to-1.2.1.md: provider-specific migration example is missing.", violations);
+
+        var expectedProviderFiles = new[]
+        {
+            "UmbrellaFrame.ModelSync.SqlServer/Attributes/SqlServerColumnDefaultAttribute.cs",
+            "UmbrellaFrame.ModelSync.SqlServer/Attributes/SqlServerColumnDefaultSqlAttribute.cs",
+            "UmbrellaFrame.ModelSync.SqlServer/Attributes/SqlServerColumnCheckAttribute.cs",
+            "UmbrellaFrame.ModelSync.SqlServer/Attributes/SqlServerColumnIndexAttribute.cs",
+            "UmbrellaFrame.ModelSync.MySql/Attributes/MySqlColumnDefaultAttribute.cs",
+            "UmbrellaFrame.ModelSync.MySql/Attributes/MySqlColumnDefaultSqlAttribute.cs",
+            "UmbrellaFrame.ModelSync.MySql/Attributes/MySqlColumnCheckAttribute.cs",
+            "UmbrellaFrame.ModelSync.MySql/Attributes/MySqlColumnIndexAttribute.cs",
+            "UmbrellaFrame.ModelSync.PostgreSQL/Attributes/PostgresColumnDefaultAttribute.cs",
+            "UmbrellaFrame.ModelSync.PostgreSQL/Attributes/PostgresColumnDefaultSqlAttribute.cs",
+            "UmbrellaFrame.ModelSync.PostgreSQL/Attributes/PostgresColumnCheckAttribute.cs",
+            "UmbrellaFrame.ModelSync.PostgreSQL/Attributes/PostgresColumnIndexAttribute.cs",
+            "UmbrellaFrame.ModelSync.SQLite/Attributes/SQLiteColumnDefaultAttribute.cs",
+            "UmbrellaFrame.ModelSync.SQLite/Attributes/SQLiteColumnDefaultSqlAttribute.cs",
+            "UmbrellaFrame.ModelSync.SQLite/Attributes/SQLiteColumnCheckAttribute.cs",
+            "UmbrellaFrame.ModelSync.SQLite/Attributes/SQLiteColumnIndexAttribute.cs"
+        };
+
+        foreach (var file in expectedProviderFiles)
+        {
+            ReadRequired(root, file, violations);
+        }
+
+        ThrowIfViolations(violations, "Provider-specific API usage verification failed.");
+    }
+
+    private static void VerifyCoreProviderBoundary(string root)
+    {
+        var violations = new List<string>();
+        var coreProject = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/UmbrellaFrame.ModelSync.Core.csproj", violations);
+        var forbiddenReferences = new[]
+        {
+            "Microsoft.Data.SqlClient",
+            "MySqlConnector",
+            "Npgsql",
+            "Microsoft.Data.Sqlite",
+            "UmbrellaFrame.ModelSync.SqlServer",
+            "UmbrellaFrame.ModelSync.MySql",
+            "UmbrellaFrame.ModelSync.PostgreSQL",
+            "UmbrellaFrame.ModelSync.SQLite"
+        };
+
+        foreach (var forbidden in forbiddenReferences)
+        {
+            if (coreProject.Contains(forbidden, StringComparison.OrdinalIgnoreCase))
+            {
+                violations.Add($"UmbrellaFrame.ModelSync.Core.csproj: Core must not reference {forbidden}.");
+            }
+        }
+
+        var forbiddenRuntimeTypes = new[]
+        {
+            "SqlConnection",
+            "MySqlConnection",
+            "NpgsqlConnection",
+            "SqliteConnection",
+            "SqlException",
+            "MySqlException",
+            "PostgresException",
+            "SqliteException"
+        };
+
+        foreach (var file in EnumerateFiles(Path.Combine(root, "UmbrellaFrame.ModelSync.Core"), "*.cs"))
+        {
+            var relative = Relative(root, file);
+            var text = File.ReadAllText(file);
+            foreach (var forbidden in forbiddenRuntimeTypes)
+            {
+                if (Regex.IsMatch(text, @"\b" + Regex.Escape(forbidden) + @"\b"))
+                {
+                    violations.Add($"{relative}: Core must not depend on provider runtime type {forbidden}.");
+                }
+            }
+        }
+
+        ThrowIfViolations(violations, "Core/provider boundary verification failed.");
+    }
+
+    private static void VerifyOperationalHardening(string root)
+    {
+        var violations = new List<string>();
+
+        var item = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Models/MigrationExecutionItemResult.cs", violations);
+        foreach (var member in new[]
+                 {
+                     "ErrorMessage",
+                     "InnerErrorMessage",
+                     "ProviderErrorCode",
+                     "ProviderErrorNumber",
+                     "ProviderErrorState",
+                     "ProviderErrorSeverity",
+                     "ErrorLineNumber",
+                     "ErrorObjectName",
+                     "FailedBatchIndex",
+                     "FailedBatchPreview"
+                 })
+        {
+            RequireContains(item, member, $"MigrationExecutionItemResult: structured error member '{member}' is missing.", violations);
+        }
+
+        var runner = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Services/SqlMigrationRunnerBase.cs", violations);
+        RequireContains(runner, "OpenExecutionScopeAsync", "SqlMigrationRunnerBase: execution scope lifecycle is missing.", violations);
+        RequireContains(runner, "CompletedBatchCount", "SqlMigrationRunnerBase: completed batch tracking is missing.", violations);
+        RequireContains(runner, "FailedBatchIndex", "SqlMigrationRunnerBase: failed batch index tracking is missing.", violations);
+        RequireContains(runner, "FailedBatchPreview", "SqlMigrationRunnerBase: failed batch preview tracking is missing.", violations);
+        RequireContains(runner, "PopulateProviderError", "SqlMigrationRunnerBase: provider-neutral error population hook is missing.", violations);
+        RequireContains(runner, "Redact", "SqlMigrationRunnerBase: secret redaction helper is missing.", violations);
+        RequireContains(runner, "1024", "SqlMigrationRunnerBase: failed SQL preview must be bounded.", violations);
+
+        var forbiddenCoreTerms = new[] { "SqlException", "MySqlException", "PostgresException", "SqliteException", "GO\r", "GO\n" };
+        foreach (var forbidden in forbiddenCoreTerms)
+        {
+            if (runner.Contains(forbidden, StringComparison.Ordinal))
+                violations.Add($"SqlMigrationRunnerBase.cs: Core must not contain provider-specific term '{forbidden}'.");
+        }
+
+        foreach (var provider in new[]
+                 {
+                     ("SQL Server", "UmbrellaFrame.ModelSync.SqlServer/Services/SqlServerMigrationRunner.cs", "SqlException", "SqlServerExecutionScope"),
+                     ("MySQL", "UmbrellaFrame.ModelSync.MySql/Services/MySqlMigrationRunner.cs", "MySqlException", "MySqlExecutionScope"),
+                     ("PostgreSQL", "UmbrellaFrame.ModelSync.PostgreSQL/Services/PostgresMigrationRunner.cs", "PostgresException", "PostgresExecutionScope"),
+                     ("SQLite", "UmbrellaFrame.ModelSync.SQLite/Services/SQLiteMigrationRunner.cs", "SqliteException", "SQLiteExecutionScope")
+                 })
+        {
+            var text = ReadRequired(root, provider.Item2, violations);
+            RequireContains(text, "OpenExecutionScopeAsync", $"{provider.Item1}: per-script execution scope is missing.", violations);
+            RequireContains(text, "RecordHistoryAsync", $"{provider.Item1}: scoped history writing is missing.", violations);
+            RequireContains(text, "PopulateProviderError", $"{provider.Item1}: provider exception translator is missing.", violations);
+            RequireContains(text, provider.Item3, $"{provider.Item1}: provider exception type translator is missing.", violations);
+            RequireContains(text, provider.Item4, $"{provider.Item1}: provider execution scope implementation is missing.", violations);
+        }
+
+        var normalizer = ReadRequired(root, "UmbrellaFrame.ModelSync.SqlServer/Services/SqlServerLegacyRoutineNormalizer.cs", violations);
+        RequireContains(normalizer, "LegacyRoutineMultipleDefinitions", "SQL Server legacy routine normalizer: multiple-definition diagnostic is missing.", violations);
+        RequireContains(normalizer, "LegacyRoutineExecutableSideBatch", "SQL Server legacy routine normalizer: executable side-batch diagnostic is missing.", violations);
+        RequireContains(normalizer, "LegacyRoutineUnsupportedSqlCmd", "SQL Server legacy routine normalizer: SQLCMD diagnostic is missing.", violations);
+        RequireContains(normalizer, "LegacyRoutineInvalidDefinition", "SQL Server legacy routine normalizer: invalid-definition diagnostic is missing.", violations);
+
+        var sqlServerTests = ReadRequired(root, "UmbrellaFrame.ModelSync.SqlServerTest/SqlServerLegacyRoutineNormalizerTests.cs", violations);
+        RequireContains(sqlServerTests, "LegacyRoutineMultipleDefinitions", "SQL Server normalizer known-bad self-test is missing.", violations);
+        RequireContains(sqlServerTests, "LegacyRoutineUnsupportedSqlCmd", "SQL Server normalizer SQLCMD self-test is missing.", violations);
+        RequireContains(sqlServerTests, "Normalize_WithSetOptionsTerminalGoAndTrailingPrint_ReturnsOnlyProcedure", "SQL Server normalizer known-clean self-test is missing.", violations);
+
+        var sqlServerIntegration = ReadRequired(root, "UmbrellaFrame.ModelSync.SqlServerTest/SqlServerLegacyCompatibilityIntegrationTests.cs", violations);
+        RequireContains(sqlServerIntegration, "#ModelSyncSessionProbe", "SQL Server same-session temp table integration test is missing.", violations);
+        RequireContains(sqlServerIntegration, "Session continuity failed.", "SQL Server same-session failure assertion is missing.", violations);
+
+        var coreTests = ReadRequired(root, "UmbrellaFrame.ModelSync.CoreTest/MigrationOperationalHardeningTests.cs", violations);
+        RequireContains(coreTests, "FailedBatchIndex", "Core operational hardening failed-batch test is missing.", violations);
+        RequireContains(coreTests, "FailedBatchPreview", "Core operational hardening preview test is missing.", violations);
+        RequireContains(coreTests, "password=<redacted>", "Core operational hardening redaction test is missing.", violations);
+        RequireContains(coreTests, "HistoryWritten", "Core operational hardening history safety assertion is missing.", violations);
+
+        ThrowIfViolations(violations, "Operational hardening verification failed.");
+    }
+
+    private static void VerifyOperationalHardeningSelfTest()
+    {
+        var clean = "ErrorMessage InnerErrorMessage ProviderErrorCode ProviderErrorNumber ProviderErrorState ProviderErrorSeverity ErrorLineNumber ErrorObjectName FailedBatchIndex FailedBatchPreview";
+        var bad = "ErrorMessage FailedBatchPreview";
+
+        foreach (var required in new[] { "ProviderErrorCode", "FailedBatchIndex", "FailedBatchPreview" })
+        {
+            if (!clean.Contains(required, StringComparison.Ordinal))
+                throw new CheckFailedException("Known-clean operational hardening fixture was rejected.");
+            if (bad.Contains(required, StringComparison.Ordinal) && required != "FailedBatchPreview")
+                throw new CheckFailedException("Known-bad operational hardening fixture was accepted.");
+        }
+    }
+
+    private static void VerifyConsumerCompatibility(string root)
+    {
+        var violations = new List<string>();
+        var legacy = ReadRequired(root, "tools/UmbrellaFrame.ModelSync.RepositoryChecks/ConsumerCompatibility/LegacyConsumer/Program.cs", violations);
+        var canonical = ReadRequired(root, "tools/UmbrellaFrame.ModelSync.RepositoryChecks/ConsumerCompatibility/CanonicalProviderConsumer/Program.cs", violations);
+        var evidence = ReadRequired(root, "tools/UmbrellaFrame.ModelSync.RepositoryChecks/ConsumerCompatibility/consumer-compatibility-evidence.md", violations);
+
+        foreach (var legacyApi in new[]
+                 {
+                     "DbColumnDefault(\"NEWID()\")",
+                     "DbColumnCheck(\"Price >= 0\")",
+                     "DbColumnIndex(\"IX_LegacyProducts_Name\")",
+                     "SqlServerColumnType",
+                     "SqlServerTableName",
+                     "SqlServerMigrationRunner",
+                     "LegacyEmbeddedSql",
+                     "RunWithResultAsync",
+                     "SqlServerModelSynchronizer"
+                 })
+        {
+            RequireContains(legacy, legacyApi, $"Legacy consumer fixture is missing '{legacyApi}'.", violations);
+        }
+
+        foreach (var canonicalApi in new[]
+                 {
+                     "SqlServerColumnDefault",
+                     "SqlServerColumnDefaultSql",
+                     "SqlServerColumnCheck",
+                     "SqlServerColumnIndex",
+                     "MySqlColumnDefault",
+                     "MySqlColumnDefaultSql",
+                     "MySqlColumnCheck",
+                     "MySqlColumnIndex",
+                     "PostgresColumnDefault",
+                     "PostgresColumnDefaultSql",
+                     "PostgresColumnCheck",
+                     "PostgresColumnIndex",
+                     "SQLiteColumnDefault",
+                     "SQLiteColumnDefaultSql",
+                     "SQLiteColumnCheck",
+                     "SQLiteColumnIndex",
+                     "SqlServerDefaultExpression.NewId",
+                     "SqlServerDefaultExpression.NewSequentialId",
+                     "SqlServerDefaultExpression.GetDate",
+                     "SqlServerDefaultExpression.GetUtcDate",
+                     "SqlServerDefaultExpression.SysDateTime",
+                     "SqlServerDefaultExpression.SysUtcDateTime",
+                     "MySqlDefaultExpression.Uuid",
+                     "MySqlDefaultExpression.CurrentTimestamp",
+                     "PostgresDefaultExpression.GenRandomUuid",
+                     "PostgresDefaultExpression.CurrentTimestamp",
+                     "PostgresDefaultExpression.Now",
+                     "SQLiteDefaultExpression.CurrentTimestamp",
+                     "SQLiteDefaultExpression.CurrentDate",
+                     "SQLiteDefaultExpression.CurrentTime"
+                 })
+        {
+            RequireContains(canonical, canonicalApi, $"Canonical provider consumer fixture is missing '{canonicalApi}'.", violations);
+        }
+
+        if (legacy.Contains("ProjectReference", StringComparison.OrdinalIgnoreCase) ||
+            canonical.Contains("ProjectReference", StringComparison.OrdinalIgnoreCase))
+        {
+            violations.Add("Consumer compatibility fixtures must not contain ProjectReference.");
+        }
+
+        foreach (var marker in new[]
+                 {
+                     "Source: `NuGet.org`",
+                     "ModelSync version: `1.2.0`",
+                     "ModelSync version: `1.2.1-rc.local`",
+                     "NewWarningDelta: `0`",
+                     "TreatWarningsAsErrors: `PASS`",
+                     "ProjectReferenceDetected: `false`",
+                     "UnexpectedPackageSourceDetected: `false`",
+                     "MixedModelSyncVersionsDetected: `false`"
+                 })
+        {
+            RequireContains(evidence, marker, $"Consumer compatibility evidence is missing '{marker}'.", violations);
+        }
+
+        var packageDirectory = Path.Combine(root, "artifacts", "consumer-candidate");
+        foreach (var package in SupportedPackageIds())
+        {
+            var expected = Path.Combine(packageDirectory, package + ".1.2.1-rc.local.nupkg");
+            if (!File.Exists(expected))
+            {
+                violations.Add($"{package}: local candidate package was not found at artifacts/consumer-candidate.");
+            }
+        }
+
+        ThrowIfViolations(violations, "1.2.0 consumer compatibility verification failed.");
     }
 
     private static string ReadRequired(string root, string relativePath, List<string> violations)

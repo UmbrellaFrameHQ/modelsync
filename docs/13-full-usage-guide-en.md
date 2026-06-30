@@ -98,31 +98,31 @@ Install only the provider you need.
 SQL Server / Azure SQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.1
 ```
 
 MySQL / MariaDB:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.1
 ```
 
 PostgreSQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.1
 ```
 
 SQLite:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.1
 ```
 
 Analyzer:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
 ```
 
 Common namespaces:
@@ -881,7 +881,7 @@ For the focused reference, see [14 - Model Synchronizer](14-model-synchronizer.m
 Install:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
 ```
 
 Rules:

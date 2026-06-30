@@ -172,6 +172,41 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             }
         }
 
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        {
+            var connection = PostgresConnectionFactory.Create(_connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return new PostgresExecutionScope(connection);
+        }
+
+        protected override async Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
+        {
+            var postgresScope = (PostgresExecutionScope)scope;
+            var plan = Dialect.BuildRecordHistoryPlan(HistorySchema(), definition.Category, definition.Id, definition.Name, hash);
+            using (var command = new NpgsqlCommand(plan.CommandText, postgresScope.Connection))
+            {
+                AddParameters(command, plan);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        protected override void PopulateProviderError(MigrationExecutionItemResult result, Exception exception)
+        {
+            base.PopulateProviderError(result, exception);
+            var postgres = exception as PostgresException;
+            if (postgres == null)
+                return;
+
+            result.ProviderErrorCode = postgres.SqlState ?? string.Empty;
+            result.ProviderErrorState = postgres.SqlState ?? string.Empty;
+            result.ProviderErrorSeverity = postgres.Severity ?? string.Empty;
+            result.ErrorMessage = Redact(postgres.MessageText ?? postgres.Message);
+            result.InnerErrorMessage = Redact(string.Join(" ", new[] { postgres.Detail, postgres.Hint, postgres.Where, postgres.Routine }.Where(x => !string.IsNullOrWhiteSpace(x))));
+            if (postgres.Position > 0)
+                result.ErrorLineNumber = postgres.Position;
+            result.ErrorObjectName = Redact(postgres.Routine ?? string.Empty);
+        }
+
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
@@ -220,6 +255,27 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             var expected = Options.ResetOptions?.ExpectedDatabaseName;
             if (!string.IsNullOrWhiteSpace(expected) && !string.Equals(expected, databaseName, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Expected database name does not match the PostgreSQL target database.");
+        }
+
+        private sealed class PostgresExecutionScope : IMigrationExecutionScope
+        {
+            public PostgresExecutionScope(NpgsqlConnection connection)
+            {
+                Connection = connection;
+            }
+
+            public NpgsqlConnection Connection { get; }
+
+            public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
+            {
+                using (var command = new NpgsqlCommand(sql, Connection))
+                    await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            public void Dispose()
+            {
+                Connection.Dispose();
+            }
         }
     }
 }

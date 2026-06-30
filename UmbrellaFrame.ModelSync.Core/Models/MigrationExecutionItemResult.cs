@@ -18,6 +18,16 @@ namespace UmbrellaFrame.ModelSync.Core
         public int CompletedBatchCount { get; set; }
         public string FailureStage { get; set; } = string.Empty;
         public string ErrorCode { get; set; } = string.Empty;
+        public string ErrorMessage { get; set; } = string.Empty;
+        public string InnerErrorMessage { get; set; } = string.Empty;
+        public string ProviderErrorCode { get; set; } = string.Empty;
+        public int? ProviderErrorNumber { get; set; }
+        public string ProviderErrorState { get; set; } = string.Empty;
+        public string ProviderErrorSeverity { get; set; } = string.Empty;
+        public int? ErrorLineNumber { get; set; }
+        public string ErrorObjectName { get; set; } = string.Empty;
+        public int? FailedBatchIndex { get; set; }
+        public string FailedBatchPreview { get; set; } = string.Empty;
         public MigrationScriptExecutionMode ExecutionMode { get; set; } = MigrationScriptExecutionMode.HashTracked;
         public string DecisionReason { get; set; } = string.Empty;
         public bool LegacyHashAdopted { get; set; }

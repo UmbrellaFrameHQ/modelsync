@@ -94,7 +94,12 @@ public class MigrationOperationalHardeningTests
         Assert.That(result.Items[0].Action, Is.EqualTo(MigrationExecutionAction.Failed));
         Assert.That(result.Items[0].BatchCount, Is.EqualTo(2));
         Assert.That(result.Items[0].CompletedBatchCount, Is.EqualTo(1));
+        Assert.That(result.Items[0].FailedBatchIndex, Is.EqualTo(2));
+        Assert.That(result.Items[0].FailedBatchPreview, Does.Contain("FAIL"));
+        Assert.That(result.Items[0].ErrorMessage, Does.Contain("password=<redacted>"));
+        Assert.That(result.Items[0].ErrorMessage, Does.Not.Contain("super-secret"));
         Assert.That(runner.RecordedHistoryCount, Is.EqualTo(0));
+        Assert.That(result.HistoryWritten, Is.False);
     }
 
     [Test]
@@ -193,6 +198,7 @@ public class MigrationOperationalHardeningTests
         Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.Triggers), Is.EqualTo(MigrationScriptExecutionMode.EveryRun));
         Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.Seeds), Is.EqualTo(MigrationScriptExecutionMode.RunOnce));
         Assert.That(options.CategoryPolicies.Resolve(MigrationScriptCategory.CustomSql), Is.EqualTo(MigrationScriptExecutionMode.HashTracked));
+        Assert.That(options.AppliedCompatibilityProfiles, Does.Contain(MigrationCompatibilityProfiles.LegacyEmbeddedSql));
     }
 
     [Test]
@@ -303,7 +309,7 @@ public class MigrationOperationalHardeningTests
         protected override Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
         {
             if (sql.Contains("FAIL", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Batch failed.");
+                throw new InvalidOperationException("Batch failed. password=super-secret token=abc123");
             ExecutedSqlCount++;
             return Task.CompletedTask;
         }

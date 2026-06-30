@@ -11,9 +11,9 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 
 Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic compiler. Provider packages supply structured descriptors and thin ADO.NET adapters; application-supplied SQL files remain user-authored artifacts.
 
-## 1.2.0 Legacy Compatibility Preview
+## 1.2.1 Provider API Clarity and Operational Hardening
 
-The current package line remains `1.2.0`. The repository is shipping the `1.2.0` release for legacy embedded SQL runner compatibility.
+The current package line is `1.2.1`. This release keeps 1.2.0 source compatibility while adding provider-specific attributes and operational hardening.
 
 Previewed capabilities:
 
@@ -28,7 +28,7 @@ Previewed capabilities:
 
 SQLite stored procedures remain unsupported.
 
-## What's New in 1.2.0
+## What's New in 1.2.1
 
 - Provider migration runners can apply ordered table, stored procedure, trigger, seed, and custom SQL scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -39,11 +39,11 @@ SQLite stored procedures remain unsupported.
 - Provider model synchronizers can compare attribute models with a live database and apply only safe additive changes.
 - Migration runners explain why history tables are used instead of relying only on live catalog checks.
 
-## 1.2.0 Operational Hardening
+## 1.2.1 Operational Hardening
 
-ModelSync 1.2.0 is the current stable package line validated by live provider integration tests.
+ModelSync 1.2.1 is the current stable package line validated by live provider integration tests and external NuGet consumer compatibility checks.
 
-1.2.0 includes:
+1.2.1 includes:
 
 - `DbColumnName` for explicit column-name mapping.
 - `DbIgnore` for excluding schema-only public helper properties.
@@ -69,17 +69,17 @@ ModelSync 1.2.0 is the current stable package line validated by live provider in
 Install only the provider you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.0
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.0
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.0
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.0
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.1
 ```
 
 Optional analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
 ```
 
 ## Quick Start

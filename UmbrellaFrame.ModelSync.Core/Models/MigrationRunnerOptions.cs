@@ -16,6 +16,7 @@ namespace UmbrellaFrame.ModelSync.Core
         public MigrationTransactionPolicy TransactionPolicy { get; set; } = MigrationTransactionPolicy.Auto;
         public MigrationScriptExecutionMode DefaultExecutionMode { get; set; } = MigrationScriptExecutionMode.HashTracked;
         public MigrationCategoryExecutionPolicyCollection CategoryPolicies { get; } = new MigrationCategoryExecutionPolicyCollection();
+        public IList<string> AppliedCompatibilityProfiles { get; } = new List<string>();
 
         public static MigrationRunnerOptions Default()
             => new MigrationRunnerOptions();
@@ -24,6 +25,9 @@ namespace UmbrellaFrame.ModelSync.Core
         {
             if (profile == MigrationCompatibilityProfiles.LegacyEmbeddedSql)
             {
+                if (!AppliedCompatibilityProfiles.Contains(profile))
+                    AppliedCompatibilityProfiles.Add(profile);
+
                 CategoryPolicies
                     .ForCategory(MigrationScriptCategory.StoredProcedures, MigrationScriptExecutionMode.EveryRun)
                     .ForCategory(MigrationScriptCategory.Triggers, MigrationScriptExecutionMode.EveryRun)

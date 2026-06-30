@@ -7,4 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="ConsumerCompatibility\**\*.cs" />
+    <None Include="ConsumerCompatibility\**\*" />
+  </ItemGroup>
+
 </Project>

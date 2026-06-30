@@ -195,8 +195,24 @@ namespace UmbrellaFrame.ModelSync.SQLite
                         result.BatchCount += batches.Count;
                         foreach (var batch in batches)
                         {
-                            await ExecuteNonQueryAsync(connection, batch, cancellationToken).ConfigureAwait(false);
-                            result.CompletedBatchCount++;
+                            try
+                            {
+                                await ExecuteNonQueryAsync(connection, batch, cancellationToken).ConfigureAwait(false);
+                                result.CompletedBatchCount++;
+                            }
+                            catch (Exception ex) when (!(ex is OperationCanceledException))
+                            {
+                                if (transactionOpen)
+                                    await RollbackQuietlyAsync(connection).ConfigureAwait(false);
+                                result.Action = MigrationExecutionAction.Failed;
+                                result.FailureStage = "ExecuteBatch";
+                                result.ErrorCode = ex.GetType().Name;
+                                result.FailedBatchIndex = result.CompletedBatchCount + 1;
+                                result.FailedBatchPreview = CreateBatchPreview(batch);
+                                PopulateProviderError(result, ex);
+                                result.CompletedAt = DateTimeOffset.UtcNow;
+                                return result;
+                            }
                         }
                     }
 
@@ -218,6 +234,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
                     result.Action = MigrationExecutionAction.Failed;
                     result.FailureStage = result.CompletedBatchCount < result.BatchCount ? "ExecuteBatch" : "RecordHistory";
                     result.ErrorCode = ex.GetType().Name;
+                    PopulateProviderError(result, ex);
                     result.CompletedAt = DateTimeOffset.UtcNow;
                     return result;
                 }
@@ -228,6 +245,20 @@ namespace UmbrellaFrame.ModelSync.SQLite
                     throw;
                 }
             }
+        }
+
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        {
+            var connection = SQLiteConnectionFactory.Create(_connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return new SQLiteExecutionScope(connection);
+        }
+
+        protected override async Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
+        {
+            var sqliteScope = (SQLiteExecutionScope)scope;
+            var plan = Dialect.BuildRecordHistoryPlan(string.Empty, definition.Category, definition.Id, definition.Name, hash);
+            await ExecuteCommandAsync(sqliteScope.Connection, plan, cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task ExecuteNonQueryAsync(SqliteConnection connection, string batch, CancellationToken cancellationToken)
@@ -299,6 +330,19 @@ namespace UmbrellaFrame.ModelSync.SQLite
         {
             var sqlite = exception as SqliteException;
             return sqlite != null && sqlite.SqliteErrorCode == 1;
+        }
+
+        protected override void PopulateProviderError(MigrationExecutionItemResult result, Exception exception)
+        {
+            base.PopulateProviderError(result, exception);
+            var sqlite = exception as SqliteException;
+            if (sqlite == null)
+                return;
+
+            result.ProviderErrorCode = sqlite.SqliteErrorCode.ToString();
+            result.ProviderErrorNumber = sqlite.SqliteErrorCode;
+            result.ProviderErrorState = sqlite.SqliteExtendedErrorCode.ToString();
+            result.ErrorMessage = Redact(sqlite.Message);
         }
 
         private static async Task ReadLegacyHistoryAsync(SqliteConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
@@ -381,6 +425,30 @@ namespace UmbrellaFrame.ModelSync.SQLite
         {
             foreach (var parameter in plan.Parameters)
                 command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
+        }
+
+        private sealed class SQLiteExecutionScope : IMigrationExecutionScope
+        {
+            public SQLiteExecutionScope(SqliteConnection connection)
+            {
+                Connection = connection;
+            }
+
+            public SqliteConnection Connection { get; }
+
+            public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
+            {
+                using (var command = Connection.CreateCommand())
+                {
+                    command.CommandText = sql;
+                    await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            public void Dispose()
+            {
+                Connection.Dispose();
+            }
         }
     }
 }

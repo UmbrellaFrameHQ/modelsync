@@ -1,4 +1,4 @@
-﻿# 10 - Changelog
+# 10 - Changelog
 
 All notable changes are documented here.
 Format: Keep a Changelog.
@@ -7,6 +7,20 @@ Versioning: Semantic Versioning.
 ---
 
 ## [Unreleased]
+
+## [1.2.1] - 2026-06-30 - Provider API Clarity and Operational Hardening
+
+### Added
+- Added provider-specific default, raw default SQL, check and index attributes.
+- Added structured provider error metadata, failed-batch reporting and same-session script execution.
+- Added SQL Server legacy routine normalization for legacy embedded SQL profile.
+
+### Compatibility
+- Verified NuGet.org 1.2.0 baseline consumer compatibility and local 1.2.1 package compatibility.
+- Existing 1.2.0 source remains compatible with zero new warning delta.
+
+---
+
 
 ## [1.2.0] - 2026-06-29 - Legacy Migration Compatibility
 
