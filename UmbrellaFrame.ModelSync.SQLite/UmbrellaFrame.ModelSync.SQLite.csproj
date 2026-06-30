@@ -18,7 +18,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.SQLite</PackageId>
-    <Version>1.2.1</Version>
+    <Version>1.2.2</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>SQLite provider for UmbrellaFrame.ModelSync - attribute-based schema generator.</Description>
     <PackageTags>sqlite sql schema generator orm-free attributes dotnet</PackageTags>
@@ -28,7 +28,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>ModelSync 1.2.1 adds provider-specific default/check/index attributes, structured provider error metadata, failed-batch reporting, same-session script execution, SQL Server legacy routine normalization, and external consumer compatibility verification.</PackageReleaseNotes>
+    <PackageReleaseNotes>ModelSync 1.2.2 integration workflow reliability and release gate correction.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 
@@ -47,4 +47,3 @@
   </ItemGroup>
 
 </Project>
-

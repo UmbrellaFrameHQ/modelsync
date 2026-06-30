@@ -10,7 +10,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.2.1";
+    private const string CurrentReleaseVersion = "1.2.2";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -117,6 +117,11 @@ internal static class Program
                     VerifyOperationalHardeningSelfTest();
                     VerifyOperationalHardening(root);
                 }),
+                "verify-integration-workflow-contract" => Run("integration workflow contract", () =>
+                {
+                    VerifyIntegrationWorkflowContractSelfTest();
+                    VerifyIntegrationWorkflowContract(root);
+                }),
                 "verify-1-2-0-consumer-compatibility" => Run("1.2.0 consumer compatibility", () => VerifyConsumerCompatibility(root)),
                 "verify-consumer-compatibility" => Run("external consumer compatibility", () => VerifyExternalConsumerCompatibility(root, args)),
                 "verify-publication-hygiene" => Run("publication hygiene", () =>
@@ -146,6 +151,8 @@ internal static class Program
                     VerifyCoreProviderBoundary(root);
                     VerifyOperationalHardeningSelfTest();
                     VerifyOperationalHardening(root);
+                    VerifyIntegrationWorkflowContractSelfTest();
+                    VerifyIntegrationWorkflowContract(root);
                     VerifyConsumerCompatibility(root);
                     VerifyPublicationHygieneSelfTest();
                     VerifyPublicationHygiene(root);
@@ -559,7 +566,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.2.1</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.2.2</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -807,6 +814,85 @@ internal static class Program
         ThrowIfViolations(violations, "Release documentation verification failed.");
     }
 
+    private static void VerifyIntegrationWorkflowContractSelfTest()
+    {
+        var clean = string.Join('\n', new[]
+        {
+            "name: Integration Tests",
+            "image: mysql:8.4.10",
+            "MYSQL_ROOT_PASSWORD: rootpass",
+            "MYSQL_DATABASE: appdb",
+            "image: mariadb:11.8.8",
+            "MARIADB_ROOT_PASSWORD: rootpass",
+            "MARIADB_DATABASE: appdb",
+            "MODELSYNC_MYSQL_CONNECTION_STRING: Server=127.0.0.1;Port=3306;Database=appdb;User ID=root;Password=rootpass;",
+            "MODELSYNC_MARIADB_CONNECTION_STRING: Server=127.0.0.1;Port=3307;Database=appdb;User ID=root;Password=rootpass;",
+            "MODELSYNC_RUN_SP_INTEGRATION: 1",
+            "MODELSYNC_MYSQL_SP_CONNECTION_STRING: Server=127.0.0.1;Port=3306;Database=appdb;User ID=root;Password=rootpass;",
+            "MODELSYNC_POSTGRES_SP_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=appdb;Username=appuser;Password=apppass;",
+            "MODELSYNC_SQLSERVER_SP_CONNECTION_STRING: Server=127.0.0.1,1433;Database=appdb;User Id=sa;Password=YourStrong!Passw0rd;Encrypt=False;TrustServerCertificate=True;",
+            "Database preflight",
+            "MODELSYNC_INTEGRATION_DATABASE_PREFLIGHT_FAILED",
+            "INFORMATION_SCHEMA.SCHEMATA",
+            "--logger \"trx;LogFileName=mysql.trx\"",
+            "outcome=\"NotExecuted\"",
+            "outcome=\"Failed\"",
+            "LegacyUpgradeFirstRun",
+            "LegacyUpgradeSecondRun",
+            "SyncRegisteredAsync_CreatesProcedure_ThenDetectsNoChange"
+        });
+        var bad = clean.Replace("MYSQL_DATABASE: appdb", string.Empty)
+            .Replace("image: mysql:8.4.10", "image: mysql:8")
+            .Replace("MODELSYNC_RUN_SP_INTEGRATION: 1", string.Empty)
+            .Replace("outcome=\"NotExecuted\"", string.Empty);
+
+        if (FindIntegrationWorkflowContractViolations(clean).Count != 0)
+            throw new CheckFailedException("Integration workflow contract self-test failed: known-clean fixture was rejected.");
+
+        if (FindIntegrationWorkflowContractViolations(bad).Count == 0)
+            throw new CheckFailedException("Integration workflow contract self-test failed: known-bad fixture was accepted.");
+    }
+
+    private static void VerifyIntegrationWorkflowContract(string root)
+    {
+        var workflow = ReadRequired(root, ".github/workflows/integration.yml", new List<string>());
+        var violations = FindIntegrationWorkflowContractViolations(workflow);
+        ThrowIfViolations(violations, "Integration workflow contract verification failed.");
+    }
+
+    private static List<string> FindIntegrationWorkflowContractViolations(string workflow)
+    {
+        var violations = new List<string>();
+
+        RequireContains(workflow, "name: Integration Tests", "integration workflow: workflow name is missing.", violations);
+        RequireContains(workflow, "image: mysql:8.4.10", "integration workflow: MySQL image must be pinned to mysql:8.4.10.", violations);
+        RequireContains(workflow, "image: mariadb:11.8.8", "integration workflow: MariaDB image must be pinned to mariadb:11.8.8.", violations);
+        RequireContains(workflow, "MYSQL_DATABASE: appdb", "integration workflow: MYSQL_DATABASE must create appdb.", violations);
+        RequireContains(workflow, "MARIADB_DATABASE: appdb", "integration workflow: MARIADB_DATABASE must create appdb.", violations);
+        RequireContains(workflow, "MODELSYNC_MYSQL_CONNECTION_STRING: Server=127.0.0.1;Port=3306;Database=appdb;", "integration workflow: MySQL connection string must target appdb.", violations);
+        RequireContains(workflow, "MODELSYNC_MARIADB_CONNECTION_STRING: Server=127.0.0.1;Port=3307;Database=appdb;", "integration workflow: MariaDB connection string must target appdb.", violations);
+        RequireContains(workflow, "MODELSYNC_RUN_SP_INTEGRATION: 1", "integration workflow: stored procedure integration must be enabled.", violations);
+        RequireContains(workflow, "MODELSYNC_MYSQL_SP_CONNECTION_STRING: Server=127.0.0.1;Port=3306;Database=appdb;", "integration workflow: MySQL stored procedure connection string must target appdb.", violations);
+        RequireContains(workflow, "MODELSYNC_POSTGRES_SP_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=appdb;", "integration workflow: PostgreSQL stored procedure connection string must target appdb.", violations);
+        RequireContains(workflow, "MODELSYNC_SQLSERVER_SP_CONNECTION_STRING: Server=127.0.0.1,1433;Database=appdb;", "integration workflow: SQL Server stored procedure connection string must target appdb.", violations);
+        RequireContains(workflow, "Database preflight", "integration workflow: database preflight step is missing.", violations);
+        RequireContains(workflow, "INFORMATION_SCHEMA.SCHEMATA", "integration workflow: target database preflight query is missing.", violations);
+        RequireContains(workflow, "MODELSYNC_INTEGRATION_DATABASE_PREFLIGHT_FAILED", "integration workflow: preflight failure marker is missing.", violations);
+        RequireContains(workflow, "--logger \"trx;LogFileName=mysql.trx\"", "integration workflow: MySQL TRX logging is missing.", violations);
+        RequireContains(workflow, "outcome=\"Failed\"", "integration workflow: failed test gate is missing.", violations);
+        RequireContains(workflow, "outcome=\"NotExecuted\"", "integration workflow: skipped test gate is missing.", violations);
+        RequireContains(workflow, "LegacyUpgradeFirstRun", "integration workflow: legacy first-run discovery gate is missing.", violations);
+        RequireContains(workflow, "LegacyUpgradeSecondRun", "integration workflow: legacy second-run discovery gate is missing.", violations);
+        RequireContains(workflow, "SyncRegisteredAsync_CreatesProcedure_ThenDetectsNoChange", "integration workflow: stored procedure discovery gate is missing.", violations);
+
+        if (Regex.IsMatch(workflow, @"image:\s+mysql:8\s*(?:\r?\n|$)", RegexOptions.IgnoreCase))
+            violations.Add("integration workflow: mutable mysql:8 image tag is not allowed.");
+        if (Regex.IsMatch(workflow, @"image:\s+mariadb:11\s*(?:\r?\n|$)", RegexOptions.IgnoreCase))
+            violations.Add("integration workflow: mutable mariadb:11 image tag is not allowed.");
+
+        return violations;
+    }
+
     private static void VerifyReleaseDocumentationContract(string root)
     {
         var violations = new List<string>();
@@ -816,9 +902,11 @@ internal static class Program
             "docs/releases/README.md",
             "docs/releases/_template.md",
             "docs/releases/1.2.1.md",
+            "docs/releases/1.2.2.md",
             "docs/migrations/README.md",
             "docs/migrations/_template.md",
             "docs/migrations/1.2.0-to-1.2.1.md",
+            "docs/migrations/1.2.1-to-1.2.2.md",
             "docs/versioning-and-compatibility.md",
             "docs/deprecation-policy.md",
             "docs/roadmap-1.3.md"
@@ -831,22 +919,22 @@ internal static class Program
 
         var readme = ReadRequired(root, "README.md", violations);
         RequireContains(readme, "Versioning, Release Notes and Migration Guides", "README.md: versioning/release navigation section is missing.", violations);
-        RequireContains(readme, "docs/releases/1.2.1.md", "README.md: current 1.2.1 release note link is missing.", violations);
-        RequireContains(readme, "docs/migrations/1.2.0-to-1.2.1.md", "README.md: 1.2.0 to 1.2.1 migration guide link is missing.", violations);
+        RequireContains(readme, "docs/releases/1.2.2.md", "README.md: current 1.2.2 release note link is missing.", violations);
+        RequireContains(readme, "docs/migrations/1.2.1-to-1.2.2.md", "README.md: 1.2.1 to 1.2.2 migration guide link is missing.", violations);
 
-        var release = ReadRequired(root, "docs/releases/1.2.1.md", violations);
-        RequireContains(release, "2026-07-01", "docs/releases/1.2.1.md: final release date is missing.", violations);
-        RequireContains(release, "ModelSync 1.2.1 - Provider API Clarity and Operational Hardening", "docs/releases/1.2.1.md: release title is missing.", violations);
-        RequireContains(release, "| Capability | Core | SQL Server | MySQL/MariaDB | PostgreSQL | SQLite |", "docs/releases/1.2.1.md: provider impact matrix is missing.", violations);
-        RequireContains(release, "Fixed", "docs/releases/1.2.1.md: closed bug list is missing.", violations);
+        var release = ReadRequired(root, "docs/releases/1.2.2.md", violations);
+        RequireContains(release, "2026-07-01", "docs/releases/1.2.2.md: final release date is missing.", violations);
+        RequireContains(release, "ModelSync 1.2.2 - Integration Workflow Reliability and Release Gate Correction", "docs/releases/1.2.2.md: release title is missing.", violations);
+        RequireContains(release, "Unpublished 1.2.1 tag", "docs/releases/1.2.2.md: unpublished 1.2.1 tag note is missing.", violations);
+        RequireContains(release, "Fixed", "docs/releases/1.2.2.md: closed bug list is missing.", violations);
 
         var changelog = ReadRequired(root, "CHANGELOG.md", violations);
-        RequireContains(changelog, "## [1.2.1] - 2026-07-01", "CHANGELOG.md: final 1.2.1 entry is missing.", violations);
+        RequireContains(changelog, "## [1.2.2] - 2026-07-01", "CHANGELOG.md: final 1.2.2 entry is missing.", violations);
 
         foreach (var packageId in SupportedPackageIds())
         {
             var expected = $"dotnet add package {packageId} --version {CurrentReleaseVersion}";
-            RequireContains(readme, expected, $"README.md: missing 1.2.1 install snippet for {packageId}.", violations);
+            RequireContains(readme, expected, $"README.md: missing 1.2.2 install snippet for {packageId}.", violations);
         }
 
         foreach (var project in new[]
@@ -1126,7 +1214,7 @@ internal static class Program
                  {
                      "NuGet.org package version: `1.2.0`",
                      "Candidate version: supplied by release gate",
-                     "Final validation version: `1.2.1`",
+                     "Final validation version: `1.2.2`",
                      "Candidate source: supplied explicitly by release command",
                      "NewWarningDelta: `0`",
                      "TreatWarningsAsErrors: `PASS`",
@@ -1143,7 +1231,7 @@ internal static class Program
 
     private static void VerifyPublicationHygieneSelfTest()
     {
-        var localVersion = "1.2.1-" + "rc.local";
+        var localVersion = "1.2.2-" + "rc.local";
         var obsoleteArtifactPath = "artifacts/" + "consumer" + "-candidate";
         var localProjectPath = "D:" + @"\Projeler\UmbrellaFrame\ModelSync";
         var userProfilePath = "C:" + @"\Users\someone\.nuget\packages";
@@ -1164,7 +1252,7 @@ internal static class Program
             "Candidate version: supplied by release gate",
             "Candidate source: supplied explicitly by release command",
             "Password=secret",
-            "--candidate-source artifacts\\publication-1.2.1"
+            "--candidate-source artifacts\\packages-1.2.2"
         });
 
         if (FindPublicationHygieneViolations("bad.md", bad).Count == 0)
@@ -1217,7 +1305,7 @@ internal static class Program
         var violations = new List<string>();
         var normalizedPath = relativePath.Replace('\\', '/');
 
-        AddIfContains(text, "1.2.1-" + "rc.local", $"{relativePath}: pre-release local version leaked into tracked content.", violations);
+        AddIfContains(text, "1.2.2-" + "rc.local", $"{relativePath}: pre-release local version leaked into tracked content.", violations);
         AddIfContains(text, "artifacts/" + "consumer" + "-candidate", $"{relativePath}: obsolete consumer candidate artifact path leaked into tracked content.", violations);
         AddIfContains(text, @"artifacts\" + "consumer" + "-candidate", $"{relativePath}: obsolete consumer candidate artifact path leaked into tracked content.", violations);
         AddIfContains(text, "D:" + @"\Projeler", $"{relativePath}: local machine path leaked into tracked content.", violations);
@@ -1441,7 +1529,7 @@ internal static class Program
             }
         }
 
-        if (assets.Contains("1.2.1-" + "rc.local", StringComparison.OrdinalIgnoreCase))
+        if (assets.Contains("1.2.2-" + "rc.local", StringComparison.OrdinalIgnoreCase))
         {
             throw new CheckFailedException($"Consumer compatibility {label} restored a local rc package.");
         }

@@ -30,31 +30,31 @@ UmbrellaFrame.ModelSync.SQLite        SQLite provider
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer package
 ```
 
-Current package version: `1.2.1`
+Current package version: `1.2.2`
 
 ## Versioning, Release Notes and Migration Guides
 
 - [Changelog](CHANGELOG.md)
 - [Release notes index](docs/releases/README.md)
-- [Current unreleased 1.2.1 notes](docs/releases/1.2.1.md)
-- [1.2.0 to 1.2.1 migration guide](docs/migrations/1.2.0-to-1.2.1.md)
+- [Current 1.2.2 notes](docs/releases/1.2.2.md)
+- [1.2.1 to 1.2.2 migration guide](docs/migrations/1.2.1-to-1.2.2.md)
 - [Versioning and compatibility](docs/versioning-and-compatibility.md)
 - [Deprecation policy](docs/deprecation-policy.md)
 - [1.3 roadmap](docs/roadmap-1.3.md)
 
 ModelSync packages can be restored by NuGet CLI, MSBuild, CI agents, Artifactory and package mirrors. Download counts are not unique user counts, but older versions continuing to restore is still a compatibility signal. Published package versions should not be overwritten or unlisted as a substitute for migration documentation.
 
-Release status: ModelSync 1.2.1 is finalized after provider integration, package smoke, and external consumer compatibility gates.
+Release status: ModelSync 1.2.2 supersedes the unpublished 1.2.1 tag after the MySQL/MariaDB integration workflow gate was corrected.
 
 NuGet consumption note: ModelSync packages are restored by NuGet CLI, MSBuild, CI systems, Artifactory and mirrors. Download counts are not unique user counts, so this README does not publish temporary download snapshots. Continued restores of older versions still require disciplined API compatibility, migration documentation and non-destructive package version handling.
 
 Architecture rule: `UmbrellaFrame.ModelSync.Core` owns SQL generation and migration planning through a provider-agnostic compiler. Provider packages supply structured descriptors, capabilities, mappings, attributes, connection adapters, and execution integration; they do not maintain independent framework SQL engines.
 
-### 1.2.1 Provider API Clarity and Operational Hardening
+### 1.2.2 Integration Workflow Reliability and Release Gate Correction
 
-The repository is shipping the 1.2.1 line for provider-specific API clarity and operational migration hardening. The 1.2.0 compatibility contract remains valid.
+The repository is shipping the 1.2.2 line for integration workflow reliability and release gate correction. The 1.2.0 compatibility contract remains valid.
 
-1.2.1 compatibility scope:
+1.2.2 compatibility scope:
 
 - `RunOnce`, `HashTracked`, and `EveryRun` migration execution modes.
 - `CategoryPolicies` for per-category script execution behavior.
@@ -107,11 +107,11 @@ Registered SQL scripts are treated as trusted project artifacts. ModelSync risk-
 Install the provider package you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.2
 ```
 
 Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
@@ -119,7 +119,7 @@ Each provider package pulls `UmbrellaFrame.ModelSync.Core` automatically.
 Analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
 ```
 
 ### Quick Start
@@ -469,9 +469,9 @@ UmbrellaFrame.ModelSync.SQLite        SQLite sağlayıcısı
 UmbrellaFrame.ModelSync.Analyzers     Roslyn analyzer paketi
 ```
 
-Güncel paket sürümü: `1.2.0`
+Güncel paket sürümü: `1.2.2`
 
-Yay�n durumu: ModelSync 1.2.1 provider entegrasyon, package smoke ve d�� consumer compatibility kap�lar�yla finalize edilmi�tir.
+Yayın durumu: ModelSync 1.2.2, MySQL/MariaDB integration workflow gate düzeltildikten sonra yayımlanmamış 1.2.1 tag sürümünün yerini alır.
 
 NuGet tuketim notu: ModelSync paketleri NuGet CLI, MSBuild, CI sistemleri, Artifactory ve mirror istemcileri tarafindan restore edilir. Download sayilari benzersiz kullanici sayisi degildir; bu nedenle README gecici download snapshot yayinlamaz. Buna ragmen eski surumlerin restore edilmeye devam etmesi API compatibility, migration dokumantasyonu ve package version'lari overwrite/unlist etmeme disiplinini gerekli kilar.
 
@@ -502,11 +502,11 @@ ModelSync sessiz ve kontrolsüz bir production mutasyon motoru değildir. Canlı
 İhtiyacınız olan sağlayıcı paketini kurun:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.1
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.2
 ```
 
 Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak getirir.
@@ -514,7 +514,7 @@ Her sağlayıcı paketi `UmbrellaFrame.ModelSync.Core` paketini otomatik olarak 
 Analyzer paketi:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
 ```
 
 ### Hızlı Başlangıç
@@ -805,7 +805,7 @@ MODELSYNC_RUN_SP_INTEGRATION=1 dotnet test ModelSync.sln -c Release --filter "Ca
 
 | Kaynak | Açıklama |
 |---|---|
-| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.2.0 için kapsamlı Türkçe kullanım kılavuzu |
+| [Tam Kullanım Kılavuzu](docs/13-full-usage-guide-tr.md) | ModelSync 1.2.2 için kapsamlı Türkçe kullanım kılavuzu |
 | [Makaleler](articles/README.md) | ModelSync'i anlatmak için hazırlanmış yazılar |
 | [Örnekler](examples/README.md) | MySQL, SQL Server, PostgreSQL, SQLite, destructive operation ve stored procedure örnekleri |
 | [Stored Procedure Sync](docs/11-stored-procedures.md) | Stored procedure senkronizasyon davranışı |

@@ -1,137 +1,137 @@
-# ModelSync — NuGet Tam Kullanım Kılavuzu
+# ModelSync â€” NuGet Tam KullanÄ±m KÄ±lavuzu
 
-Kurulum, model tanımlama, SQL üretimi, DDL yürütme, migration, stored procedure, canlı model senkronizasyonu ve production kullanımı.
+Kurulum, model tanÄ±mlama, SQL Ã¼retimi, DDL yÃ¼rÃ¼tme, migration, stored procedure, canlÄ± model senkronizasyonu ve production kullanÄ±mÄ±.
 
-**Sürüm kapsamı:** 1.2.0
-**Hazırlayan:** UmbrellaFrame / ModelSync
+**SÃ¼rÃ¼m kapsamÄ±:** 1.2.2
+**HazÄ±rlayan:** UmbrellaFrame / ModelSync
 
-# İçindekiler
+# Ä°Ã§indekiler
 
-1. [Belge hakkında](#belge-hakkında)
+1. [Belge hakkÄ±nda](#belge-hakkÄ±nda)
 2. [ModelSync nedir?](#1-modelsync-nedir)
 3. [Kurulum](#kurulum)
-4. [Temel çalışma modeli](#temel-çalışma-modeli)
-5. [İlk tam örnek — MySQL/MariaDB](#ilk-tam-örnek--mysqlmariadb)
-6. [Provider bazında hızlı başlangıç](#provider-bazında-hızlı-başlangıç)
+4. [Temel Ã§alÄ±ÅŸma modeli](#temel-Ã§alÄ±ÅŸma-modeli)
+5. [Ä°lk tam Ã¶rnek â€” MySQL/MariaDB](#ilk-tam-Ã¶rnek--mysqlmariadb)
+6. [Provider bazÄ±nda hÄ±zlÄ± baÅŸlangÄ±Ã§](#provider-bazÄ±nda-hÄ±zlÄ±-baÅŸlangÄ±Ã§)
 7. [Attribute sistemi](#attribute-sistemi)
 8. [Provider kolon tipleri](#provider-kolon-tipleri)
-9. [SQL üretme API’si](#sql-üretme-apisi)
-10. [Tablo ve kolon operasyonları](#tablo-ve-kolon-operasyonları)
-11. [Dependency Injection ve uygulama başlangıcı](#dependency-injection-ve-uygulama-başlangıcı)
+9. [SQL Ã¼retme APIâ€™si](#sql-Ã¼retme-apisi)
+10. [Tablo ve kolon operasyonlarÄ±](#tablo-ve-kolon-operasyonlarÄ±)
+11. [Dependency Injection ve uygulama baÅŸlangÄ±cÄ±](#dependency-injection-ve-uygulama-baÅŸlangÄ±cÄ±)
 12. [Logging](#logging)
 13. [Migration Runner](#migration-runner)
 14. [Stored Procedure senkronizasyonu](#stored-procedure-senkronizasyonu)
-15. [Canlı model senkronizasyonu](#canlı-model-senkronizasyonu)
+15. [CanlÄ± model senkronizasyonu](#canlÄ±-model-senkronizasyonu)
 16. [Analyzer](#analyzer)
-17. [Hata yönetimi ve troubleshooting](#hata-yönetimi-ve-troubleshooting)
-18. [Test yaklaşımı](#test-yaklaşımı)
-19. [Production kullanım rehberi](#production-kullanım-rehberi)
-20. [Tam örnek proje yapısı](#tam-örnek-proje-yapısı)
-21. [API hızlı referans](#api-hızlı-referans)
-22. [Sürüm 1.2.0 sınırları](#sürüm-108-sınırları)
-23. [Sık sorulan sorular](#sık-sorulan-sorular)
-24. [Sonuç](#sonuç)
+17. [Hata yÃ¶netimi ve troubleshooting](#hata-yÃ¶netimi-ve-troubleshooting)
+18. [Test yaklaÅŸÄ±mÄ±](#test-yaklaÅŸÄ±mÄ±)
+19. [Production kullanÄ±m rehberi](#production-kullanÄ±m-rehberi)
+20. [Tam Ã¶rnek proje yapÄ±sÄ±](#tam-Ã¶rnek-proje-yapÄ±sÄ±)
+21. [API hÄ±zlÄ± referans](#api-hÄ±zlÄ±-referans)
+22. [SÃ¼rÃ¼m 1.2.2 sÄ±nÄ±rlarÄ±](#sÃ¼rÃ¼m-108-sÄ±nÄ±rlarÄ±)
+23. [SÄ±k sorulan sorular](#sÄ±k-sorulan-sorular)
+24. [SonuÃ§](#sonuÃ§)
 
-# Belge hakkında
+# Belge hakkÄ±nda
 
-Bu kılavuz, **ModelSync 1.2.0** paketlerini NuGet üzerinden yükleyen bir .NET geliştiricisinin projeyi kaynak koda bakmadan doğru biçimde kullanabilmesi için hazırlanmıştır. Kurulumdan başlayarak model tanımlama, SQL üretme, tablo oluşturma, indeks yürütme, kolon işlemleri, migration scriptleri, stored procedure senkronizasyonu, dependency injection, logging, analyzer, test ve production güvenliği ele alınır.
+Bu kÄ±lavuz, **ModelSync 1.2.2** paketlerini NuGet Ã¼zerinden yÃ¼kleyen bir .NET geliÅŸtiricisinin projeyi kaynak koda bakmadan doÄŸru biÃ§imde kullanabilmesi iÃ§in hazÄ±rlanmÄ±ÅŸtÄ±r. Kurulumdan baÅŸlayarak model tanÄ±mlama, SQL Ã¼retme, tablo oluÅŸturma, indeks yÃ¼rÃ¼tme, kolon iÅŸlemleri, migration scriptleri, stored procedure senkronizasyonu, dependency injection, logging, analyzer, test ve production gÃ¼venliÄŸi ele alÄ±nÄ±r.
 
-> **En önemli tanım:** ModelSync bir ORM değildir. Nesneleri satırlara kaydetmez, LINQ sorgusu üretmez, change tracking yapmaz ve CRUD repository sağlamaz. ModelSync’in işi; C# model metadata’sından DDL üretmek, DDL’i isteğe bağlı çalıştırmak ve proje tarafındaki SQL scriptlerini kontrollü biçimde yönetmektir.
+> **En Ã¶nemli tanÄ±m:** ModelSync bir ORM deÄŸildir. Nesneleri satÄ±rlara kaydetmez, LINQ sorgusu Ã¼retmez, change tracking yapmaz ve CRUD repository saÄŸlamaz. ModelSyncâ€™in iÅŸi; C# model metadataâ€™sÄ±ndan DDL Ã¼retmek, DDLâ€™i isteÄŸe baÄŸlÄ± Ã§alÄ±ÅŸtÄ±rmak ve proje tarafÄ±ndaki SQL scriptlerini kontrollÃ¼ biÃ§imde yÃ¶netmektir.
 
 ## 1. ModelSync nedir?
 
-ModelSync, düz C# sınıflarını provider’a özel attribute’larla işaretleyerek SQL şema ifadeleri üretmenizi sağlayan, ORM bağımlılığı olmayan bir .NET kütüphanesidir.
+ModelSync, dÃ¼z C# sÄ±nÄ±flarÄ±nÄ± providerâ€™a Ã¶zel attributeâ€™larla iÅŸaretleyerek SQL ÅŸema ifadeleri Ã¼retmenizi saÄŸlayan, ORM baÄŸÄ±mlÄ±lÄ±ÄŸÄ± olmayan bir .NET kÃ¼tÃ¼phanesidir.
 
-Başlıca kullanım alanları:
+BaÅŸlÄ±ca kullanÄ±m alanlarÄ±:
 
-- C# modelinden `CREATE TABLE` SQL’i üretmek.
-- Üretilen tablo SQL’lerini veritabanında çalıştırmak.
-- `DROP TABLE`, `TRUNCATE TABLE` ve `CREATE INDEX` SQL’leri üretmek.
-- Attribute metadata’sına göre kolon eklemek, silmek, yeniden adlandırmak veya tip değiştirmek.
-- Veri kaybına yol açabilecek işlemleri açık onay olmadan engellemek.
-- SQL dosyası tabanlı migration scriptlerini kategorilere göre sıralayıp uygulamak.
-- SQL Server, MySQL/MariaDB ve PostgreSQL stored procedure dosyalarını canlı veritabanıyla karşılaştırmak ve senkronize etmek.
-- Roslyn analyzer ile eksik ModelSync attribute’larını derleme zamanında bildirmek.
+- C# modelinden `CREATE TABLE` SQLâ€™i Ã¼retmek.
+- Ãœretilen tablo SQLâ€™lerini veritabanÄ±nda Ã§alÄ±ÅŸtÄ±rmak.
+- `DROP TABLE`, `TRUNCATE TABLE` ve `CREATE INDEX` SQLâ€™leri Ã¼retmek.
+- Attribute metadataâ€™sÄ±na gÃ¶re kolon eklemek, silmek, yeniden adlandÄ±rmak veya tip deÄŸiÅŸtirmek.
+- Veri kaybÄ±na yol aÃ§abilecek iÅŸlemleri aÃ§Ä±k onay olmadan engellemek.
+- SQL dosyasÄ± tabanlÄ± migration scriptlerini kategorilere gÃ¶re sÄ±ralayÄ±p uygulamak.
+- SQL Server, MySQL/MariaDB ve PostgreSQL stored procedure dosyalarÄ±nÄ± canlÄ± veritabanÄ±yla karÅŸÄ±laÅŸtÄ±rmak ve senkronize etmek.
+- Roslyn analyzer ile eksik ModelSync attributeâ€™larÄ±nÄ± derleme zamanÄ±nda bildirmek.
 
 ## 2. ModelSync ne yapmaz?
 
-| Beklenti | ModelSync davranışı |
+| Beklenti | ModelSync davranÄ±ÅŸÄ± |
 |---|---|
-| `Insert`, `Update`, `Delete`, `Select` işlemleri | Sağlamaz. Dapper, ADO.NET, EF Core veya başka bir veri erişim aracı kullanılır. |
-| LINQ sorgu sağlayıcısı | Sağlamaz. |
-| Entity change tracking | Sağlamaz. |
-| Model değişince canlı veritabanını sessiz ve yıkıcı şekilde değiştirme | Yoktur. Model synchronizer dry-run-first çalışır ve yalnız güvenli additive işlemleri otomatik uygular. |
-| Uygulanmış migration’ın her türlü şema farkını güvenle düzeltmesi | Sağlamaz. Otomatik onarım yalnız basit, eksik kolon ekleme yaklaşımıdır. |
-| İndeksleri `CreateTables()` ile otomatik oluşturma | Yapmaz. `GenerateIndexSql<T>()` yalnız SQL döndürür; SQL ayrıca yürütülmelidir. |
-| SQLite stored procedure | SQLite stored procedure desteklemediği için sağlanmaz. |
-| İlişkisel model navigasyonları | Sağlamaz. Foreign key SQL’i attribute ile açık tanımlanır. |
+| `Insert`, `Update`, `Delete`, `Select` iÅŸlemleri | SaÄŸlamaz. Dapper, ADO.NET, EF Core veya baÅŸka bir veri eriÅŸim aracÄ± kullanÄ±lÄ±r. |
+| LINQ sorgu saÄŸlayÄ±cÄ±sÄ± | SaÄŸlamaz. |
+| Entity change tracking | SaÄŸlamaz. |
+| Model deÄŸiÅŸince canlÄ± veritabanÄ±nÄ± sessiz ve yÄ±kÄ±cÄ± ÅŸekilde deÄŸiÅŸtirme | Yoktur. Model synchronizer dry-run-first Ã§alÄ±ÅŸÄ±r ve yalnÄ±z gÃ¼venli additive iÅŸlemleri otomatik uygular. |
+| UygulanmÄ±ÅŸ migrationâ€™Ä±n her tÃ¼rlÃ¼ ÅŸema farkÄ±nÄ± gÃ¼venle dÃ¼zeltmesi | SaÄŸlamaz. Otomatik onarÄ±m yalnÄ±z basit, eksik kolon ekleme yaklaÅŸÄ±mÄ±dÄ±r. |
+| Ä°ndeksleri `CreateTables()` ile otomatik oluÅŸturma | Yapmaz. `GenerateIndexSql<T>()` yalnÄ±z SQL dÃ¶ndÃ¼rÃ¼r; SQL ayrÄ±ca yÃ¼rÃ¼tÃ¼lmelidir. |
+| SQLite stored procedure | SQLite stored procedure desteklemediÄŸi iÃ§in saÄŸlanmaz. |
+| Ä°liÅŸkisel model navigasyonlarÄ± | SaÄŸlamaz. Foreign key SQLâ€™i attribute ile aÃ§Ä±k tanÄ±mlanÄ±r. |
 
-## 3. Paket mimarisi ve hangi paket neden vardır?
+## 3. Paket mimarisi ve hangi paket neden vardÄ±r?
 
-| NuGet paketi | Amaç | Doğrudan kurulmalı mı? |
+| NuGet paketi | AmaÃ§ | DoÄŸrudan kurulmalÄ± mÄ±? |
 |---|---|---|
-| `UmbrellaFrame.ModelSync.Core` | Ortak attribute’lar, arayüzler, SQL builder altyapısı, migration/stored procedure modelleri | Provider paketi otomatik getirir. Yalnız provider geliştirecekseniz doğrudan kurun. |
-| `UmbrellaFrame.ModelSync.SqlServer` | SQL Server ve Azure SQL DDL/migration/stored procedure uygulaması | SQL Server kullanıyorsanız evet. |
-| `UmbrellaFrame.ModelSync.MySql` | MySQL ve MariaDB uygulaması | MySQL/MariaDB kullanıyorsanız evet. |
-| `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL uygulaması | PostgreSQL kullanıyorsanız evet. |
-| `UmbrellaFrame.ModelSync.SQLite` | SQLite uygulaması | SQLite kullanıyorsanız evet. |
-| `UmbrellaFrame.ModelSync.Analyzers` | Model attribute hatalarını IDE ve build sırasında bulur | İsteğe bağlı, tavsiye edilir. |
+| `UmbrellaFrame.ModelSync.Core` | Ortak attributeâ€™lar, arayÃ¼zler, SQL builder altyapÄ±sÄ±, migration/stored procedure modelleri | Provider paketi otomatik getirir. YalnÄ±z provider geliÅŸtirecekseniz doÄŸrudan kurun. |
+| `UmbrellaFrame.ModelSync.SqlServer` | SQL Server ve Azure SQL DDL/migration/stored procedure uygulamasÄ± | SQL Server kullanÄ±yorsanÄ±z evet. |
+| `UmbrellaFrame.ModelSync.MySql` | MySQL ve MariaDB uygulamasÄ± | MySQL/MariaDB kullanÄ±yorsanÄ±z evet. |
+| `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL uygulamasÄ± | PostgreSQL kullanÄ±yorsanÄ±z evet. |
+| `UmbrellaFrame.ModelSync.SQLite` | SQLite uygulamasÄ± | SQLite kullanÄ±yorsanÄ±z evet. |
+| `UmbrellaFrame.ModelSync.Analyzers` | Model attribute hatalarÄ±nÄ± IDE ve build sÄ±rasÄ±nda bulur | Ä°steÄŸe baÄŸlÄ±, tavsiye edilir. |
 
-Paketler `netstandard2.0` hedefler. Bu nedenle modern .NET uygulamalarında kullanılabilir. Bu kılavuzdaki örnekler modern SDK stili projeler ve async kullanım üzerinden verilmiştir.
+Paketler `netstandard2.0` hedefler. Bu nedenle modern .NET uygulamalarÄ±nda kullanÄ±labilir. Bu kÄ±lavuzdaki Ã¶rnekler modern SDK stili projeler ve async kullanÄ±m Ã¼zerinden verilmiÅŸtir.
 
 # Kurulum
 
-## 4. Yeni proje oluşturma
+## 4. Yeni proje oluÅŸturma
 
 ```bash
 dotnet new console -n ModelSyncDemo
 cd ModelSyncDemo
 ```
 
-ASP.NET Core kullanıyorsanız:
+ASP.NET Core kullanÄ±yorsanÄ±z:
 
 ```bash
 dotnet new webapi -n ModelSyncDemo
 cd ModelSyncDemo
 ```
 
-## 5. Provider paketini yükleme
+## 5. Provider paketini yÃ¼kleme
 
-Yalnız kullandığınız provider’ı yükleyin.
+YalnÄ±z kullandÄ±ÄŸÄ±nÄ±z providerâ€™Ä± yÃ¼kleyin.
 
 ### SQL Server / Azure SQL
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.2
 ```
 
 ### MySQL / MariaDB
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.2
 ```
 
 ### PostgreSQL
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.2
 ```
 
 ### SQLite
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.2
 ```
 
 ### Analyzer
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
 ```
 
-`--version` kaldırılırsa NuGet’teki mevcut kararlı sürüm yüklenir. Bu belge 1.2.0 API’sine göre hazırlanmıştır.
+`--version` kaldÄ±rÄ±lÄ±rsa NuGetâ€™teki mevcut kararlÄ± sÃ¼rÃ¼m yÃ¼klenir. Bu belge 1.2.2 APIâ€™sine gÃ¶re hazÄ±rlanmÄ±ÅŸtÄ±r.
 
-## 6. Namespace’ler
+## 6. Namespaceâ€™ler
 
 Ortak attribute ve modeller:
 
@@ -140,7 +140,7 @@ using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Interfaces;
 ```
 
-Provider namespace’leri:
+Provider namespaceâ€™leri:
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -149,36 +149,36 @@ using UmbrellaFrame.ModelSync.PostgreSQL;
 using UmbrellaFrame.ModelSync.SQLite;
 ```
 
-# Temel çalışma modeli
+# Temel Ã§alÄ±ÅŸma modeli
 
-## 7. ModelSync akışı neden iki aşamalıdır?
+## 7. ModelSync akÄ±ÅŸÄ± neden iki aÅŸamalÄ±dÄ±r?
 
-ModelSync tablo işlemlerini iki aşamaya ayırır:
+ModelSync tablo iÅŸlemlerini iki aÅŸamaya ayÄ±rÄ±r:
 
-1. `Generate...Table<T>()` modeli okur, SQL üretir ve generator örneğinin iç önbelleğine kaydeder.
-2. `CreateTables()` veya `CreateTablesAsync()` önbellekteki SQL’leri veritabanında çalıştırır.
+1. `Generate...Table<T>()` modeli okur, SQL Ã¼retir ve generator Ã¶rneÄŸinin iÃ§ Ã¶nbelleÄŸine kaydeder.
+2. `CreateTables()` veya `CreateTablesAsync()` Ã¶nbellekteki SQLâ€™leri veritabanÄ±nda Ã§alÄ±ÅŸtÄ±rÄ±r.
 
-Bu ayrım şu yararları sağlar:
+Bu ayrÄ±m ÅŸu yararlarÄ± saÄŸlar:
 
-- SQL’i çalıştırmadan önce görebilirsiniz.
+- SQLâ€™i Ã§alÄ±ÅŸtÄ±rmadan Ã¶nce gÃ¶rebilirsiniz.
 - Review, log veya test yapabilirsiniz.
-- Birden fazla tabloyu kaydedip sonra toplu çalıştırabilirsiniz.
-- SQL üretimi ile canlı veritabanı değişikliğini birbirinden ayırabilirsiniz.
+- Birden fazla tabloyu kaydedip sonra toplu Ã§alÄ±ÅŸtÄ±rabilirsiniz.
+- SQL Ã¼retimi ile canlÄ± veritabanÄ± deÄŸiÅŸikliÄŸini birbirinden ayÄ±rabilirsiniz.
 
 ```csharp
 var generator = new MySqlTableGenerator(connectionString);
 
 var sql = generator.GenerateMySqlTable<Product>(ifNotExists: true);
-Console.WriteLine(sql);          // yalnız üretir ve cache'e alır
+Console.WriteLine(sql);          // yalnÄ±z Ã¼retir ve cache'e alÄ±r
 
-await generator.CreateTablesAsync(); // cache'teki SQL'i çalıştırır
+await generator.CreateTablesAsync(); // cache'teki SQL'i Ã§alÄ±ÅŸtÄ±rÄ±r
 ```
 
-> Yeni bir generator örneği oluşturursanız önceki örneğin cache’i taşınmaz. `CreateTablesAsync()` çağrısı aynı generator örneğinde yapılmalıdır.
+> Yeni bir generator Ã¶rneÄŸi oluÅŸturursanÄ±z Ã¶nceki Ã¶rneÄŸin cacheâ€™i taÅŸÄ±nmaz. `CreateTablesAsync()` Ã§aÄŸrÄ±sÄ± aynÄ± generator Ã¶rneÄŸinde yapÄ±lmalÄ±dÄ±r.
 
-# İlk tam örnek — MySQL/MariaDB
+# Ä°lk tam Ã¶rnek â€” MySQL/MariaDB
 
-## 8. Model tanımlama
+## 8. Model tanÄ±mlama
 
 ```csharp
 using UmbrellaFrame.ModelSync.Core;
@@ -211,7 +211,7 @@ public sealed class Product
 }
 ```
 
-## 9. Generator oluşturma ve database hazırlama
+## 9. Generator oluÅŸturma ve database hazÄ±rlama
 
 ```csharp
 var connectionString =
@@ -219,13 +219,13 @@ var connectionString =
 
 var generator = new MySqlTableGenerator(connectionString);
 
-// Kullanıcının CREATE DATABASE yetkisi varsa çalıştırın.
+// KullanÄ±cÄ±nÄ±n CREATE DATABASE yetkisi varsa Ã§alÄ±ÅŸtÄ±rÄ±n.
 await generator.CreateDatabaseAsync();
 ```
 
-`CreateDatabaseAsync()` connection string içindeki `Database` değerini alır, database’siz bağlantı açar ve `CREATE DATABASE IF NOT EXISTS` çalıştırır. Veritabanı başka bir süreç tarafından oluşturuluyorsa bu adımı atlayabilirsiniz.
+`CreateDatabaseAsync()` connection string iÃ§indeki `Database` deÄŸerini alÄ±r, databaseâ€™siz baÄŸlantÄ± aÃ§ar ve `CREATE DATABASE IF NOT EXISTS` Ã§alÄ±ÅŸtÄ±rÄ±r. VeritabanÄ± baÅŸka bir sÃ¼reÃ§ tarafÄ±ndan oluÅŸturuluyorsa bu adÄ±mÄ± atlayabilirsiniz.
 
-## 10. SQL üretme, inceleme ve tablo oluşturma
+## 10. SQL Ã¼retme, inceleme ve tablo oluÅŸturma
 
 ```csharp
 var createSql = generator.GenerateMySqlTable<Product>(ifNotExists: true);
@@ -234,7 +234,7 @@ Console.WriteLine(createSql);
 await generator.CreateTablesAsync();
 ```
 
-Beklenen yapıya benzer SQL:
+Beklenen yapÄ±ya benzer SQL:
 
 ```sql
 CREATE TABLE IF NOT EXISTS `products` (
@@ -246,9 +246,9 @@ CREATE TABLE IF NOT EXISTS `products` (
 );
 ```
 
-## 11. İndeks SQL’lerini üretme ve çalıştırma
+## 11. Ä°ndeks SQLâ€™lerini Ã¼retme ve Ã§alÄ±ÅŸtÄ±rma
 
-`DbColumnIndex` tablo SQL’inin içine eklenmez. İndeksler ayrı SQL listesi olarak üretilir:
+`DbColumnIndex` tablo SQLâ€™inin iÃ§ine eklenmez. Ä°ndeksler ayrÄ± SQL listesi olarak Ã¼retilir:
 
 ```csharp
 var indexSqlList = generator.GenerateIndexSql<Product>();
@@ -259,7 +259,7 @@ foreach (var indexSql in indexSqlList)
 }
 ```
 
-MySQL’de çalıştırma örneği:
+MySQLâ€™de Ã§alÄ±ÅŸtÄ±rma Ã¶rneÄŸi:
 
 ```csharp
 using MySqlConnector;
@@ -274,9 +274,9 @@ foreach (var indexSql in generator.GenerateIndexSql<Product>())
 }
 ```
 
-> Aynı indeks ikinci kez oluşturulursa provider hata verebilir. İndeks yürütmesini migration scriptine almak veya veritabanı kataloğundan varlık kontrolü yapmak production için daha güvenlidir.
+> AynÄ± indeks ikinci kez oluÅŸturulursa provider hata verebilir. Ä°ndeks yÃ¼rÃ¼tmesini migration scriptine almak veya veritabanÄ± kataloÄŸundan varlÄ±k kontrolÃ¼ yapmak production iÃ§in daha gÃ¼venlidir.
 
-# Provider bazında hızlı başlangıç
+# Provider bazÄ±nda hÄ±zlÄ± baÅŸlangÄ±Ã§
 
 ## 12. SQL Server / Azure SQL
 
@@ -310,23 +310,23 @@ var connectionString =
 
 var generator = new SqlServerTableGenerator(connectionString);
 
-// SQL Server provider CreateTablesAsync içinde CreateDatabaseAsync de çağırır.
+// SQL Server provider CreateTablesAsync iÃ§inde CreateDatabaseAsync de Ã§aÄŸÄ±rÄ±r.
 var sql = generator.GenerateSqlServerTable<Product>(ifNotExists: true);
 Console.WriteLine(sql);
 await generator.CreateTablesAsync();
 ```
 
-SQL Server inline `CREATE TABLE IF NOT EXISTS` desteklemediği için provider `OBJECT_ID` guard bloğu üretir.
+SQL Server inline `CREATE TABLE IF NOT EXISTS` desteklemediÄŸi iÃ§in provider `OBJECT_ID` guard bloÄŸu Ã¼retir.
 
-### SQL Server kullanım notu
+### SQL Server kullanÄ±m notu
 
-`ifNotExists: true` kullanırken doğrudan provider metodunu tercih edin:
+`ifNotExists: true` kullanÄ±rken doÄŸrudan provider metodunu tercih edin:
 
 ```csharp
 generator.GenerateSqlServerTable<Product>(ifNotExists: true);
 ```
 
-Generic ve async üretim çağrıları da SQL Server provider override davranışını kullanır; yine de okunabilirlik için provider-specific metodu tercih edebilirsiniz:
+Generic ve async Ã¼retim Ã§aÄŸrÄ±larÄ± da SQL Server provider override davranÄ±ÅŸÄ±nÄ± kullanÄ±r; yine de okunabilirlik iÃ§in provider-specific metodu tercih edebilirsiniz:
 
 ```csharp
 generator.GenerateSqlServerTable<Product>(true);
@@ -364,13 +364,13 @@ var connectionString =
 
 var generator = new PostgresTableGenerator(connectionString);
 
-// PostgreSQL provider CreateTablesAsync database oluşturmayı otomatik çağırmaz.
+// PostgreSQL provider CreateTablesAsync database oluÅŸturmayÄ± otomatik Ã§aÄŸÄ±rmaz.
 await generator.CreateDatabaseAsync();
 generator.GeneratePostgresTable<Product>(ifNotExists: true);
 await generator.CreateTablesAsync();
 ```
 
-PostgreSQL kimlik/otomatik sayı için `SERIAL` veya `BIGSERIAL` kolon tipi kullanılır. `PostgresColumnPrimaryKey` ayrıca `PRIMARY KEY` üretir.
+PostgreSQL kimlik/otomatik sayÄ± iÃ§in `SERIAL` veya `BIGSERIAL` kolon tipi kullanÄ±lÄ±r. `PostgresColumnPrimaryKey` ayrÄ±ca `PRIMARY KEY` Ã¼retir.
 
 ## 14. SQLite
 
@@ -401,11 +401,11 @@ generator.GenerateSQLiteTable<Product>(ifNotExists: true);
 await generator.CreateTablesAsync();
 ```
 
-SQLite database dosyasını ilk bağlantıda oluşturur. `CreateDatabase()` ve `CreateDatabaseAsync()` no-op’tur.
+SQLite database dosyasÄ±nÄ± ilk baÄŸlantÄ±da oluÅŸturur. `CreateDatabase()` ve `CreateDatabaseAsync()` no-opâ€™tur.
 
-### SQLite bellek içi test
+### SQLite bellek iÃ§i test
 
-`Data Source=:memory:` database’i bağlantı kapanınca yok olur. ModelSync her yürütmede kendi bağlantısını açıp kapattığı için daha sonra aynı veritabanına erişmeniz gerekiyorsa named shared memory ve açık tutulan bir keeper connection kullanın:
+`Data Source=:memory:` databaseâ€™i baÄŸlantÄ± kapanÄ±nca yok olur. ModelSync her yÃ¼rÃ¼tmede kendi baÄŸlantÄ±sÄ±nÄ± aÃ§Ä±p kapattÄ±ÄŸÄ± iÃ§in daha sonra aynÄ± veritabanÄ±na eriÅŸmeniz gerekiyorsa named shared memory ve aÃ§Ä±k tutulan bir keeper connection kullanÄ±n:
 
 ```csharp
 using Microsoft.Data.Sqlite;
@@ -420,39 +420,39 @@ var generator = new SQLiteTableGenerator(cs);
 generator.GenerateSQLiteTable<Product>(ifNotExists: true);
 await generator.CreateTablesAsync();
 
-// keeper açık kaldığı sürece başka bağlantılar aynı in-memory database'i görür.
+// keeper aÃ§Ä±k kaldÄ±ÄŸÄ± sÃ¼rece baÅŸka baÄŸlantÄ±lar aynÄ± in-memory database'i gÃ¶rÃ¼r.
 ```
 
-### SQLite sınırlamaları
+### SQLite sÄ±nÄ±rlamalarÄ±
 
 - Stored procedure desteklenmez.
-- `ALTER COLUMN TYPE` doğrudan desteklenmez; provider `NotSupportedException` fırlatır.
-- Tip değişikliği için create-copy-drop/rename stratejisi gerekir.
-- `GenerateTruncateTableSql<T>()` SQLite provider’da `DELETE FROM "Table";` üretir; çünkü SQLite `TRUNCATE TABLE` komutunu desteklemez.
+- `ALTER COLUMN TYPE` doÄŸrudan desteklenmez; provider `NotSupportedException` fÄ±rlatÄ±r.
+- Tip deÄŸiÅŸikliÄŸi iÃ§in create-copy-drop/rename stratejisi gerekir.
+- `GenerateTruncateTableSql<T>()` SQLite providerâ€™da `DELETE FROM "Table";` Ã¼retir; Ã§Ã¼nkÃ¼ SQLite `TRUNCATE TABLE` komutunu desteklemez.
 
 # Attribute sistemi
 
-## 15. Tablo adı attribute’ları
+## 15. Tablo adÄ± attributeâ€™larÄ±
 
-| Provider | Kullanım |
+| Provider | KullanÄ±m |
 |---|---|
 | SQL Server | `[SqlServerTableName("Products")]` |
 | MySQL/MariaDB | `[MySqlTableName("products")]` |
 | PostgreSQL | `[PostgresTableName("products")]` |
 | SQLite | `[SQLiteTableName("products")]` |
 
-Tablo adı verilmezse class adı kullanılır. Buna rağmen açık tablo adı kullanmak tavsiye edilir; refactor sırasında database adı istemeden değişmez.
+Tablo adÄ± verilmezse class adÄ± kullanÄ±lÄ±r. Buna raÄŸmen aÃ§Ä±k tablo adÄ± kullanmak tavsiye edilir; refactor sÄ±rasÄ±nda database adÄ± istemeden deÄŸiÅŸmez.
 
-## 16. Kolon tipi attribute’ları
+## 16. Kolon tipi attributeâ€™larÄ±
 
-Her public property’nin provider’a uygun kolon tipi attribute’ü olmalıdır.
+Her public propertyâ€™nin providerâ€™a uygun kolon tipi attributeâ€™Ã¼ olmalÄ±dÄ±r.
 
 ```csharp
 [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
 public string Email { get; set; } = string.Empty;
 ```
 
-Varsayilan kolon adi property adidir. ModelSync 1.2.0 ile DbColumnName database kolon adini degistirebilir, DbIgnore ise public yardimci propertyleri schema discovery disina cikarabilir.
+Varsayilan kolon adi property adidir. ModelSync 1.2.2 ile DbColumnName database kolon adini degistirebilir, DbIgnore ise public yardimci propertyleri schema discovery disina cikarabilir.
 
 ## 17. Primary key
 
@@ -462,18 +462,18 @@ Varsayilan kolon adi property adidir. ModelSync 1.2.0 ile DbColumnName database 
 public int Id { get; set; }
 ```
 
-Provider karşılıkları:
+Provider karÅŸÄ±lÄ±klarÄ±:
 
-| Provider | Attribute | Auto increment yaklaşımı |
+| Provider | Attribute | Auto increment yaklaÅŸÄ±mÄ± |
 |---|---|---|
 | SQL Server | `SqlServerColumnPrimaryKey(isAutoIncrement: true)` | `IDENTITY(1,1)` |
 | MySQL | `MySqlColumnPrimaryKey(isAutoIncrement: true)` | `AUTO_INCREMENT` |
-| PostgreSQL | `PostgresColumnPrimaryKey` | Otomatik artış için kolon tipi `SERIAL`/`BIGSERIAL` seçilir. |
-| SQLite | `SQLiteColumnPrimaryKey` | 1.2.0 `PRIMARY KEY AUTOINCREMENT` üretir; yalnız `INTEGER` kolonla kullanın. |
+| PostgreSQL | `PostgresColumnPrimaryKey` | Otomatik artÄ±ÅŸ iÃ§in kolon tipi `SERIAL`/`BIGSERIAL` seÃ§ilir. |
+| SQLite | `SQLiteColumnPrimaryKey` | 1.2.0 `PRIMARY KEY AUTOINCREMENT` Ã¼retir; yalnÄ±z `INTEGER` kolonla kullanÄ±n. |
 
 ## 18. Composite primary key
 
-Birden fazla property primary key attribute’ü taşıyorsa generator table-level composite key üretir:
+Birden fazla property primary key attributeâ€™Ã¼ taÅŸÄ±yorsa generator table-level composite key Ã¼retir:
 
 ```csharp
 [MySqlTableName("user_roles")]
@@ -489,13 +489,13 @@ public sealed class UserRole
 }
 ```
 
-Üretilen yapı:
+Ãœretilen yapÄ±:
 
 ```sql
 PRIMARY KEY (`UserId`, `RoleId`)
 ```
 
-Composite key property’lerinde auto increment kullanmayın. Table-level composite key üretiminde property-level auto increment snippet’i kullanılmaz.
+Composite key propertyâ€™lerinde auto increment kullanmayÄ±n. Table-level composite key Ã¼retiminde property-level auto increment snippetâ€™i kullanÄ±lmaz.
 
 ## 19. NOT NULL
 
@@ -504,14 +504,14 @@ Composite key property’lerinde auto increment kullanmayın. Table-level composite
 public string Name { get; set; } = string.Empty;
 ```
 
-Provider attribute’ları:
+Provider attributeâ€™larÄ±:
 
 - `SqlServerColumnNotNull`
 - `MySqlColumnNotNull`
 - `PostgresColumnNotNull`
 - `SQLiteColumnNotNull`
 
-C# nullable/non-nullable durumu otomatik SQL’e çevrilmez. SQL nullability yalnız attribute ile belirlenir.
+C# nullable/non-nullable durumu otomatik SQLâ€™e Ã§evrilmez. SQL nullability yalnÄ±z attribute ile belirlenir.
 
 ## 20. UNIQUE
 
@@ -520,18 +520,18 @@ C# nullable/non-nullable durumu otomatik SQL’e çevrilmez. SQL nullability yalnız
 public string Sku { get; set; } = string.Empty;
 ```
 
-Provider attribute’ları:
+Provider attributeâ€™larÄ±:
 
 - `SqlServerColumnUnique`
 - `MySqlColumnUnique`
 - `PostgresColumnUnique`
 - `SQLiteColumnUnique`
 
-Bu attribute column-level `UNIQUE` constraint üretir. Ayrı isimli bir unique indeks istiyorsanız `DbColumnIndex(..., isUnique: true)` kullanın.
+Bu attribute column-level `UNIQUE` constraint Ã¼retir. AyrÄ± isimli bir unique indeks istiyorsanÄ±z `DbColumnIndex(..., isUnique: true)` kullanÄ±n.
 
 ## 21. DEFAULT
 
-`DbColumnDefault` Core paketindedir ve tüm provider’larda kullanılır:
+`DbColumnDefault` Core paketindedir ve tÃ¼m providerâ€™larda kullanÄ±lÄ±r:
 
 ```csharp
 [DbColumnDefault("0")]
@@ -544,9 +544,9 @@ public DateTime CreatedAt { get; set; }
 public string Status { get; set; } = string.Empty;
 ```
 
-`DbColumnDefault` değeri **raw SQL**’dir. String default için SQL quote’larını sizin vermeniz gerekir.
+`DbColumnDefault` deÄŸeri **raw SQL**â€™dir. String default iÃ§in SQL quoteâ€™larÄ±nÄ± sizin vermeniz gerekir.
 
-> Kullanıcı girdisini, HTTP parametresini veya dış kaynaktan gelen metni `DbColumnDefault` içine yerleştirmeyin.
+> KullanÄ±cÄ± girdisini, HTTP parametresini veya dÄ±ÅŸ kaynaktan gelen metni `DbColumnDefault` iÃ§ine yerleÅŸtirmeyin.
 
 ## 22. CHECK
 
@@ -555,15 +555,15 @@ public string Status { get; set; } = string.Empty;
 public decimal Price { get; set; }
 ```
 
-Üretilen bölüm:
+Ãœretilen bÃ¶lÃ¼m:
 
 ```sql
 CHECK (Price >= 0)
 ```
 
-İfade raw SQL’dir. Provider’ın desteklediği SQL sözdizimini kullanın ve dış girdiden üretmeyin.
+Ä°fade raw SQLâ€™dir. Providerâ€™Ä±n desteklediÄŸi SQL sÃ¶zdizimini kullanÄ±n ve dÄ±ÅŸ girdiden Ã¼retmeyin.
 
-## 23. İndeks
+## 23. Ä°ndeks
 
 ```csharp
 [DbColumnIndex]
@@ -573,19 +573,19 @@ public string Name { get; set; } = string.Empty;
 public string Email { get; set; } = string.Empty;
 ```
 
-İsim verilmezse:
+Ä°sim verilmezse:
 
 ```text
 idx_{table}_{property}
 ```
 
-formatı kullanılır.
+formatÄ± kullanÄ±lÄ±r.
 
-`DbColumnIndex` yalnız `GenerateIndexSql<T>()` çıktısına etki eder. `CreateTables()` indeksleri yürütmez.
+`DbColumnIndex` yalnÄ±z `GenerateIndexSql<T>()` Ã§Ä±ktÄ±sÄ±na etki eder. `CreateTables()` indeksleri yÃ¼rÃ¼tmez.
 
 ## 24. Foreign key
 
-Provider’ların foreign key attribute adları:
+Providerâ€™larÄ±n foreign key attribute adlarÄ±:
 
 | Provider | Attribute |
 |---|---|
@@ -594,7 +594,7 @@ Provider’ların foreign key attribute adları:
 | PostgreSQL | `PostgresForeignKey` |
 | SQLite | `SQLiteColumnForeignKey` |
 
-MySQL örneği:
+MySQL Ã¶rneÄŸi:
 
 ```csharp
 [MySqlTableName("orders")]
@@ -612,23 +612,23 @@ public sealed class Order
 
 Parametreler:
 
-1. Yerel kolon adı.
-2. Referans tablo adı.
-3. Referans kolon adı.
+1. Yerel kolon adÄ±.
+2. Referans tablo adÄ±.
+3. Referans kolon adÄ±.
 
-### Foreign key kullanım kuralları
+### Foreign key kullanÄ±m kurallarÄ±
 
-- Parametre adlarını property ve gerçek database adlarıyla birebir eşleştirin.
-- Boşluk, tire, nokta veya schema-qualified ad kullanmayın; 1.2.0 foreign key snippet’i bu adları ayrıca quote etmez.
-- Parent tabloyu child tablodan önce oluşturun.
-- Aynı generator cache’indeki tablo yürütme sırası bağımlılık sırasını garanti etmez. İlişkili tablolar için ayrı kontrollü aşamalar veya migration scriptleri tercih edin.
-- Cascade seçenekleri için 1.2.0’de hazır attribute parametresi yoktur; migration scripti kullanın.
+- Parametre adlarÄ±nÄ± property ve gerÃ§ek database adlarÄ±yla birebir eÅŸleÅŸtirin.
+- BoÅŸluk, tire, nokta veya schema-qualified ad kullanmayÄ±n; 1.2.0 foreign key snippetâ€™i bu adlarÄ± ayrÄ±ca quote etmez.
+- Parent tabloyu child tablodan Ã¶nce oluÅŸturun.
+- AynÄ± generator cacheâ€™indeki tablo yÃ¼rÃ¼tme sÄ±rasÄ± baÄŸÄ±mlÄ±lÄ±k sÄ±rasÄ±nÄ± garanti etmez. Ä°liÅŸkili tablolar iÃ§in ayrÄ± kontrollÃ¼ aÅŸamalar veya migration scriptleri tercih edin.
+- Cascade seÃ§enekleri iÃ§in 1.2.0â€™de hazÄ±r attribute parametresi yoktur; migration scripti kullanÄ±n.
 
 # Provider kolon tipleri
 
 ## 25. SQL Server kolon tipleri
 
-`SqlServerColumnType` enum değerleri:
+`SqlServerColumnType` enum deÄŸerleri:
 
 ```text
 TINYINT, SMALLINT, INT, BIGINT,
@@ -639,7 +639,7 @@ BINARY, VARBINARY, IMAGE,
 UNIQUEIDENTIFIER, XML, GEOGRAPHY, GEOMETRY, HIERARCHYID, BIT
 ```
 
-Örnekler:
+Ã–rnekler:
 
 ```csharp
 [SqlServerColumnType(SqlServerColumnType.NVARCHAR, "200")]
@@ -649,11 +649,11 @@ UNIQUEIDENTIFIER, XML, GEOGRAPHY, GEOMETRY, HIERARCHYID, BIT
 [SqlServerColumnType(SqlServerColumnType.VARBINARY, "MAX")]
 ```
 
-`TEXT`, `NTEXT` ve `IMAGE` SQL Server’da legacy tiplerdir. Yeni projelerde `VARCHAR(MAX)`, `NVARCHAR(MAX)` ve `VARBINARY(MAX)` tercih edin.
+`TEXT`, `NTEXT` ve `IMAGE` SQL Serverâ€™da legacy tiplerdir. Yeni projelerde `VARCHAR(MAX)`, `NVARCHAR(MAX)` ve `VARBINARY(MAX)` tercih edin.
 
 ## 26. MySQL/MariaDB kolon tipleri
 
-`MySqlColumnType` enum değerleri:
+`MySqlColumnType` enum deÄŸerleri:
 
 ```text
 TINYINT, SMALLINT, MEDIUMINT, INT, BIGINT,
@@ -664,7 +664,7 @@ BINARY, VARBINARY, TINYBLOB, BLOB, MEDIUMBLOB, LONGBLOB,
 ENUM, SET, JSON, GEOMETRY, BIT, BOOLEAN
 ```
 
-Örnekler:
+Ã–rnekler:
 
 ```csharp
 [MySqlColumnType(MySqlColumnType.VARCHAR, "255")]
@@ -672,7 +672,7 @@ ENUM, SET, JSON, GEOMETRY, BIT, BOOLEAN
 [MySqlColumnType(MySqlColumnType.JSON)]
 ```
 
-Enum değerlerinden MySQL `ENUM` üretme:
+Enum deÄŸerlerinden MySQL `ENUM` Ã¼retme:
 
 ```csharp
 public enum ProductStatus
@@ -686,11 +686,11 @@ public enum ProductStatus
 public ProductStatus Status { get; set; }
 ```
 
-Üretim enum isimlerini SQL string değerleri olarak kullanır. Enum adı değişikliklerini migration olarak yönetin.
+Ãœretim enum isimlerini SQL string deÄŸerleri olarak kullanÄ±r. Enum adÄ± deÄŸiÅŸikliklerini migration olarak yÃ¶netin.
 
 ## 27. PostgreSQL kolon tipleri
 
-`PostgresColumnType` enum değerleri:
+`PostgresColumnType` enum deÄŸerleri:
 
 ```text
 SMALLINT, INTEGER, BIGINT,
@@ -703,7 +703,7 @@ POINT, LINE, LSEG, BOX, PATH, POLYGON, CIRCLE,
 BIT, VARBIT, HSTORE, ARRAY, RANGE
 ```
 
-Örnekler:
+Ã–rnekler:
 
 ```csharp
 [PostgresColumnType(PostgresColumnType.VARCHAR, "200")]
@@ -713,17 +713,17 @@ BIT, VARBIT, HSTORE, ARRAY, RANGE
 [PostgresColumnType(PostgresColumnType.DOUBLE_PRECISION)]
 ```
 
-`ARRAY`, `RANGE` ve bazı extension tabanlı tiplerde üretilecek SQL’i mutlaka kontrol edin; 1.2.0 yalnız enum adını/uzunluğu birleştirir ve gelişmiş type declaration modellemesi yapmaz.
+`ARRAY`, `RANGE` ve bazÄ± extension tabanlÄ± tiplerde Ã¼retilecek SQLâ€™i mutlaka kontrol edin; 1.2.0 yalnÄ±z enum adÄ±nÄ±/uzunluÄŸu birleÅŸtirir ve geliÅŸmiÅŸ type declaration modellemesi yapmaz.
 
 ## 28. SQLite kolon tipleri
 
-`SQLiteColumnType` enum değerleri:
+`SQLiteColumnType` enum deÄŸerleri:
 
 ```text
 INTEGER, REAL, TEXT, BLOB, NUMERIC
 ```
 
-Önerilen eşlemeler:
+Ã–nerilen eÅŸlemeler:
 
 | C# | SQLite |
 |---|---|
@@ -733,7 +733,7 @@ INTEGER, REAL, TEXT, BLOB, NUMERIC
 | `string`, `char`, `Guid`, ISO tarih metni | `TEXT` |
 | `byte[]` | `BLOB` |
 
-# SQL üretme API’si
+# SQL Ã¼retme APIâ€™si
 
 ## 29. Ortak API
 
@@ -754,7 +754,7 @@ void CreateTables();
 Task CreateTablesAsync(CancellationToken cancellationToken = default);
 ```
 
-Provider alias metotları:
+Provider alias metotlarÄ±:
 
 ```csharp
 GenerateSqlServerTable<T>()
@@ -763,9 +763,9 @@ GeneratePostgresTable<T>()
 GenerateSQLiteTable<T>()
 ```
 
-## 30. SQL üretip hiç çalıştırmama
+## 30. SQL Ã¼retip hiÃ§ Ã§alÄ±ÅŸtÄ±rmama
 
-ModelSync, yalnız SQL generator olarak da kullanılabilir:
+ModelSync, yalnÄ±z SQL generator olarak da kullanÄ±labilir:
 
 ```csharp
 var generator = new PostgresTableGenerator(connectionString);
@@ -778,17 +778,17 @@ var indexes = generator.GenerateIndexSql<Customer>();
 File.WriteAllText("customer-create.sql", create);
 ```
 
-Bu kullanım CI’da DDL snapshot testleri veya manuel DBA review süreci için uygundur.
+Bu kullanÄ±m CIâ€™da DDL snapshot testleri veya manuel DBA review sÃ¼reci iÃ§in uygundur.
 
-## 31. Identifier güvenliği
+## 31. Identifier gÃ¼venliÄŸi
 
-Tablo, kolon ve indeks adları şu desene uymalıdır:
+Tablo, kolon ve indeks adlarÄ± ÅŸu desene uymalÄ±dÄ±r:
 
 ```text
 ^[A-Za-z_][A-Za-z0-9_]*$
 ```
 
-Geçerli:
+GeÃ§erli:
 
 ```text
 products
@@ -797,7 +797,7 @@ idx_products_name
 _customer
 ```
 
-Geçersiz:
+GeÃ§ersiz:
 
 ```text
 product-items
@@ -806,13 +806,13 @@ product name
 products;DROP TABLE users
 ```
 
-Schema-qualified tablo adları doğrudan table-name attribute’ünde kullanılamaz. Schema ihtiyacı olan gelişmiş yapılar için migration scripti tercih edin.
+Schema-qualified tablo adlarÄ± doÄŸrudan table-name attributeâ€™Ã¼nde kullanÄ±lamaz. Schema ihtiyacÄ± olan geliÅŸmiÅŸ yapÄ±lar iÃ§in migration scripti tercih edin.
 
-# Tablo ve kolon operasyonları
+# Tablo ve kolon operasyonlarÄ±
 
 ## 32. Kolon ekleme
 
-Önce yeni property’yi modelde attribute’larıyla tanımlayın:
+Ã–nce yeni propertyâ€™yi modelde attributeâ€™larÄ±yla tanÄ±mlayÄ±n:
 
 ```csharp
 [MySqlColumnType(MySqlColumnType.INT)]
@@ -820,7 +820,7 @@ Schema-qualified tablo adları doğrudan table-name attribute’ünde kullanılamaz. S
 public int Stock { get; set; }
 ```
 
-Sonra property adını vererek ekleyin:
+Sonra property adÄ±nÄ± vererek ekleyin:
 
 ```csharp
 await generator.AddColumnAsync<Product>(
@@ -828,9 +828,9 @@ await generator.AddColumnAsync<Product>(
     cancellationToken);
 ```
 
-Kolon tanımı model attribute’larından okunur. `nameof` kullanmak refactor güvenliği sağlar.
+Kolon tanÄ±mÄ± model attributeâ€™larÄ±ndan okunur. `nameof` kullanmak refactor gÃ¼venliÄŸi saÄŸlar.
 
-## 33. Kolon yeniden adlandırma
+## 33. Kolon yeniden adlandÄ±rma
 
 ```csharp
 await generator.RenameColumnAsync<Product>(
@@ -839,16 +839,16 @@ await generator.RenameColumnAsync<Product>(
     cancellationToken);
 ```
 
-Provider sözdizimleri farklıdır:
+Provider sÃ¶zdizimleri farklÄ±dÄ±r:
 
-- SQL Server `sp_rename` kullanır.
-- Modern MySQL, PostgreSQL ve SQLite standarda yakın `RENAME COLUMN` kullanır.
+- SQL Server `sp_rename` kullanÄ±r.
+- Modern MySQL, PostgreSQL ve SQLite standarda yakÄ±n `RENAME COLUMN` kullanÄ±r.
 
-Database sürümünüzün bu komutu desteklediğini doğrulayın.
+Database sÃ¼rÃ¼mÃ¼nÃ¼zÃ¼n bu komutu desteklediÄŸini doÄŸrulayÄ±n.
 
 ## 34. Kolon silme
 
-Kolon silmek veri kaybıdır ve açık izin ister:
+Kolon silmek veri kaybÄ±dÄ±r ve aÃ§Ä±k izin ister:
 
 ```csharp
 var destructive = DestructiveOperationOptions.Allow();
@@ -859,15 +859,15 @@ await generator.DropColumnAsync<Product>(
     cancellationToken);
 ```
 
-Aşağıdaki çağrı tasarım gereği exception fırlatır:
+AÅŸaÄŸÄ±daki Ã§aÄŸrÄ± tasarÄ±m gereÄŸi exception fÄ±rlatÄ±r:
 
 ```csharp
 await generator.DropColumnAsync<Product>(nameof(Product.LegacyCode));
 ```
 
-## 35. Kolon tipi değiştirme
+## 35. Kolon tipi deÄŸiÅŸtirme
 
-Modelde property’nin type attribute’ünü yeni SQL tipiyle güncelledikten sonra:
+Modelde propertyâ€™nin type attributeâ€™Ã¼nÃ¼ yeni SQL tipiyle gÃ¼ncelledikten sonra:
 
 ```csharp
 var destructive = DestructiveOperationOptions.Allow();
@@ -880,14 +880,14 @@ await generator.AlterColumnTypeAsync<Product>(
 
 Dikkat edilmesi gerekenler:
 
-- Tip dönüşümü mevcut verilerle uyumsuzsa provider hata verir.
-- ModelSync otomatik veri dönüştürme veya `USING` ifadesi oluşturmaz.
-- PostgreSQL karmaşık dönüşümlerde manuel SQL gerekebilir.
-- SQLite bunu desteklemez ve `NotSupportedException` fırlatır.
+- Tip dÃ¶nÃ¼ÅŸÃ¼mÃ¼ mevcut verilerle uyumsuzsa provider hata verir.
+- ModelSync otomatik veri dÃ¶nÃ¼ÅŸtÃ¼rme veya `USING` ifadesi oluÅŸturmaz.
+- PostgreSQL karmaÅŸÄ±k dÃ¶nÃ¼ÅŸÃ¼mlerde manuel SQL gerekebilir.
+- SQLite bunu desteklemez ve `NotSupportedException` fÄ±rlatÄ±r.
 
-## 36. Tabloları silme
+## 36. TablolarÄ± silme
 
-Yalnız generator cache’ine daha önce alınmış model tabloları hedeflenir:
+YalnÄ±z generator cacheâ€™ine daha Ã¶nce alÄ±nmÄ±ÅŸ model tablolarÄ± hedeflenir:
 
 ```csharp
 generator.GenerateMySqlTable<User>();
@@ -898,27 +898,27 @@ await generator.DropTablesAsync(
     cancellationToken);
 ```
 
-Tablolar arası foreign key varsa drop sırası hata üretebilir. Production’da bağımlılık sıralı migration scriptleri kullanın.
+Tablolar arasÄ± foreign key varsa drop sÄ±rasÄ± hata Ã¼retebilir. Productionâ€™da baÄŸÄ±mlÄ±lÄ±k sÄ±ralÄ± migration scriptleri kullanÄ±n.
 
-## 37. Truncate SQL’i
+## 37. Truncate SQLâ€™i
 
 ```csharp
 var sql = generator.GenerateTruncateTableSql<Product>();
 ```
 
-Bu metot yalnız SQL döndürür; yürütme metodu yoktur. `TRUNCATE` veri kaybına yol açar ve Core API bunu ayrıca guard etmez. Çalıştırmadan önce kendi güvenlik politikanızı uygulayın.
+Bu metot yalnÄ±z SQL dÃ¶ndÃ¼rÃ¼r; yÃ¼rÃ¼tme metodu yoktur. `TRUNCATE` veri kaybÄ±na yol aÃ§ar ve Core API bunu ayrÄ±ca guard etmez. Ã‡alÄ±ÅŸtÄ±rmadan Ã¶nce kendi gÃ¼venlik politikanÄ±zÄ± uygulayÄ±n.
 
-# Dependency Injection ve uygulama başlangıcı
+# Dependency Injection ve uygulama baÅŸlangÄ±cÄ±
 
-## 38. Tavsiye edilen servis ömrü
+## 38. Tavsiye edilen servis Ã¶mrÃ¼
 
-Generator örneği mutable SQL cache taşır.
+Generator Ã¶rneÄŸi mutable SQL cache taÅŸÄ±r.
 
-- Yalnız startup schema initialization için kullanılan tek bir servis: singleton kullanılabilir.
-- Farklı operasyonların cache paylaşmasını istemiyorsanız: scoped veya transient tercih edin.
-- Request başına tablo üretmek genellikle doğru değildir; schema değişikliklerini kontrollü startup/deployment adımında çalıştırın.
+- YalnÄ±z startup schema initialization iÃ§in kullanÄ±lan tek bir servis: singleton kullanÄ±labilir.
+- FarklÄ± operasyonlarÄ±n cache paylaÅŸmasÄ±nÄ± istemiyorsanÄ±z: scoped veya transient tercih edin.
+- Request baÅŸÄ±na tablo Ã¼retmek genellikle doÄŸru deÄŸildir; schema deÄŸiÅŸikliklerini kontrollÃ¼ startup/deployment adÄ±mÄ±nda Ã§alÄ±ÅŸtÄ±rÄ±n.
 
-## 39. ASP.NET Core kaydı — SQL Server
+## 39. ASP.NET Core kaydÄ± â€” SQL Server
 
 ```csharp
 using UmbrellaFrame.ModelSync.Core.Interfaces;
@@ -950,7 +950,7 @@ builder.Services.AddSingleton<ITableGenerator>(sp =>
 }
 ```
 
-Connection string’i kaynak koda gömmeyin. Production’da environment variable, secret manager veya platform secret store kullanın.
+Connection stringâ€™i kaynak koda gÃ¶mmeyin. Productionâ€™da environment variable, secret manager veya platform secret store kullanÄ±n.
 
 ## 41. Schema initializer service
 
@@ -988,7 +988,7 @@ public sealed class SchemaInitializer
 }
 ```
 
-SQL Server 1.2.0’de provider-specific `ifNotExists` guard’ı için initializer’a doğrudan `SqlServerTableGenerator` enjekte edip `GenerateSqlServerTable<T>(true)` kullanın.
+SQL Server 1.2.0â€™de provider-specific `ifNotExists` guardâ€™Ä± iÃ§in initializerâ€™a doÄŸrudan `SqlServerTableGenerator` enjekte edip `GenerateSqlServerTable<T>(true)` kullanÄ±n.
 
 ## 42. Hosted service
 
@@ -1008,28 +1008,28 @@ public sealed class SchemaInitializerHostedService : IHostedService
 }
 ```
 
-Kayıt:
+KayÄ±t:
 
 ```csharp
 builder.Services.AddSingleton<SchemaInitializer>();
 builder.Services.AddHostedService<SchemaInitializerHostedService>();
 ```
 
-> Birden fazla uygulama instance’ı aynı anda başlıyorsa schema işlemlerinin eş zamanlı çalışması risklidir. Production migration’ını deployment job olarak tek instance üzerinden çalıştırmak daha güvenlidir.
+> Birden fazla uygulama instanceâ€™Ä± aynÄ± anda baÅŸlÄ±yorsa schema iÅŸlemlerinin eÅŸ zamanlÄ± Ã§alÄ±ÅŸmasÄ± risklidir. Production migrationâ€™Ä±nÄ± deployment job olarak tek instance Ã¼zerinden Ã§alÄ±ÅŸtÄ±rmak daha gÃ¼venlidir.
 
 # Logging
 
-## 43. Logger kullanımı
+## 43. Logger kullanÄ±mÄ±
 
-Provider constructor’ları opsiyonel `ILogger<T>` kabul eder:
+Provider constructorâ€™larÄ± opsiyonel `ILogger<T>` kabul eder:
 
 ```csharp
 var generator = new MySqlTableGenerator(connectionString, logger);
 ```
 
-SQL üretimi debug seviyesinde, bazı migration işlemleri information seviyesinde loglanır. Connection string ve şifreleri loglamayın.
+SQL Ã¼retimi debug seviyesinde, bazÄ± migration iÅŸlemleri information seviyesinde loglanÄ±r. Connection string ve ÅŸifreleri loglamayÄ±n.
 
-Console app örneği:
+Console app Ã¶rneÄŸi:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
@@ -1046,19 +1046,19 @@ var generator = new MySqlTableGenerator(connectionString, logger);
 
 # Migration Runner
 
-## 44. Ne zaman migration runner kullanılmalı?
+## 44. Ne zaman migration runner kullanÄ±lmalÄ±?
 
-Attribute tabanlı generator basit ve açık model DDL’i için uygundur. Aşağıdaki ihtiyaçlarda SQL migration dosyaları daha doğru olur:
+Attribute tabanlÄ± generator basit ve aÃ§Ä±k model DDLâ€™i iÃ§in uygundur. AÅŸaÄŸÄ±daki ihtiyaÃ§larda SQL migration dosyalarÄ± daha doÄŸru olur:
 
-- Schema, extension, view veya gelişmiş constraint oluşturma.
-- Veri dönüşümü.
+- Schema, extension, view veya geliÅŸmiÅŸ constraint oluÅŸturma.
+- Veri dÃ¶nÃ¼ÅŸÃ¼mÃ¼.
 - Seed data.
 - Trigger.
-- Provider’a özgü karmaşık SQL.
-- İndeks varlık kontrolleri.
-- Uygulama sürümleri arasında açık, sıralı database değişiklikleri.
+- Providerâ€™a Ã¶zgÃ¼ karmaÅŸÄ±k SQL.
+- Ä°ndeks varlÄ±k kontrolleri.
+- Uygulama sÃ¼rÃ¼mleri arasÄ±nda aÃ§Ä±k, sÄ±ralÄ± database deÄŸiÅŸiklikleri.
 
-## 45. Önerilen klasör yapısı
+## 45. Ã–nerilen klasÃ¶r yapÄ±sÄ±
 
 ```text
 Database/
@@ -1074,26 +1074,26 @@ Database/
       030_DefaultProducts.sql
 ```
 
-Kategori sırası:
+Kategori sÄ±rasÄ±:
 
 ```text
 Tables -> StoredProcedures -> Triggers -> Seeds
 ```
 
-Kategori içinde dosya adının `_` öncesindeki numeric ID’si sıralamada kullanılır.
+Kategori iÃ§inde dosya adÄ±nÄ±n `_` Ã¶ncesindeki numeric IDâ€™si sÄ±ralamada kullanÄ±lÄ±r.
 
 ```text
 001_CreateProducts.sql
 ```
 
-şöyle çözülür:
+ÅŸÃ¶yle Ã§Ã¶zÃ¼lÃ¼r:
 
 ```text
 Id   = 001
 Name = CreateProducts
 ```
 
-## 46. SQL Server migration runner örneği
+## 46. SQL Server migration runner Ã¶rneÄŸi
 
 ```csharp
 using UmbrellaFrame.ModelSync.Core;
@@ -1103,8 +1103,8 @@ var options = new MigrationRunnerOptions
 {
     EnsureHistoryTables = true,
 
-    // Production için uygulanmış migration dosyalarını değiştirmeyin.
-    // Otomatik eksik kolon onarımını kapatmak daha güvenli bir varsayımdır.
+    // Production iÃ§in uygulanmÄ±ÅŸ migration dosyalarÄ±nÄ± deÄŸiÅŸtirmeyin.
+    // Otomatik eksik kolon onarÄ±mÄ±nÄ± kapatmak daha gÃ¼venli bir varsayÄ±mdÄ±r.
     AutoAddMissingColumnsFromTableScripts = false
 };
 
@@ -1137,7 +1137,7 @@ if (plans.Any(x => x.HasChanges))
 }
 ```
 
-## 47. Diğer migration runner sınıfları
+## 47. DiÄŸer migration runner sÄ±nÄ±flarÄ±
 
 ```csharp
 var mysqlRunner = new MySqlMigrationRunner(connectionString, options);
@@ -1145,7 +1145,7 @@ var postgresRunner = new PostgresMigrationRunner(connectionString, options);
 var sqliteRunner = new SQLiteMigrationRunner(connectionString, options);
 ```
 
-## 48. Inline migration tanımı
+## 48. Inline migration tanÄ±mÄ±
 
 ```csharp
 var definition = MigrationScriptDefinition.Create(
@@ -1158,7 +1158,7 @@ var definition = MigrationScriptDefinition.Create(
 runner.RegisterScript(definition);
 ```
 
-## 49. Kategori veya ID’yi açık verme
+## 49. Kategori veya IDâ€™yi aÃ§Ä±k verme
 
 ```csharp
 runner.RegisterScriptFile(
@@ -1178,7 +1178,7 @@ runner.RegisterScriptFile(
 </ItemGroup>
 ```
 
-Kayıt:
+KayÄ±t:
 
 ```csharp
 using System.Reflection;
@@ -1190,25 +1190,25 @@ runner.RegisterEmbeddedScripts(
 await runner.RunAsync(cancellationToken);
 ```
 
-Yalnız `.sql` ile biten resource’lar alınır.
+YalnÄ±z `.sql` ile biten resourceâ€™lar alÄ±nÄ±r.
 
-## 51. Migration planı
+## 51. Migration planÄ±
 
-`MigrationSyncPlan` temel alanları:
+`MigrationSyncPlan` temel alanlarÄ±:
 
-| Alan | Anlamı |
+| Alan | AnlamÄ± |
 |---|---|
 | `Definition` | Script ID, ad, kategori, SQL ve kaynak bilgisi |
 | `ChangeType` | `None`, `Apply`, `Reapply` |
 | `CurrentHash` | History tablosundaki mevcut hash |
-| `TargetHash` | Proje SQL’inin hesaplanan hash’i |
+| `TargetHash` | Proje SQLâ€™inin hesaplanan hashâ€™i |
 | `SqlToApply` | Uygulanacak SQL |
-| `Reason` | Planın neden bu durumda olduğu |
+| `Reason` | PlanÄ±n neden bu durumda olduÄŸu |
 | `HasChanges` | `ChangeType != None` |
 
-## 52. History tabloları
+## 52. History tablolarÄ±
 
-Kategori başına bir tablo kullanılır:
+Kategori baÅŸÄ±na bir tablo kullanÄ±lÄ±r:
 
 ```text
 SchemaMigration_Tables
@@ -1218,7 +1218,7 @@ SchemaMigration_Seeds
 SchemaMigration_CustomSql
 ```
 
-Temel olarak şu bilgiler saklanır:
+Temel olarak ÅŸu bilgiler saklanÄ±r:
 
 - `Id`
 - `Name`
@@ -1226,11 +1226,11 @@ Temel olarak şu bilgiler saklanır:
 - `AppliedAt`
 - `UpdateAt`
 
-History tablosu migration’ın daha önce uygulanıp uygulanmadığını ve SQL hash’inin değişip değişmediğini takip eder.
+History tablosu migrationâ€™Ä±n daha Ã¶nce uygulanÄ±p uygulanmadÄ±ÄŸÄ±nÄ± ve SQL hashâ€™inin deÄŸiÅŸip deÄŸiÅŸmediÄŸini takip eder.
 
 ## 53. Database reset
 
-Reset tüm database’i etkileyebilecek yıkıcı bir işlemdir:
+Reset tÃ¼m databaseâ€™i etkileyebilecek yÄ±kÄ±cÄ± bir iÅŸlemdir:
 
 ```csharp
 var options = new MigrationRunnerOptions
@@ -1243,11 +1243,11 @@ var runner = new SqlServerMigrationRunner(connectionString, options);
 await runner.RunAsync(cancellationToken);
 ```
 
-Açık destructive izin verilmezse işlem başlamadan exception oluşur. SQLite runner reset desteklemez.
+AÃ§Ä±k destructive izin verilmezse iÅŸlem baÅŸlamadan exception oluÅŸur. SQLite runner reset desteklemez.
 
 ## 54. SQL Server `GO`
 
-SQL Server migration runner, tek satırdaki `GO` batch separator’larını ayırır:
+SQL Server migration runner, tek satÄ±rdaki `GO` batch separatorâ€™larÄ±nÄ± ayÄ±rÄ±r:
 
 ```sql
 CREATE TABLE dbo.Products (...);
@@ -1256,33 +1256,33 @@ CREATE INDEX IX_Products_Name ON dbo.Products(Name);
 GO
 ```
 
-Stored procedure synchronizer dosyalarında `GO` kullanmayın. Migration runner ile stored procedure scripti çalıştırıyorsanız batch yapısını dikkatle test edin.
+Stored procedure synchronizer dosyalarÄ±nda `GO` kullanmayÄ±n. Migration runner ile stored procedure scripti Ã§alÄ±ÅŸtÄ±rÄ±yorsanÄ±z batch yapÄ±sÄ±nÄ± dikkatle test edin.
 
-## 55. Migration production güvenlik kuralları
+## 55. Migration production gÃ¼venlik kurallarÄ±
 
-ModelSync 1.2.0 kullanırken aşağıdaki kuralları zorunlu süreç kabul edin:
+ModelSync 1.2.2 kullanÄ±rken aÅŸaÄŸÄ±daki kurallarÄ± zorunlu sÃ¼reÃ§ kabul edin:
 
-1. **Uygulanmış migration dosyasını değiştirmeyin.** Yeni değişiklik için yeni ID’li dosya ekleyin.
-2. Production’da `AutoAddMissingColumnsFromTableScripts = false` önerilir.
-3. `CompareRegisteredAsync()` çıktısını loglayın veya onaylayın.
-4. Scriptlerin idempotent olmasını sağlayın veya yalnız bir kez çalışacağını garanti edin.
-5. Database yedeği alın.
-6. Aynı migration runner’ı eş zamanlı birden fazla uygulama instance’ında çalıştırmayın.
-7. Başarısızlık sonrası database’i kontrol etmeden tekrar çalıştırmayın.
-8. 1.2.0’de batch/script/history işlemleri tüm provider’larda tek atomik transaction olarak garanti edilmez.
-9. Otomatik eksik kolon onarımı kolon tipi, constraint, rename veya drop farkını çözmez.
-10. Duplicate migration ID kullanmayın; ID’leri repository seviyesinde unique tutun.
+1. **UygulanmÄ±ÅŸ migration dosyasÄ±nÄ± deÄŸiÅŸtirmeyin.** Yeni deÄŸiÅŸiklik iÃ§in yeni IDâ€™li dosya ekleyin.
+2. Productionâ€™da `AutoAddMissingColumnsFromTableScripts = false` Ã¶nerilir.
+3. `CompareRegisteredAsync()` Ã§Ä±ktÄ±sÄ±nÄ± loglayÄ±n veya onaylayÄ±n.
+4. Scriptlerin idempotent olmasÄ±nÄ± saÄŸlayÄ±n veya yalnÄ±z bir kez Ã§alÄ±ÅŸacaÄŸÄ±nÄ± garanti edin.
+5. Database yedeÄŸi alÄ±n.
+6. AynÄ± migration runnerâ€™Ä± eÅŸ zamanlÄ± birden fazla uygulama instanceâ€™Ä±nda Ã§alÄ±ÅŸtÄ±rmayÄ±n.
+7. BaÅŸarÄ±sÄ±zlÄ±k sonrasÄ± databaseâ€™i kontrol etmeden tekrar Ã§alÄ±ÅŸtÄ±rmayÄ±n.
+8. 1.2.0â€™de batch/script/history iÅŸlemleri tÃ¼m providerâ€™larda tek atomik transaction olarak garanti edilmez.
+9. Otomatik eksik kolon onarÄ±mÄ± kolon tipi, constraint, rename veya drop farkÄ±nÄ± Ã§Ã¶zmez.
+10. Duplicate migration ID kullanmayÄ±n; IDâ€™leri repository seviyesinde unique tutun.
 
 # Stored Procedure senkronizasyonu
 
-## 56. Ne için kullanılır?
+## 56. Ne iÃ§in kullanÄ±lÄ±r?
 
-Stored procedure SQL dosyanız proje tarafında source of truth olur. Synchronizer:
+Stored procedure SQL dosyanÄ±z proje tarafÄ±nda source of truth olur. Synchronizer:
 
-- Procedure yoksa `Create` planı üretir.
-- Procedure varsa ve SQL farklıysa `Alter` planı üretir.
-- Aynıysa `None` üretir.
-- Planı uyguladığınızda provider’a uygun create/replace stratejisini çalıştırır.
+- Procedure yoksa `Create` planÄ± Ã¼retir.
+- Procedure varsa ve SQL farklÄ±ysa `Alter` planÄ± Ã¼retir.
+- AynÄ±ysa `None` Ã¼retir.
+- PlanÄ± uyguladÄ±ÄŸÄ±nÄ±zda providerâ€™a uygun create/replace stratejisini Ã§alÄ±ÅŸtÄ±rÄ±r.
 
 Destek:
 
@@ -1293,7 +1293,7 @@ Destek:
 | PostgreSQL | Var | `CREATE OR REPLACE PROCEDURE` |
 | SQLite | Yok | `NotSupportedException` |
 
-## 57. Önerilen dosya yapısı
+## 57. Ã–nerilen dosya yapÄ±sÄ±
 
 ```text
 Database/
@@ -1306,7 +1306,7 @@ Database/
       public.usp_get_products.sql
 ```
 
-Dosya adı `schema.procedure.sql` biçimindeyse schema ve procedure adı otomatik çözülür.
+Dosya adÄ± `schema.procedure.sql` biÃ§imindeyse schema ve procedure adÄ± otomatik Ã§Ã¶zÃ¼lÃ¼r.
 
 ## 58. SQL Server stored procedure
 
@@ -1371,7 +1371,7 @@ var plans = await synchronizer.CompareRegisteredAsync(cancellationToken);
 await synchronizer.SyncRegisteredAsync(cancellationToken);
 ```
 
-MySQL procedure değişikliğinde mevcut procedure drop edilir ve yeniden oluşturulur. Create başarısız olursa procedure geçici olarak bulunmayabilir; production review ve bakım penceresi uygulayın.
+MySQL procedure deÄŸiÅŸikliÄŸinde mevcut procedure drop edilir ve yeniden oluÅŸturulur. Create baÅŸarÄ±sÄ±z olursa procedure geÃ§ici olarak bulunmayabilir; production review ve bakÄ±m penceresi uygulayÄ±n.
 
 ## 60. PostgreSQL stored procedure
 
@@ -1400,9 +1400,9 @@ var plans = await synchronizer.CompareRegisteredAsync(cancellationToken);
 await synchronizer.SyncRegisteredAsync(cancellationToken);
 ```
 
-1.2.0 PostgreSQL overloaded procedure signature’larını desteklemez. Aynı schema ve adla farklı parametre listesine sahip procedure’ler kullanıyorsanız manuel migration yönetin.
+1.2.0 PostgreSQL overloaded procedure signatureâ€™larÄ±nÄ± desteklemez. AynÄ± schema ve adla farklÄ± parametre listesine sahip procedureâ€™ler kullanÄ±yorsanÄ±z manuel migration yÃ¶netin.
 
-## 61. Inline stored procedure tanımı
+## 61. Inline stored procedure tanÄ±mÄ±
 
 ```csharp
 var definition = StoredProcedureDefinition.Create(
@@ -1413,7 +1413,7 @@ var definition = StoredProcedureDefinition.Create(
 synchronizer.RegisterProcedure(definition);
 ```
 
-## 62. Tek procedure karşılaştırma ve uygulama
+## 62. Tek procedure karÅŸÄ±laÅŸtÄ±rma ve uygulama
 
 ```csharp
 var definition = StoredProcedureDefinition.FromFile(
@@ -1429,27 +1429,27 @@ if (plan.HasChanges)
 }
 ```
 
-## 63. SQL dosyası kuralları
+## 63. SQL dosyasÄ± kurallarÄ±
 
-- Her dosya tek procedure tanımı içermelidir.
-- SQL içindeki procedure adı kayıt edilen adla eşleşmelidir.
-- SQL Server dosyasında `CREATE PROCEDURE`, `CREATE PROC`, `ALTER PROCEDURE` veya `CREATE OR ALTER PROCEDURE` kullanılabilir.
-- MySQL dosyasında `CREATE PROCEDURE` kullanılmalıdır.
-- PostgreSQL dosyasında `CREATE PROCEDURE`, `ALTER PROCEDURE` veya `CREATE OR REPLACE PROCEDURE` kullanılabilir.
-- Stored procedure synchronizer dosyasında SQL Server `GO` kullanmayın.
-- Dry-run için önce `Compare...` çağrısı yapın.
+- Her dosya tek procedure tanÄ±mÄ± iÃ§ermelidir.
+- SQL iÃ§indeki procedure adÄ± kayÄ±t edilen adla eÅŸleÅŸmelidir.
+- SQL Server dosyasÄ±nda `CREATE PROCEDURE`, `CREATE PROC`, `ALTER PROCEDURE` veya `CREATE OR ALTER PROCEDURE` kullanÄ±labilir.
+- MySQL dosyasÄ±nda `CREATE PROCEDURE` kullanÄ±lmalÄ±dÄ±r.
+- PostgreSQL dosyasÄ±nda `CREATE PROCEDURE`, `ALTER PROCEDURE` veya `CREATE OR REPLACE PROCEDURE` kullanÄ±labilir.
+- Stored procedure synchronizer dosyasÄ±nda SQL Server `GO` kullanmayÄ±n.
+- Dry-run iÃ§in Ã¶nce `Compare...` Ã§aÄŸrÄ±sÄ± yapÄ±n.
 
-# Canlı model senkronizasyonu
+# CanlÄ± model senkronizasyonu
 
-Model synchronizer sınıfları, 1.2.0 ile gelen dry-run-first canlı veritabanı karşılaştırma katmanıdır.
+Model synchronizer sÄ±nÄ±flarÄ±, 1.2.0 ile gelen dry-run-first canlÄ± veritabanÄ± karÅŸÄ±laÅŸtÄ±rma katmanÄ±dÄ±r.
 
-Bu katmanı şu sorular için kullanın:
+Bu katmanÄ± ÅŸu sorular iÃ§in kullanÄ±n:
 
 - Hangi tablolar eksik?
 - Hangi kolonlar eksik?
 - Hangi indeks veya desteklenen constraint eksik?
-- Hangi farklar riskli/yıkıcı ve manuel review gerektiriyor?
-- Hangi proje SQL scriptleri çalışmalı?
+- Hangi farklar riskli/yÄ±kÄ±cÄ± ve manuel review gerektiriyor?
+- Hangi proje SQL scriptleri Ã§alÄ±ÅŸmalÄ±?
 
 ## Provider API'leri
 
@@ -1460,7 +1460,7 @@ Bu katmanı şu sorular için kullanın:
 | PostgreSQL | `PostgresModelSyncOptions` | `PostgresModelSynchronizer` |
 | SQLite | `SQLiteModelSyncOptions` | `SQLiteModelSynchronizer` |
 
-## SQL Server örneği
+## SQL Server Ã¶rneÄŸi
 
 ```csharp
 var options = new SqlServerModelSyncOptions
@@ -1493,9 +1493,9 @@ await result.ThrowIfUnsupportedOrDestructiveAsync();
 await result.ApplyAsync(cancellationToken);
 ```
 
-## Net model seçimi
+## Net model seÃ§imi
 
-Assembly içinde test modeli, eski şema modeli veya DTO varsa `FromTypes` kullanın:
+Assembly iÃ§inde test modeli, eski ÅŸema modeli veya DTO varsa `FromTypes` kullanÄ±n:
 
 ```csharp
 var result = await SqlServerModelSynchronizer
@@ -1534,56 +1534,56 @@ options.TablePolicies
 
 `ManualOnly` operasyonlari `ManualOperations` altinda raporlanir ve otomatik calistirilmaz. `ApplySafeChanges` yalniz guvenli, provider tarafindan desteklenen ve dependency'leri hazir operasyonlari uygular; destructive sema degisiklikleri bloklu kalir.
 
-## Otomatik uygulanabilen güvenli işlemler
+## Otomatik uygulanabilen gÃ¼venli iÅŸlemler
 
-- Eksik tablo oluşturma.
+- Eksik tablo oluÅŸturma.
 - Eksik nullable kolon ekleme.
-- Default değeri olan eksik `NOT NULL` kolon ekleme.
+- Default deÄŸeri olan eksik `NOT NULL` kolon ekleme.
 - Eksik indeks ekleme.
-- Provider güvenli ALTER sözdizimi destekliyorsa eksik default/check/unique/foreign key constraint ekleme.
-- History/hash takipli sıralı SQL scriptleri.
+- Provider gÃ¼venli ALTER sÃ¶zdizimi destekliyorsa eksik default/check/unique/foreign key constraint ekleme.
+- History/hash takipli sÄ±ralÄ± SQL scriptleri.
 
-## Bloklanan işlemler
+## Bloklanan iÅŸlemler
 
-- Model setinde bulunmayan canlı database tabloları yalnız `ReportUnmappedTables = true` ise `DropTable` olarak raporlanır ve bloklanır.
-- Modelde bulunmayan canlı database kolonları `DropColumn` olarak raporlanır ve bloklanır.
-- Rename, tip değişikliği ve nullable-to-not-null değişiklikleri bloklanır.
-- Mevcut tabloya defaultsuz `NOT NULL` kolon eklemek bloklanır.
+- Model setinde bulunmayan canlÄ± database tablolarÄ± yalnÄ±z `ReportUnmappedTables = true` ise `DropTable` olarak raporlanÄ±r ve bloklanÄ±r.
+- Modelde bulunmayan canlÄ± database kolonlarÄ± `DropColumn` olarak raporlanÄ±r ve bloklanÄ±r.
+- Rename, tip deÄŸiÅŸikliÄŸi ve nullable-to-not-null deÄŸiÅŸiklikleri bloklanÄ±r.
+- Mevcut tabloya defaultsuz `NOT NULL` kolon eklemek bloklanÄ±r.
 - SQLite stored procedure scriptleri desteklenmez.
 
-`AllowDestructiveChanges`, model diff içindeki drop/rename/type-change işlemlerini otomatik yapmaz. Model diff tarafındaki yıkıcı işlemler review-only kalır. Bu seçenek otomatik veri kaybı izni gibi değerlendirilmemelidir.
+`AllowDestructiveChanges`, model diff iÃ§indeki drop/rename/type-change iÅŸlemlerini otomatik yapmaz. Model diff tarafÄ±ndaki yÄ±kÄ±cÄ± iÅŸlemler review-only kalÄ±r. Bu seÃ§enek otomatik veri kaybÄ± izni gibi deÄŸerlendirilmemelidir.
 
-## Script seçenekleri
+## Script seÃ§enekleri
 
-`ApplyStoredProceduresOnEveryRun` ve `ApplyTriggersOnEveryRun`, idempotent scriptleri her çalıştırmada doğrudan uygular.
+`ApplyStoredProceduresOnEveryRun` ve `ApplyTriggersOnEveryRun`, idempotent scriptleri her Ã§alÄ±ÅŸtÄ±rmada doÄŸrudan uygular.
 
-`ApplySeedsWithHashTracking` ve `ApplyCustomSqlWithHashTracking` varsayılan olarak `true` değerindedir. True iken seed ve custom SQL scriptleri migration history/hash ile uygulanır. False yapılırsa her çalıştırmada doğrudan uygulanırlar.
+`ApplySeedsWithHashTracking` ve `ApplyCustomSqlWithHashTracking` varsayÄ±lan olarak `true` deÄŸerindedir. True iken seed ve custom SQL scriptleri migration history/hash ile uygulanÄ±r. False yapÄ±lÄ±rsa her Ã§alÄ±ÅŸtÄ±rmada doÄŸrudan uygulanÄ±rlar.
 
-Model diff işlemleri risk sınıflandırmasından geçer. Kaydedilen SQL scriptleri ise review edilmiş, güvenilir proje artifact'i kabul edilir; ModelSync script metnini `DROP TABLE` veya `DELETE` gibi destructive SQL açısından parse etmez.
+Model diff iÅŸlemleri risk sÄ±nÄ±flandÄ±rmasÄ±ndan geÃ§er. Kaydedilen SQL scriptleri ise review edilmiÅŸ, gÃ¼venilir proje artifact'i kabul edilir; ModelSync script metnini `DROP TABLE` veya `DELETE` gibi destructive SQL aÃ§Ä±sÄ±ndan parse etmez.
 
-Odaklı referans için [14 - Model Synchronizer](14-model-synchronizer.md) belgesine bakın.
+OdaklÄ± referans iÃ§in [14 - Model Synchronizer](14-model-synchronizer.md) belgesine bakÄ±n.
 
 # Analyzer
 
-## 64. Neden kullanılmalı?
+## 64. Neden kullanÄ±lmalÄ±?
 
-Runtime’da SQL üretirken karşılaşacağınız bazı model hatalarını daha kod yazarken gösterir.
+Runtimeâ€™da SQL Ã¼retirken karÅŸÄ±laÅŸacaÄŸÄ±nÄ±z bazÄ± model hatalarÄ±nÄ± daha kod yazarken gÃ¶sterir.
 
 Kurulum:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
 ```
 
-## 65. Analyzer kuralları
+## 65. Analyzer kurallarÄ±
 
-| Kural | Şiddet | Anlamı |
+| Kural | Åiddet | AnlamÄ± |
 |---|---|---|
-| `MSYNC001` | Warning | Public property’de provider column type attribute’ü eksik |
-| `MSYNC002` | Warning | Column type kullanılan class’ta table-name attribute’ü eksik |
-| `MSYNC003` | Warning | Modelde primary key attribute’ü eksik |
+| `MSYNC001` | Warning | Public propertyâ€™de provider column type attributeâ€™Ã¼ eksik |
+| `MSYNC002` | Warning | Column type kullanÄ±lan classâ€™ta table-name attributeâ€™Ã¼ eksik |
+| `MSYNC003` | Warning | Modelde primary key attributeâ€™Ã¼ eksik |
 
-CI’da error yapmak için `.editorconfig`:
+CIâ€™da error yapmak iÃ§in `.editorconfig`:
 
 ```ini
 [*.cs]
@@ -1592,92 +1592,92 @@ dotnet_diagnostic.MSYNC002.severity = error
 dotnet_diagnostic.MSYNC003.severity = error
 ```
 
-Kuralı lokal bastırma:
+KuralÄ± lokal bastÄ±rma:
 
 ```csharp
 #pragma warning disable MSYNC003
-// kasıtlı primary-key'siz model
+// kasÄ±tlÄ± primary-key'siz model
 #pragma warning restore MSYNC003
 ```
 
-> Analyzer bir yardımcı kontroldür; generated SQL review ve integration test yerine geçmez. Özellikle provider’a özgü edge case’leri test edin.
+> Analyzer bir yardÄ±mcÄ± kontroldÃ¼r; generated SQL review ve integration test yerine geÃ§mez. Ã–zellikle providerâ€™a Ã¶zgÃ¼ edge caseâ€™leri test edin.
 
-# Hata yönetimi ve troubleshooting
+# Hata yÃ¶netimi ve troubleshooting
 
-## 66. Sık görülen hatalar
+## 66. SÄ±k gÃ¶rÃ¼len hatalar
 
-### “Column has no type attribute”
+### â€œColumn has no type attributeâ€
 
-Neden: Public property üzerinde provider `ColumnType` attribute’ü yok.
+Neden: Public property Ã¼zerinde provider `ColumnType` attributeâ€™Ã¼ yok.
 
-Çözüm:
+Ã‡Ã¶zÃ¼m:
 
 ```csharp
 [MySqlColumnType(MySqlColumnType.INT)]
 public int Count { get; set; }
 ```
 
-ModelSync 1.2.0 DbIgnore ve DbColumnName destegi icerir. Database kolonu olmayacak hesaplanmis public propertyler DbIgnore ile schema discovery disina alinabilir.
+ModelSync 1.2.2 DbIgnore ve DbColumnName destegi icerir. Database kolonu olmayacak hesaplanmis public propertyler DbIgnore ile schema discovery disina alinabilir.
 
-### “Invalid SQL identifier”
+### â€œInvalid SQL identifierâ€
 
-Neden: Tablo, kolon, indeks veya database adı güvenli identifier desenine uymuyor.
+Neden: Tablo, kolon, indeks veya database adÄ± gÃ¼venli identifier desenine uymuyor.
 
-Çözüm: Yalnız harf/underscore ile başlayan, devamında harf/rakam/underscore içeren ad kullanın.
+Ã‡Ã¶zÃ¼m: YalnÄ±z harf/underscore ile baÅŸlayan, devamÄ±nda harf/rakam/underscore iÃ§eren ad kullanÄ±n.
 
-### “... is destructive and may cause data loss”
+### â€œ... is destructive and may cause data lossâ€
 
-Neden: `DropTables`, `DropColumn` veya `AlterColumnType` açık izin olmadan çağrıldı.
+Neden: `DropTables`, `DropColumn` veya `AlterColumnType` aÃ§Ä±k izin olmadan Ã§aÄŸrÄ±ldÄ±.
 
-Çözüm:
+Ã‡Ã¶zÃ¼m:
 
 ```csharp
 var allow = DestructiveOperationOptions.Allow();
 ```
 
-İşlemi gerçekten istediğinizi doğruladıktan sonra ilgili overload’a verin.
+Ä°ÅŸlemi gerÃ§ekten istediÄŸinizi doÄŸruladÄ±ktan sonra ilgili overloadâ€™a verin.
 
-### `CreateTablesAsync()` hiçbir şey yapmıyor
+### `CreateTablesAsync()` hiÃ§bir ÅŸey yapmÄ±yor
 
-Neden: Generator cache’i boş.
+Neden: Generator cacheâ€™i boÅŸ.
 
-Çözüm: Aynı generator örneğinde önce `Generate...Table<T>()` çağırın.
+Ã‡Ã¶zÃ¼m: AynÄ± generator Ã¶rneÄŸinde Ã¶nce `Generate...Table<T>()` Ã§aÄŸÄ±rÄ±n.
 
-### Foreign key oluştururken referenced table bulunamadı
+### Foreign key oluÅŸtururken referenced table bulunamadÄ±
 
-Neden: Parent tablo henüz oluşturulmadı veya cache yürütme sırası bağımlılığı karşılamadı.
+Neden: Parent tablo henÃ¼z oluÅŸturulmadÄ± veya cache yÃ¼rÃ¼tme sÄ±rasÄ± baÄŸÄ±mlÄ±lÄ±ÄŸÄ± karÅŸÄ±lamadÄ±.
 
-Çözüm: Parent tabloyu ayrı aşamada önce oluşturun veya migration scripti kullanın.
+Ã‡Ã¶zÃ¼m: Parent tabloyu ayrÄ± aÅŸamada Ã¶nce oluÅŸturun veya migration scripti kullanÄ±n.
 
-### İndeks oluşmadı
+### Ä°ndeks oluÅŸmadÄ±
 
-Neden: `GenerateIndexSql<T>()` yalnız SQL üretir.
+Neden: `GenerateIndexSql<T>()` yalnÄ±z SQL Ã¼retir.
 
-Çözüm: SQL’i ADO.NET ile ayrıca yürütün veya migration scriptine taşıyın.
+Ã‡Ã¶zÃ¼m: SQLâ€™i ADO.NET ile ayrÄ±ca yÃ¼rÃ¼tÃ¼n veya migration scriptine taÅŸÄ±yÄ±n.
 
-### SQLite truncate davranışı
+### SQLite truncate davranÄ±ÅŸÄ±
 
-Neden: SQLite `TRUNCATE TABLE` desteklemez. SQLite provider bu nedenle `DELETE FROM` SQL’i üretir.
+Neden: SQLite `TRUNCATE TABLE` desteklemez. SQLite provider bu nedenle `DELETE FROM` SQLâ€™i Ã¼retir.
 
-Üretilen örnek:
+Ãœretilen Ã¶rnek:
 
 ```sql
 DELETE FROM "products";
 ```
 
-### SQLite “ALTER COLUMN” hatası
+### SQLite â€œALTER COLUMNâ€ hatasÄ±
 
-Neden: SQLite doğrudan type alter desteklemez.
+Neden: SQLite doÄŸrudan type alter desteklemez.
 
-Çözüm: Yeni tablo oluştur, veriyi dönüştürerek kopyala, eski tabloyu sil, yeni tabloyu yeniden adlandır.
+Ã‡Ã¶zÃ¼m: Yeni tablo oluÅŸtur, veriyi dÃ¶nÃ¼ÅŸtÃ¼rerek kopyala, eski tabloyu sil, yeni tabloyu yeniden adlandÄ±r.
 
-### Database oluşturma yetki hatası
+### Database oluÅŸturma yetki hatasÄ±
 
-Neden: Connection kullanıcısında `CREATE DATABASE` yetkisi yok.
+Neden: Connection kullanÄ±cÄ±sÄ±nda `CREATE DATABASE` yetkisi yok.
 
-Çözüm: Database’i DBA/deployment ile önceden oluşturun ve `CreateDatabase()` çağrısını kaldırın.
+Ã‡Ã¶zÃ¼m: Databaseâ€™i DBA/deployment ile Ã¶nceden oluÅŸturun ve `CreateDatabase()` Ã§aÄŸrÄ±sÄ±nÄ± kaldÄ±rÄ±n.
 
-## 67. CancellationToken kullanımı
+## 67. CancellationToken kullanÄ±mÄ±
 
 ```csharp
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -1685,9 +1685,9 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 await generator.CreateTablesAsync(cts.Token);
 ```
 
-Migration ve stored procedure metotları da cancellation token kabul eder. Cancellation, database’in o ana kadar yaptığı değişiklikleri otomatik geri alacağı anlamına gelmez.
+Migration ve stored procedure metotlarÄ± da cancellation token kabul eder. Cancellation, databaseâ€™in o ana kadar yaptÄ±ÄŸÄ± deÄŸiÅŸiklikleri otomatik geri alacaÄŸÄ± anlamÄ±na gelmez.
 
-# Test yaklaşımı
+# Test yaklaÅŸÄ±mÄ±
 
 ## 68. SQL snapshot testi
 
@@ -1704,27 +1704,27 @@ public void Product_sql_should_contain_expected_columns()
 }
 ```
 
-SQL üretimi bağlantı açmadan yapılır; connection string constructor doğrulamasını geçecek biçimde dolu olmalıdır.
+SQL Ã¼retimi baÄŸlantÄ± aÃ§madan yapÄ±lÄ±r; connection string constructor doÄŸrulamasÄ±nÄ± geÃ§ecek biÃ§imde dolu olmalÄ±dÄ±r.
 
 ## 69. Integration test
 
-Gerçek provider üzerinde şu akışı test edin:
+GerÃ§ek provider Ã¼zerinde ÅŸu akÄ±ÅŸÄ± test edin:
 
-1. Test database/container oluştur.
-2. Model SQL’ini üret.
-3. Tabloyu oluştur.
-4. Provider kataloğundan tablo/kolon/constraint kontrolü yap.
+1. Test database/container oluÅŸtur.
+2. Model SQLâ€™ini Ã¼ret.
+3. Tabloyu oluÅŸtur.
+4. Provider kataloÄŸundan tablo/kolon/constraint kontrolÃ¼ yap.
 5. Test verisi ekle.
-6. Add/Rename/Alter/Drop senaryolarını ayrı database’te dene.
-7. Test database’ini temizle.
+6. Add/Rename/Alter/Drop senaryolarÄ±nÄ± ayrÄ± databaseâ€™te dene.
+7. Test databaseâ€™ini temizle.
 
-SQLite shared-memory küçük testler için uygundur; SQL Server/MySQL/PostgreSQL davranışının birebir yerine geçmez.
+SQLite shared-memory kÃ¼Ã§Ã¼k testler iÃ§in uygundur; SQL Server/MySQL/PostgreSQL davranÄ±ÅŸÄ±nÄ±n birebir yerine geÃ§mez.
 
-# Production kullanım rehberi
+# Production kullanÄ±m rehberi
 
-## 70. ModelSync’i production’da hangi biçimde kullanmalıyım?
+## 70. ModelSyncâ€™i productionâ€™da hangi biÃ§imde kullanmalÄ±yÄ±m?
 
-Önerilen ayrım:
+Ã–nerilen ayrÄ±m:
 
 ### Basit uygulama/prototip
 
@@ -1735,35 +1735,35 @@ SQLite shared-memory küçük testler için uygundur; SQL Server/MySQL/PostgreSQL da
 
 ### Kurumsal/production uygulama
 
-- Attribute generator’ı DDL üretimi ve test için kullanın.
-- Gerçek sürüm değişikliklerini immutable migration scriptleriyle yönetin.
-- Migration’ı uygulama request trafiği başlamadan, tek deployment job’da çalıştırın.
-- Dry-run planı loglayın ve onaylayın.
-- Database yedeği ve rollback scripti hazırlayın.
-- Stored procedure değişikliklerini compare + review sonrasında uygulayın.
+- Attribute generatorâ€™Ä± DDL Ã¼retimi ve test iÃ§in kullanÄ±n.
+- GerÃ§ek sÃ¼rÃ¼m deÄŸiÅŸikliklerini immutable migration scriptleriyle yÃ¶netin.
+- Migrationâ€™Ä± uygulama request trafiÄŸi baÅŸlamadan, tek deployment jobâ€™da Ã§alÄ±ÅŸtÄ±rÄ±n.
+- Dry-run planÄ± loglayÄ±n ve onaylayÄ±n.
+- Database yedeÄŸi ve rollback scripti hazÄ±rlayÄ±n.
+- Stored procedure deÄŸiÅŸikliklerini compare + review sonrasÄ±nda uygulayÄ±n.
 
 ## 71. Production checklist
 
-- [ ] Doğru provider paketi kuruldu.
-- [ ] Connection string secret store’dan geliyor.
-- [ ] Tüm public model property’lerinde doğru column type attribute’ü var.
-- [ ] Tablo ve identifier adları güvenli desene uyuyor.
-- [ ] Generated SQL code review’den geçti.
-- [ ] İndekslerin ayrıca yürütüldüğü doğrulandı.
-- [ ] Foreign key parent/child sırası kontrol edildi.
-- [ ] Raw default/check ifadelerinde dış girdi yok.
-- [ ] Destructive operasyonlar ayrı maintenance adımında.
-- [ ] Production migration dosyaları immutable.
-- [ ] `AutoAddMissingColumnsFromTableScripts` production’da bilinçli ayarlandı.
-- [ ] Database backup/restore prosedürü test edildi.
-- [ ] Migration tek instance tarafından çalıştırılıyor.
-- [ ] Integration test gerçek provider sürümünde geçti.
-- [ ] Stored procedure planları uygulanmadan önce incelendi.
-- [ ] SQLite sınırlamaları dikkate alındı.
+- [ ] DoÄŸru provider paketi kuruldu.
+- [ ] Connection string secret storeâ€™dan geliyor.
+- [ ] TÃ¼m public model propertyâ€™lerinde doÄŸru column type attributeâ€™Ã¼ var.
+- [ ] Tablo ve identifier adlarÄ± gÃ¼venli desene uyuyor.
+- [ ] Generated SQL code reviewâ€™den geÃ§ti.
+- [ ] Ä°ndekslerin ayrÄ±ca yÃ¼rÃ¼tÃ¼ldÃ¼ÄŸÃ¼ doÄŸrulandÄ±.
+- [ ] Foreign key parent/child sÄ±rasÄ± kontrol edildi.
+- [ ] Raw default/check ifadelerinde dÄ±ÅŸ girdi yok.
+- [ ] Destructive operasyonlar ayrÄ± maintenance adÄ±mÄ±nda.
+- [ ] Production migration dosyalarÄ± immutable.
+- [ ] `AutoAddMissingColumnsFromTableScripts` productionâ€™da bilinÃ§li ayarlandÄ±.
+- [ ] Database backup/restore prosedÃ¼rÃ¼ test edildi.
+- [ ] Migration tek instance tarafÄ±ndan Ã§alÄ±ÅŸtÄ±rÄ±lÄ±yor.
+- [ ] Integration test gerÃ§ek provider sÃ¼rÃ¼mÃ¼nde geÃ§ti.
+- [ ] Stored procedure planlarÄ± uygulanmadan Ã¶nce incelendi.
+- [ ] SQLite sÄ±nÄ±rlamalarÄ± dikkate alÄ±ndÄ±.
 
-# Tam örnek proje yapısı
+# Tam Ã¶rnek proje yapÄ±sÄ±
 
-## 72. Önerilen klasörler
+## 72. Ã–nerilen klasÃ¶rler
 
 ```text
 MyApplication/
@@ -1787,9 +1787,9 @@ MyApplication/
   appsettings.json
 ```
 
-Şema modellerini domain entity veya API DTO’larından ayırmak hâlâ faydalıdır. Yayınlanmış 1.2.0 paketleri tüm public property’leri kolon kabul eder; mevcut repository’deki yayınlanmamış `DbIgnore` desteği bu riski azaltır.
+Åema modellerini domain entity veya API DTOâ€™larÄ±ndan ayÄ±rmak hÃ¢lÃ¢ faydalÄ±dÄ±r. YayÄ±nlanmÄ±ÅŸ 1.2.0 paketleri tÃ¼m public propertyâ€™leri kolon kabul eder; mevcut repositoryâ€™deki yayÄ±nlanmamÄ±ÅŸ `DbIgnore` desteÄŸi bu riski azaltÄ±r.
 
-## 73. Uçtan uca SQL Server startup örneği
+## 73. UÃ§tan uca SQL Server startup Ã¶rneÄŸi
 
 ```csharp
 using UmbrellaFrame.ModelSync.Core;
@@ -1863,145 +1863,144 @@ public sealed class DatabaseBootstrapper
         _logger.LogInformation("Prepared DDL: {Sql}", sql);
         await _generator.CreateTablesAsync(cancellationToken);
 
-        // İndeksleri production'da tercihen migration scriptiyle yönetin.
+        // Ä°ndeksleri production'da tercihen migration scriptiyle yÃ¶netin.
     }
 }
 ```
 
-# API hızlı referans
+# API hÄ±zlÄ± referans
 
 ## 74. `ITableGenerator`
 
-| Metot | Amaç |
+| Metot | AmaÃ§ |
 |---|---|
-| `GenerateSqlTable<T>()` | CREATE TABLE SQL üretir ve cache’e alır. |
-| `GenerateSqlTableAsync<T>()` | Aynı üretimin Task tabanlı biçimi. |
-| `GenerateDropTableSql<T>()` | DROP TABLE SQL döndürür. |
-| `GenerateTruncateTableSql<T>()` | Provider'a özel truncate/delete SQL'i döndürür. |
-| `GenerateIndexSql<T>()` | Index SQL listesi döndürür. |
-| `CreateDatabase()` / Async | Provider’a göre database oluşturur; SQLite no-op. |
-| `CreateTables()` / Async | Cache’teki CREATE TABLE SQL’lerini çalıştırır. |
-| `DropTables(options)` / Async | Cache’teki tabloları açık destructive izinle siler. |
-| `AddColumn<T>()` / Async | Property metadata’sından kolon ekler. |
-| `DropColumn<T>(..., options)` / Async | Kolon siler; açık destructive izin gerekir. |
-| `RenameColumn<T>()` / Async | Kolon adını değiştirir. |
-| `AlterColumnType<T>(..., options)` / Async | Modeldeki yeni tipe geçirir; açık izin gerekir. |
+| `GenerateSqlTable<T>()` | CREATE TABLE SQL Ã¼retir ve cacheâ€™e alÄ±r. |
+| `GenerateSqlTableAsync<T>()` | AynÄ± Ã¼retimin Task tabanlÄ± biÃ§imi. |
+| `GenerateDropTableSql<T>()` | DROP TABLE SQL dÃ¶ndÃ¼rÃ¼r. |
+| `GenerateTruncateTableSql<T>()` | Provider'a Ã¶zel truncate/delete SQL'i dÃ¶ndÃ¼rÃ¼r. |
+| `GenerateIndexSql<T>()` | Index SQL listesi dÃ¶ndÃ¼rÃ¼r. |
+| `CreateDatabase()` / Async | Providerâ€™a gÃ¶re database oluÅŸturur; SQLite no-op. |
+| `CreateTables()` / Async | Cacheâ€™teki CREATE TABLE SQLâ€™lerini Ã§alÄ±ÅŸtÄ±rÄ±r. |
+| `DropTables(options)` / Async | Cacheâ€™teki tablolarÄ± aÃ§Ä±k destructive izinle siler. |
+| `AddColumn<T>()` / Async | Property metadataâ€™sÄ±ndan kolon ekler. |
+| `DropColumn<T>(..., options)` / Async | Kolon siler; aÃ§Ä±k destructive izin gerekir. |
+| `RenameColumn<T>()` / Async | Kolon adÄ±nÄ± deÄŸiÅŸtirir. |
+| `AlterColumnType<T>(..., options)` / Async | Modeldeki yeni tipe geÃ§irir; aÃ§Ä±k izin gerekir. |
 
 ## 75. `IMigrationRunner`
 
-| Metot | Amaç |
+| Metot | AmaÃ§ |
 |---|---|
-| `RegisterScript(definition)` | Inline/önceden hazırlanmış migration kaydeder. |
-| `RegisterScriptFile(...)` | SQL dosyasını kaydeder. |
-| `RegisterEmbeddedScripts(...)` | Assembly içindeki embedded `.sql` dosyalarını kaydeder. |
-| `CompareRegisteredAsync()` | Read-only dry-run migration planlarını üretir. |
-| `EnsureInfrastructureAsync()` | Gerekli schema/history tablolarını açıkça oluşturur. |
-| `RunAsync()` | Gerekiyorsa infrastructure oluşturur, planları uygular ve history yazar. |
+| `RegisterScript(definition)` | Inline/Ã¶nceden hazÄ±rlanmÄ±ÅŸ migration kaydeder. |
+| `RegisterScriptFile(...)` | SQL dosyasÄ±nÄ± kaydeder. |
+| `RegisterEmbeddedScripts(...)` | Assembly iÃ§indeki embedded `.sql` dosyalarÄ±nÄ± kaydeder. |
+| `CompareRegisteredAsync()` | Read-only dry-run migration planlarÄ±nÄ± Ã¼retir. |
+| `EnsureInfrastructureAsync()` | Gerekli schema/history tablolarÄ±nÄ± aÃ§Ä±kÃ§a oluÅŸturur. |
+| `RunAsync()` | Gerekiyorsa infrastructure oluÅŸturur, planlarÄ± uygular ve history yazar. |
 
 ## 76. `IStoredProcedureSynchronizer`
 
-| Metot | Amaç |
+| Metot | AmaÃ§ |
 |---|---|
 | `RegisterProcedure(...)` | Inline procedure definition kaydeder. |
-| `RegisterProcedureFile(...)` | SQL dosyasını kaydeder. |
-| `CompareAsync(...)` | Tek procedure dry-run planı üretir. |
-| `CompareRegisteredAsync()` | Kayıtlı procedure’leri karşılaştırır. |
-| `ApplyAsync(plan)` | Tek planı uygular. |
-| `SyncRegisteredAsync()` | Kayıtlı procedure’leri karşılaştırıp uygular. |
+| `RegisterProcedureFile(...)` | SQL dosyasÄ±nÄ± kaydeder. |
+| `CompareAsync(...)` | Tek procedure dry-run planÄ± Ã¼retir. |
+| `CompareRegisteredAsync()` | KayÄ±tlÄ± procedureâ€™leri karÅŸÄ±laÅŸtÄ±rÄ±r. |
+| `ApplyAsync(plan)` | Tek planÄ± uygular. |
+| `SyncRegisteredAsync()` | KayÄ±tlÄ± procedureâ€™leri karÅŸÄ±laÅŸtÄ±rÄ±p uygular. |
 
 ## 77. Model Synchronizer
 
-| Metot / Üye | Amaç |
+| Metot / Ãœye | AmaÃ§ |
 |---|---|
-| `FromAssemblies(...)` | Assembly içindeki provider uyumlu schema modellerini keşfeder. |
-| `FromTypes(...)` | Verilen model tipleriyle sınırlı senkronizasyon yapar. |
+| `FromAssemblies(...)` | Assembly iÃ§indeki provider uyumlu schema modellerini keÅŸfeder. |
+| `FromTypes(...)` | Verilen model tipleriyle sÄ±nÄ±rlÄ± senkronizasyon yapar. |
 | `AddSqlScript(...)` | Inline SQL script ekler. |
-| `AddSqlScriptsFromEmbeddedResources(...)` | Embedded `.sql` scriptleri kategori sırasıyla ekler. |
-| `CompareAsync()` | Model/script senkronizasyonu için dry-run sonuç üretir. |
-| `ModelSyncResult.SafeOperations` | Otomatik uygulanabilen işlemler. |
-| `ModelSyncResult.BlockedOperations` | Destructive, riskli veya unsupported işlemler. |
-| `ModelSyncResult.SkippedOperations` | Konfigürasyonla bilinçli atlanan güvenli işlemler. |
-| `ApplyAsync()` | Yalnız blocked operation yoksa uygular. |
+| `AddSqlScriptsFromEmbeddedResources(...)` | Embedded `.sql` scriptleri kategori sÄ±rasÄ±yla ekler. |
+| `CompareAsync()` | Model/script senkronizasyonu iÃ§in dry-run sonuÃ§ Ã¼retir. |
+| `ModelSyncResult.SafeOperations` | Otomatik uygulanabilen iÅŸlemler. |
+| `ModelSyncResult.BlockedOperations` | Destructive, riskli veya unsupported iÅŸlemler. |
+| `ModelSyncResult.SkippedOperations` | KonfigÃ¼rasyonla bilinÃ§li atlanan gÃ¼venli iÅŸlemler. |
+| `ApplyAsync()` | YalnÄ±z blocked operation yoksa uygular. |
 
-# Sürüm 1.2.0 sınırları
+# SÃ¼rÃ¼m 1.2.2 sÄ±nÄ±rlarÄ±
 
-## 78. Bilinmesi gereken güncel sınırlar
+## 78. Bilinmesi gereken gÃ¼ncel sÄ±nÄ±rlar
 
-- Model synchronizer yıkıcı/riskli farkları sessiz uygulamaz; drop, rename, tip değişikliği ve nullable-to-not-null işlemleri review-only kalır.
-- Yayınlanmış `1.2.0` paketlerinde public property ignore ve column-name override attribute’leri yoktur; mevcut repository’deki `DbIgnore` ve `DbColumnName` yayınlanmamış sertleştirme çalışmasıdır.
-- Schema-qualified table-name attribute kullanımı identifier doğrulamasına takılır.
-- İndeks SQL’i otomatik çalıştırılmaz.
-- Foreign key parametreleri gelişmiş quoting/cascade modellemesi sağlamaz.
-- Table create/drop sırası foreign key dependency graph ile yönetilmez.
-- Migration’lar tüm batch ve history ile tek atomik transaction garantisi vermez.
-- Değişmiş table script onarımı yalnız basit eksik kolon senaryosudur.
+- Model synchronizer yÄ±kÄ±cÄ±/riskli farklarÄ± sessiz uygulamaz; drop, rename, tip deÄŸiÅŸikliÄŸi ve nullable-to-not-null iÅŸlemleri review-only kalÄ±r.
+- ModelSync 1.2.2 paketleri `DbIgnore` ve `DbColumnName` ile public property ignore ve column-name override desteÄŸi iÃ§erir.
+- Schema-qualified table-name attribute kullanÄ±mÄ± identifier doÄŸrulamasÄ±na takÄ±lÄ±r.
+- Ä°ndeks SQLâ€™i otomatik Ã§alÄ±ÅŸtÄ±rÄ±lmaz.
+- Foreign key parametreleri geliÅŸmiÅŸ quoting/cascade modellemesi saÄŸlamaz.
+- Table create/drop sÄ±rasÄ± foreign key dependency graph ile yÃ¶netilmez.
+- Migrationâ€™lar tÃ¼m batch ve history ile tek atomik transaction garantisi vermez.
+- DeÄŸiÅŸmiÅŸ table script onarÄ±mÄ± yalnÄ±z basit eksik kolon senaryosudur.
 - SQLite type alter ve stored procedure desteklemez.
 - PostgreSQL overloaded procedure desteklenmez.
 - `DbColumnDefault` ve `DbColumnCheck` raw SQL kabul eder.
 
-Bu sınırlar kütüphanenin kullanılamaz olduğu anlamına gelmez. Doğru kullanım alanı; açık DDL üretimi, kontrollü schema initialization ve review edilmiş SQL script yönetimidir.
+Bu sÄ±nÄ±rlar kÃ¼tÃ¼phanenin kullanÄ±lamaz olduÄŸu anlamÄ±na gelmez. DoÄŸru kullanÄ±m alanÄ±; aÃ§Ä±k DDL Ã¼retimi, kontrollÃ¼ schema initialization ve review edilmiÅŸ SQL script yÃ¶netimidir.
 
-# Sık sorulan sorular
+# SÄ±k sorulan sorular
 
 ## 79. EF Core ile birlikte kullanabilir miyim?
 
-Evet. ModelSync ORM olmadığı için EF Core, Dapper veya ADO.NET ile birlikte kullanılabilir. Ancak iki farklı migration otoritesi oluşturmamaya dikkat edin. Şema değişikliklerinin tek sahibi belirlenmelidir.
+Evet. ModelSync ORM olmadÄ±ÄŸÄ± iÃ§in EF Core, Dapper veya ADO.NET ile birlikte kullanÄ±labilir. Ancak iki farklÄ± migration otoritesi oluÅŸturmamaya dikkat edin. Åema deÄŸiÅŸikliklerinin tek sahibi belirlenmelidir.
 
-## 80. Yalnız Core paketini kurmalı mıyım?
+## 80. YalnÄ±z Core paketini kurmalÄ± mÄ±yÄ±m?
 
-Normal kullanıcı hayır. Provider paketi Core’u dependency olarak getirir. Yalnız yeni provider geliştirenler Core’u doğrudan kullanır.
+Normal kullanÄ±cÄ± hayÄ±r. Provider paketi Coreâ€™u dependency olarak getirir. YalnÄ±z yeni provider geliÅŸtirenler Coreâ€™u doÄŸrudan kullanÄ±r.
 
-## 81. ModelSync model sınıfını veri entity’si olarak da kullanabilir miyim?
+## 81. ModelSync model sÄ±nÄ±fÄ±nÄ± veri entityâ€™si olarak da kullanabilir miyim?
 
-Teknik olarak evet; ancak sema modellerini ayri tutmak hala daha guvenlidir. ModelSync 1.2.0 DbIgnore destegi yardimci propertyleri haric tutabilir.
+Teknik olarak evet; ancak sema modellerini ayri tutmak hala daha guvenlidir. ModelSync 1.2.2 DbIgnore destegi yardimci propertyleri haric tutabilir.
 
-## 82. `ifNotExists: true` migration yerine geçer mi?
+## 82. `ifNotExists: true` migration yerine geÃ§er mi?
 
-Hayır. Yalnız tablo yoksa create işlemini güvenli hale getirir. Mevcut tablodaki kolon/tip/constraint farklarını yönetmez.
+HayÄ±r. YalnÄ±z tablo yoksa create iÅŸlemini gÃ¼venli hale getirir. Mevcut tablodaki kolon/tip/constraint farklarÄ±nÄ± yÃ¶netmez.
 
-## 83. Kolon ekledim, tablo otomatik güncellenir mi?
+## 83. Kolon ekledim, tablo otomatik gÃ¼ncellenir mi?
 
-Yalnız model property’sini eklemek database’i kendiliğinden değiştirmez. Şunlardan birini yapın:
+YalnÄ±z model propertyâ€™sini eklemek databaseâ€™i kendiliÄŸinden deÄŸiÅŸtirmez. Åunlardan birini yapÄ±n:
 
 ```csharp
 await generator.AddColumnAsync<Model>(nameof(Model.NewProperty));
 ```
 
-veya yeni, immutable SQL migration dosyası ekleyin.
+veya yeni, immutable SQL migration dosyasÄ± ekleyin.
 
-Model Synchronizer kullanıyorsanız `CompareAsync()` + `ApplyAsync()` akışı güvenli eksik kolonları otomatik ekleyebilir; riskli kolonlar yine bloklanır.
+Model Synchronizer kullanÄ±yorsanÄ±z `CompareAsync()` + `ApplyAsync()` akÄ±ÅŸÄ± gÃ¼venli eksik kolonlarÄ± otomatik ekleyebilir; riskli kolonlar yine bloklanÄ±r.
 
-## 84. İndeksler neden ayrı?
+## 84. Ä°ndeksler neden ayrÄ±?
 
-ModelSync indeks metadata’sını tablo tanımından ayrı SQL olarak üretir. Bu, indeksleri review etme ve provider’a uygun deployment adımında yönetme esnekliği sağlar; ancak yürütme sorumluluğu kullanıcıdadır.
+ModelSync indeks metadataâ€™sÄ±nÄ± tablo tanÄ±mÄ±ndan ayrÄ± SQL olarak Ã¼retir. Bu, indeksleri review etme ve providerâ€™a uygun deployment adÄ±mÄ±nda yÃ¶netme esnekliÄŸi saÄŸlar; ancak yÃ¼rÃ¼tme sorumluluÄŸu kullanÄ±cÄ±dadÄ±r.
 
-## 85. Production’da startup sırasında migration çalıştırmalı mıyım?
+## 85. Productionâ€™da startup sÄ±rasÄ±nda migration Ã§alÄ±ÅŸtÄ±rmalÄ± mÄ±yÄ±m?
 
-Tek instance, kontrollü küçük sistemlerde olabilir. Çok instance’lı production ortamında ayrı deployment job/console migration runner daha güvenlidir.
+Tek instance, kontrollÃ¼ kÃ¼Ã§Ã¼k sistemlerde olabilir. Ã‡ok instanceâ€™lÄ± production ortamÄ±nda ayrÄ± deployment job/console migration runner daha gÃ¼venlidir.
 
-## 86. Hangi yaklaşımı seçmeliyim?
+## 86. Hangi yaklaÅŸÄ±mÄ± seÃ§meliyim?
 
-| İhtiyaç | Öneri |
+| Ä°htiyaÃ§ | Ã–neri |
 |---|---|
-| Yeni prototipte hızlı tablo oluşturma | Attribute generator + `ifNotExists` |
-| DDL SQL’ini review edip DBA’ya verme | Yalnız generator çıktılarını kullanma |
-| Production sürüm değişiklikleri | Immutable SQL migration dosyaları |
+| Yeni prototipte hÄ±zlÄ± tablo oluÅŸturma | Attribute generator + `ifNotExists` |
+| DDL SQLâ€™ini review edip DBAâ€™ya verme | YalnÄ±z generator Ã§Ä±ktÄ±larÄ±nÄ± kullanma |
+| Production sÃ¼rÃ¼m deÄŸiÅŸiklikleri | Immutable SQL migration dosyalarÄ± |
 | Procedure source control | Stored procedure synchronizer |
-| Runtime CRUD | Dapper/ADO.NET/EF Core gibi ayrı araç |
+| Runtime CRUD | Dapper/ADO.NET/EF Core gibi ayrÄ± araÃ§ |
 
-# Sonuç
+# SonuÃ§
 
-ModelSync’in temel prensibi, şema değişikliğini görünür ve geliştirici kontrollü tutmaktır. Sağlıklı kullanım sırası şöyledir:
+ModelSyncâ€™in temel prensibi, ÅŸema deÄŸiÅŸikliÄŸini gÃ¶rÃ¼nÃ¼r ve geliÅŸtirici kontrollÃ¼ tutmaktÄ±r. SaÄŸlÄ±klÄ± kullanÄ±m sÄ±rasÄ± ÅŸÃ¶yledir:
 
-1. Doğru provider paketini kurun.
-2. Şema modelini provider attribute’larıyla tanımlayın.
-3. SQL’i üretin ve inceleyin.
-4. Aynı generator örneğinde tabloyu oluşturun.
-5. İndeksleri ayrıca yönetin.
-6. Değişiklikleri açık kolon operasyonu veya yeni migration scriptiyle yapın.
-7. Destructive işlemleri yalnız açık izin, backup ve review ile çalıştırın.
-8. Stored procedure’lerde önce compare planı alın.
-9. Production’da migration dosyalarını değiştirmeyin ve tek deployment otoritesi kullanın.
+1. DoÄŸru provider paketini kurun.
+2. Åema modelini provider attributeâ€™larÄ±yla tanÄ±mlayÄ±n.
+3. SQLâ€™i Ã¼retin ve inceleyin.
+4. AynÄ± generator Ã¶rneÄŸinde tabloyu oluÅŸturun.
+5. Ä°ndeksleri ayrÄ±ca yÃ¶netin.
+6. DeÄŸiÅŸiklikleri aÃ§Ä±k kolon operasyonu veya yeni migration scriptiyle yapÄ±n.
+7. Destructive iÅŸlemleri yalnÄ±z aÃ§Ä±k izin, backup ve review ile Ã§alÄ±ÅŸtÄ±rÄ±n.
+8. Stored procedureâ€™lerde Ã¶nce compare planÄ± alÄ±n.
+9. Productionâ€™da migration dosyalarÄ±nÄ± deÄŸiÅŸtirmeyin ve tek deployment otoritesi kullanÄ±n.
 
-Bu akışla ModelSync; ORM yükü olmadan, provider’a özel DDL üretimi ve kontrollü database schema yönetimi için kullanılabilir.
-
+Bu akÄ±ÅŸla ModelSync; ORM yÃ¼kÃ¼ olmadan, providerâ€™a Ã¶zel DDL Ã¼retimi ve kontrollÃ¼ database schema yÃ¶netimi iÃ§in kullanÄ±labilir.

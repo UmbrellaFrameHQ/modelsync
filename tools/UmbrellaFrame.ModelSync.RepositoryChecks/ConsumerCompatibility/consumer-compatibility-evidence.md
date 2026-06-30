@@ -2,7 +2,7 @@
 
 Candidate version: supplied by release gate
 Candidate source: supplied explicitly by release command
-Final validation version: `1.2.1`
+Final validation version: `1.2.2`
 
 ## Baseline
 

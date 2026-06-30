@@ -2,6 +2,31 @@
 
 All notable ModelSync changes are tracked here.
 
+## [1.2.2] - 2026-07-01
+
+Integration Workflow Reliability and Release Gate Correction.
+
+### Fixed
+
+- MySQL CI service now creates the configured target database.
+- MariaDB CI service now creates the configured target database.
+- Stored procedure integration test is enabled in the required release workflow.
+- Integration release gates now fail on unexpected skipped tests.
+- Database images are pinned for reproducible CI.
+- Target database readiness is validated before tests begin.
+
+### Compatibility
+
+- No ModelSync runtime breaking change.
+- Existing 1.2.0 and 1.2.1-compatible source remains compatible.
+- All six packages remain synchronized at version 1.2.2.
+
+### Unpublished 1.2.1 tag
+
+Version 1.2.1 was tagged but was not published to NuGet because the required
+MySQL/MariaDB integration gate did not pass. Version 1.2.2 supersedes the
+unpublished 1.2.1 tag.
+
 ## [1.2.1] - 2026-07-01
 
 Provider API Clarity and Operational Hardening

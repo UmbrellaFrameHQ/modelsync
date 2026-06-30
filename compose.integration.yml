@@ -14,11 +14,12 @@ services:
       retries: 20
 
   modelsync-mysql:
-    image: mysql:8.4
+    # Release-validation baseline; provider support is broader than this exact patch.
+    image: mysql:8.4.10
     container_name: modelsync-mysql
     environment:
       MYSQL_ROOT_PASSWORD: "ModelSync_Pass123"
-      MYSQL_DATABASE: "modelsync_integration"
+      MYSQL_DATABASE: "appdb"
     ports:
       - "13306:3306"
     healthcheck:
@@ -28,11 +29,12 @@ services:
       retries: 20
 
   modelsync-mariadb:
-    image: mariadb:11
+    # Release-validation baseline; provider support is broader than this exact patch.
+    image: mariadb:11.8.8
     container_name: modelsync-mariadb
     environment:
       MARIADB_ROOT_PASSWORD: "ModelSync_Pass123"
-      MARIADB_DATABASE: "modelsync_integration"
+      MARIADB_DATABASE: "appdb"
     ports:
       - "13307:3306"
     healthcheck:

@@ -8,6 +8,20 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-07-01 - Integration Workflow Reliability and Release Gate Correction
+
+### Fixed
+- MySQL and MariaDB CI services now create the configured `appdb` target database.
+- Required integration workflow now enables stored procedure integration.
+- Release gate now fails on unexpected skipped tests.
+- MySQL and MariaDB validation images are pinned for reproducible CI.
+- Target database readiness is validated before integration tests begin.
+
+### Compatibility
+- No ModelSync runtime breaking change.
+- Version 1.2.1 was tagged but was not published to NuGet because the required MySQL/MariaDB integration gate did not pass.
+- Version 1.2.2 supersedes the unpublished 1.2.1 tag.
+
 ## [1.2.1] - 2026-07-01 - Provider API Clarity and Operational Hardening
 
 ### Added
