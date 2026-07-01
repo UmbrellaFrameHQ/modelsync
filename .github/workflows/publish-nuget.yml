@@ -3,17 +3,30 @@ name: Publish NuGet
 on:
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: Immutable release tag to publish, for example v1.2.2
+        required: true
+        type: string
       version:
-        description: Package version to publish
+        description: Stable package version to publish, for example 1.2.2
+        required: true
+        type: string
+      expected_commit:
+        description: Full 40-character commit SHA that the release tag must resolve to
         required: true
         type: string
       confirmation:
-        description: Type PUBLISH-1.2.0 to confirm publishing
+        description: Type PUBLISH-${version} to confirm publishing
         required: true
         type: string
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: nuget-production
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -23,15 +36,112 @@ jobs:
 
     steps:
       - name: Validate dispatch input
+        shell: bash
         run: |
-          test "${{ inputs.version }}" = "1.2.0"
-          test "${{ inputs.confirmation }}" = "PUBLISH-1.2.0"
-          test "${GITHUB_REF}" = "refs/tags/v1.2.0"
+          set -euo pipefail
 
-      - name: Checkout
+          version="${{ inputs.version }}"
+          release_tag="${{ inputs.release_tag }}"
+          expected_commit="${{ inputs.expected_commit }}"
+          confirmation="${{ inputs.confirmation }}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "MODELSYNC_PUBLISH_INPUT_INVALID: version must be stable SemVer major.minor.patch."
+            exit 1
+          fi
+
+          if [[ "$release_tag" != "v$version" ]]; then
+            echo "MODELSYNC_PUBLISH_INPUT_INVALID: release_tag must equal v${version}."
+            exit 1
+          fi
+
+          if [[ "$confirmation" != "PUBLISH-$version" ]]; then
+            echo "MODELSYNC_PUBLISH_INPUT_INVALID: confirmation must equal PUBLISH-${version}."
+            exit 1
+          fi
+
+          if [[ ! "$expected_commit" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "MODELSYNC_PUBLISH_INPUT_INVALID: expected_commit must be a full 40-character SHA."
+            exit 1
+          fi
+
+      - name: Checkout immutable release tag
         uses: actions/checkout@v4
         with:
-          ref: v1.2.0
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+
+      - name: Validate immutable tag identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          head_sha="$(git rev-parse HEAD)"
+          tag_target="$(git rev-list -n 1 "${{ inputs.release_tag }}")"
+          tag_type="$(git cat-file -t "${{ inputs.release_tag }}")"
+          remote_target="$(git ls-remote origin "refs/tags/${{ inputs.release_tag }}^{}" | awk '{print $1}')"
+
+          if [[ "$head_sha" != "${{ inputs.expected_commit }}" ]]; then
+            echo "MODELSYNC_RELEASE_TAG_MISMATCH: checkout HEAD does not match expected commit."
+            exit 1
+          fi
+
+          if [[ "$tag_target" != "${{ inputs.expected_commit }}" ]]; then
+            echo "MODELSYNC_RELEASE_TAG_MISMATCH: local tag target does not match expected commit."
+            exit 1
+          fi
+
+          if [[ "$tag_type" != "tag" ]]; then
+            echo "MODELSYNC_RELEASE_TAG_MISMATCH: release tag must be annotated."
+            exit 1
+          fi
+
+          if [[ "$remote_target" != "${{ inputs.expected_commit }}" ]]; then
+            echo "MODELSYNC_RELEASE_TAG_MISMATCH: remote tag target does not match expected commit."
+            exit 1
+          fi
+
+      - name: Validate package versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          mapfile -t versions < <(grep -R "<Version>" --include "*.csproj" . | sed -E 's/.*<Version>([^<]+)<\/Version>.*/\1/' | sort -u)
+
+          if [[ "${#versions[@]}" -ne 1 || "${versions[0]}" != "$version" ]]; then
+            echo "MODELSYNC_PACKAGE_VERSION_MISMATCH: all package projects must use version ${version}."
+            printf '%s\n' "${versions[@]}"
+            exit 1
+          fi
+
+      - name: Verify required CI evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          commit="${{ inputs.expected_commit }}"
+          release_tag="${{ inputs.release_tag }}"
+          required=("CI" "Integration Tests")
+
+          for workflow in "${required[@]}"; do
+            run_json="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch "$release_tag" --commit "$commit" --limit 10 --json conclusion,headSha,status,databaseId --jq 'map(select(.headSha == "'"$commit"'")) | first')"
+            if [[ -z "$run_json" || "$run_json" == "null" ]]; then
+              echo "MODELSYNC_REQUIRED_CI_MISSING: ${workflow} run was not found for ${commit}."
+              exit 1
+            fi
+
+            conclusion="$(printf '%s' "$run_json" | jq -r '.conclusion')"
+            status="$(printf '%s' "$run_json" | jq -r '.status')"
+            run_id="$(printf '%s' "$run_json" | jq -r '.databaseId')"
+
+            if [[ "$status" != "completed" || "$conclusion" != "success" ]]; then
+              echo "MODELSYNC_REQUIRED_CI_NOT_SUCCESS: ${workflow} run ${run_id} is ${status}/${conclusion}."
+              exit 1
+            fi
+          done
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -51,10 +161,167 @@ jobs:
         run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-all
 
       - name: Pack
-        run: dotnet pack ModelSync.sln --configuration Release --no-build --output ./artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifacts/publication
+          dotnet pack ModelSync.sln --configuration Release --no-build --output artifacts/publication
+
+      - name: Validate package set
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          expected=(
+            "UmbrellaFrame.ModelSync.Core.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.SqlServer.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.MySql.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.PostgreSQL.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.SQLite.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.Analyzers.${version}.nupkg"
+          )
+
+          mapfile -t actual < <(find artifacts/publication -maxdepth 1 -type f -name "*.nupkg" -printf '%f\n' | sort)
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+
+          if [[ "${#actual[@]}" -ne 6 ]]; then
+            echo "MODELSYNC_PACKAGE_SET_INVALID: expected exactly six nupkg files."
+            printf '%s\n' "${actual[@]}"
+            exit 1
+          fi
+
+          if ! diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}"); then
+            echo "MODELSYNC_PACKAGE_SET_INVALID: package IDs or versions do not match the allowlist."
+            exit 1
+          fi
+
+          if find artifacts/publication -maxdepth 1 -type f \( -name "*-rc*" -o -name "*local*" -o -name "*1.2.1*" \) | grep .; then
+            echo "MODELSYNC_PACKAGE_SET_INVALID: RC/local/previous-version package found."
+            exit 1
+          fi
 
       - name: Package smoke
-        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke artifacts 1.2.0
+        run: dotnet run --project tools/UmbrellaFrame.ModelSync.RepositoryChecks -- verify-package-smoke artifacts/publication "${{ inputs.version }}"
+
+      - name: Create publication manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd artifacts/publication
+          sha256sum *.nupkg > SHA256SUMS.txt
+          jq -n \
+            --arg version "${{ inputs.version }}" \
+            --arg releaseTag "${{ inputs.release_tag }}" \
+            --arg expectedCommit "${{ inputs.expected_commit }}" \
+            --arg workflowRunId "${{ github.run_id }}" \
+            '{version:$version,releaseTag:$releaseTag,expectedCommit:$expectedCommit,workflowRunId:$workflowRunId,packages:[]}' \
+            > evidence.json
+          jq -n --arg version "${{ inputs.version }}" '{version:$version,packageCount:6}' > package-manifest.json
+
+      - name: Upload publication artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modelsync-${{ inputs.version }}-publication
+          path: |
+            artifacts/publication/*.nupkg
+            artifacts/publication/*.snupkg
+            artifacts/publication/SHA256SUMS.txt
+            artifacts/publication/package-manifest.json
+            artifacts/publication/evidence.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Verify NuGet production secret
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${NUGET_API_KEY:-}" ]]; then
+            echo "MODELSYNC_NUGET_PRODUCTION_SECRET_MISSING"
+            exit 1
+          fi
+
+      - name: Verify NuGet version availability before publish
+        id: nuget_availability
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+          packages=(
+            "UmbrellaFrame.ModelSync.Core"
+            "UmbrellaFrame.ModelSync.SqlServer"
+            "UmbrellaFrame.ModelSync.MySql"
+            "UmbrellaFrame.ModelSync.PostgreSQL"
+            "UmbrellaFrame.ModelSync.SQLite"
+            "UmbrellaFrame.ModelSync.Analyzers"
+          )
+
+          existing=0
+          for package in "${packages[@]}"; do
+            id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
+            response="$(curl --fail --silent --show-error "https://api.nuget.org/v3-flatcontainer/${id}/index.json")"
+            if printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null; then
+              echo "MODELSYNC_NUGET_VERSION_EXISTS: ${package} ${version}"
+              existing=$((existing + 1))
+            fi
+          done
+
+          if [[ "$existing" -eq 6 ]]; then
+            echo "MODELSYNC_NUGET_ALREADY_PUBLISHED: all packages already exist."
+            echo "all_exists=true" >> "$GITHUB_OUTPUT"
+            echo "none_exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$existing" -ne 0 ]]; then
+            echo "MODELSYNC_1_2_2_PARTIAL_NUGET_PUBLICATION"
+            exit 1
+          fi
+
+          echo "all_exists=false" >> "$GITHUB_OUTPUT"
+          echo "none_exists=true" >> "$GITHUB_OUTPUT"
 
       - name: Publish packages
-        run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+        if: steps.nuget_availability.outputs.none_exists == 'true'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ inputs.version }}"
+
+          wait_for_version() {
+            local package="$1"
+            local id
+            id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
+            for attempt in {1..30}; do
+              if curl --fail --silent "https://api.nuget.org/v3-flatcontainer/${id}/index.json" \
+                | jq -e --arg version "$version" '.versions | index($version)' >/dev/null; then
+                return 0
+              fi
+              sleep 10
+            done
+            echo "MODELSYNC_NUGET_VISIBILITY_TIMEOUT: ${package} ${version}"
+            return 1
+          }
+
+          publish_one() {
+            local package="$1"
+            local path="artifacts/publication/${package}.${version}.nupkg"
+            dotnet nuget push "$path" \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json
+            wait_for_version "$package"
+          }
+
+          publish_one "UmbrellaFrame.ModelSync.Core"
+          publish_one "UmbrellaFrame.ModelSync.SqlServer"
+          publish_one "UmbrellaFrame.ModelSync.MySql"
+          publish_one "UmbrellaFrame.ModelSync.PostgreSQL"
+          publish_one "UmbrellaFrame.ModelSync.SQLite"
+          publish_one "UmbrellaFrame.ModelSync.Analyzers"
