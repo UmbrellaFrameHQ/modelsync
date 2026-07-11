@@ -266,7 +266,7 @@ jobs:
           for package in "${packages[@]}"; do
             id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
             response="$(curl --silent --show-error "https://api.nuget.org/v3-flatcontainer/${id}/index.json" || true)"
-            if printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null; then
+            if printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null 2>/dev/null; then
               echo "MODELSYNC_NUGET_VERSION_EXISTS: ${package} ${version}"
               existing=$((existing + 1))
             fi
@@ -321,7 +321,7 @@ jobs:
             local response
             id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
             response="$(curl --silent --show-error "https://api.nuget.org/v3-flatcontainer/${id}/index.json" || true)"
-            printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null
+            printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null 2>/dev/null
           }
 
           publish_one() {
