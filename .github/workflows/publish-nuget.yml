@@ -281,14 +281,17 @@ jobs:
 
           if [[ "$existing" -ne 0 ]]; then
             echo "MODELSYNC_PARTIAL_NUGET_PUBLICATION"
-            exit 1
           fi
 
           echo "all_exists=false" >> "$GITHUB_OUTPUT"
-          echo "none_exists=true" >> "$GITHUB_OUTPUT"
+          if [[ "$existing" -eq 0 ]]; then
+            echo "none_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "none_exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish packages
-        if: steps.nuget_availability.outputs.none_exists == 'true'
+        if: steps.nuget_availability.outputs.all_exists != 'true'
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         shell: bash
@@ -312,9 +315,23 @@ jobs:
             return 1
           }
 
+          version_exists() {
+            local package="$1"
+            local id
+            local response
+            id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
+            response="$(curl --silent --show-error "https://api.nuget.org/v3-flatcontainer/${id}/index.json" || true)"
+            printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null
+          }
+
           publish_one() {
             local package="$1"
             local path="artifacts/publication/${package}.${version}.nupkg"
+            if version_exists "$package"; then
+              echo "MODELSYNC_NUGET_SKIP_EXISTING: ${package} ${version}"
+              return 0
+            fi
+
             dotnet nuget push "$path" \
               --api-key "$NUGET_API_KEY" \
               --source https://api.nuget.org/v3/index.json
@@ -326,5 +343,5 @@ jobs:
           publish_one "UmbrellaFrame.ModelSync.MySql"
           publish_one "UmbrellaFrame.ModelSync.PostgreSQL"
           publish_one "UmbrellaFrame.ModelSync.SQLite"
-          publish_one "UmbrellaFrame.ModelSync.Oracle"
           publish_one "UmbrellaFrame.ModelSync.Analyzers"
+          publish_one "UmbrellaFrame.ModelSync.Oracle"
