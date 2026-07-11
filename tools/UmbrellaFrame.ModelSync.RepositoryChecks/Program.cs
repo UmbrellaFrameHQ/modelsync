@@ -10,7 +10,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.2.2";
+    private const string CurrentReleaseVersion = "1.2.3";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -566,7 +566,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.2.2</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.2.3</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -903,10 +903,12 @@ internal static class Program
             "docs/releases/_template.md",
             "docs/releases/1.2.1.md",
             "docs/releases/1.2.2.md",
+            "docs/releases/1.2.3.md",
             "docs/migrations/README.md",
             "docs/migrations/_template.md",
             "docs/migrations/1.2.0-to-1.2.1.md",
             "docs/migrations/1.2.1-to-1.2.2.md",
+            "docs/migrations/1.2.2-to-1.2.3.md",
             "docs/versioning-and-compatibility.md",
             "docs/deprecation-policy.md",
             "docs/roadmap-1.3.md"
@@ -919,22 +921,20 @@ internal static class Program
 
         var readme = ReadRequired(root, "README.md", violations);
         RequireContains(readme, "Versioning, Release Notes and Migration Guides", "README.md: versioning/release navigation section is missing.", violations);
-        RequireContains(readme, "docs/releases/1.2.2.md", "README.md: current 1.2.2 release note link is missing.", violations);
-        RequireContains(readme, "docs/migrations/1.2.1-to-1.2.2.md", "README.md: 1.2.1 to 1.2.2 migration guide link is missing.", violations);
+        RequireContains(readme, "docs/releases/1.2.3.md", "README.md: current 1.2.3 release note link is missing.", violations);
+        RequireContains(readme, "docs/migrations/1.2.2-to-1.2.3.md", "README.md: 1.2.2 to 1.2.3 migration guide link is missing.", violations);
 
-        var release = ReadRequired(root, "docs/releases/1.2.2.md", violations);
-        RequireContains(release, "2026-07-01", "docs/releases/1.2.2.md: final release date is missing.", violations);
-        RequireContains(release, "ModelSync 1.2.2 - Integration Workflow Reliability and Release Gate Correction", "docs/releases/1.2.2.md: release title is missing.", violations);
-        RequireContains(release, "Unpublished 1.2.1 tag", "docs/releases/1.2.2.md: unpublished 1.2.1 tag note is missing.", violations);
-        RequireContains(release, "Fixed", "docs/releases/1.2.2.md: closed bug list is missing.", violations);
+        var release = ReadRequired(root, "docs/releases/1.2.3.md", violations);
+        RequireContains(release, "ModelSync 1.2.3 - SQL Server DBReset and Native Lock Fix", "docs/releases/1.2.3.md: release title is missing.", violations);
+        RequireContains(release, "Fixed", "docs/releases/1.2.3.md: closed bug list is missing.", violations);
 
         var changelog = ReadRequired(root, "CHANGELOG.md", violations);
-        RequireContains(changelog, "## [1.2.2] - 2026-07-01", "CHANGELOG.md: final 1.2.2 entry is missing.", violations);
+        RequireContains(changelog, "## [1.2.3] - 2026-07-12", "CHANGELOG.md: final 1.2.3 entry is missing.", violations);
 
         foreach (var packageId in SupportedPackageIds())
         {
             var expected = $"dotnet add package {packageId} --version {CurrentReleaseVersion}";
-            RequireContains(readme, expected, $"README.md: missing 1.2.2 install snippet for {packageId}.", violations);
+            RequireContains(readme, expected, $"README.md: missing 1.2.3 install snippet for {packageId}.", violations);
         }
 
         foreach (var project in new[]
@@ -1600,6 +1600,7 @@ internal static class Program
             "UmbrellaFrame.ModelSync.MySql",
             "UmbrellaFrame.ModelSync.PostgreSQL",
             "UmbrellaFrame.ModelSync.SQLite",
+            "UmbrellaFrame.ModelSync.Oracle",
             "UmbrellaFrame.ModelSync.Analyzers"
         };
 

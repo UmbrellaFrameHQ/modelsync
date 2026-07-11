@@ -64,12 +64,14 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
     {
         AlterColumn,
         ModifyColumn,
+        Modify,
         AlterColumnType
     }
 
     public enum DefaultConstraintStyle
     {
         AlterColumnSetDefault,
+        ModifyColumnDefault,
         NamedConstraintForColumn,
         Unsupported
     }
@@ -79,7 +81,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         QualifiedMerge,
         DuplicateKeyUpdate,
         ConflictUpdate,
-        FileStoreConflictUpdate
+        FileStoreConflictUpdate,
+        OracleMerge
     }
 
     public enum CatalogQueryStyle
@@ -87,7 +90,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         NativeSystemCatalog,
         StandardInformationSchema,
         ObjectRelationalCatalog,
-        FilePragma
+        FilePragma,
+        OracleDataDictionary
     }
 
     public enum RoutineCreationMode

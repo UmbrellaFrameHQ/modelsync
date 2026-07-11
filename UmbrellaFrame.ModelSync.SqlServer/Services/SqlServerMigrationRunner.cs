@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -51,9 +52,11 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             using (var connection = SqlServerConnectionFactory.Create(builder.ConnectionString))
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                var backupSql = BuildBackupSql(targetDb);
                 var sql = $@"
 IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'{EscapeLiteral(targetDb)}')
 BEGIN
+{backupSql}
     ALTER DATABASE [{EscapeIdentifier(targetDb)}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
     DROP DATABASE [{EscapeIdentifier(targetDb)}];
 END
@@ -324,6 +327,31 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
 
         private static string EscapeLiteral(string value)
             => value.Replace("'", "''");
+
+        private string BuildBackupSql(string databaseName)
+        {
+            var reset = Options.ResetOptions;
+            if (reset == null || !reset.BackupBeforeReset)
+                return string.Empty;
+
+            var backupPath = ResolveBackupPath(reset, databaseName);
+            return $"    BACKUP DATABASE [{EscapeIdentifier(databaseName)}] TO DISK = N'{EscapeLiteral(backupPath)}' WITH INIT, COPY_ONLY;\r\n";
+        }
+
+        private static string ResolveBackupPath(DatabaseResetOptions reset, string databaseName)
+        {
+            if (!string.IsNullOrWhiteSpace(reset.BackupFilePath))
+                return reset.BackupFilePath!;
+
+            if (string.IsNullOrWhiteSpace(reset.BackupDirectory))
+                throw new InvalidOperationException("BackupDirectory or BackupFilePath is required when BackupBeforeReset is enabled.");
+
+            var fileName = string.IsNullOrWhiteSpace(reset.BackupFileName)
+                ? $"{databaseName}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.bak"
+                : reset.BackupFileName!;
+
+            return Path.Combine(reset.BackupDirectory!, fileName);
+        }
 
         private bool IsLegacyEmbeddedSqlEnabled()
             => Options.AppliedCompatibilityProfiles.Contains(MigrationCompatibilityProfiles.LegacyEmbeddedSql);

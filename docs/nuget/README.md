@@ -1,4 +1,4 @@
-# ModelSync
+﻿# ModelSync
 
 ![ModelSync](https://raw.githubusercontent.com/UmbrellaFrameHQ/modelsync/main/assets/icons/modelsync-core.png)
 
@@ -11,9 +11,9 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 
 Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic compiler. Provider packages supply structured descriptors and thin ADO.NET adapters; application-supplied SQL files remain user-authored artifacts.
 
-## 1.2.2 Integration Workflow Reliability and Release Gate Correction
+## 1.2.3 SQL Server DBReset and Native Lock Fix
 
-The current package line is `1.2.2`. This release keeps 1.2.0 and 1.2.1-compatible source valid while correcting the required MySQL/MariaDB integration release gate.
+The current package line is `1.2.3`. This release keeps 1.2.x-compatible source valid while fixing SQL Server reset/native migration lock ordering for applications that rebuild a database and then run table sync plus ordered SQL migrations.
 
 Previewed capabilities:
 
@@ -28,7 +28,7 @@ Previewed capabilities:
 
 SQLite stored procedures remain unsupported.
 
-## What's New in 1.2.2
+## What's New in 1.2.3
 
 - Provider migration runners can apply ordered table, stored procedure, trigger, seed, and custom SQL scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -38,12 +38,15 @@ SQLite stored procedures remain unsupported.
 - Stored procedure synchronization supports SQL Server, MySQL/MariaDB, and PostgreSQL.
 - Provider model synchronizers can compare attribute models with a live database and apply only safe additive changes.
 - Migration runners explain why history tables are used instead of relying only on live catalog checks.
+- Oracle provider preview adds Docker-verified table DDL generation/execution and targets `netstandard2.1`.
+- SQL Server `ResetDatabase=true` now performs the destructive reset before acquiring the provider-native migration lock, so `DROP DATABASE` / `ALTER DATABASE` cannot break the lock release session.
+- SQL Server reset can optionally run `BACKUP DATABASE` before dropping the target database by setting `BackupBeforeReset`.
 
-## 1.2.2 Operational Hardening
+## 1.2.3 Operational Hardening
 
-ModelSync 1.2.2 is the current package line for the integration workflow reliability correction.
+ModelSync 1.2.3 is the current package line for the SQL Server DBReset/native lock correction.
 
-1.2.2 includes:
+1.2.3 includes:
 
 - `DbColumnName` for explicit column-name mapping.
 - `DbIgnore` for excluding schema-only public helper properties.
@@ -52,6 +55,7 @@ ModelSync 1.2.2 is the current package line for the integration workflow reliabi
 - Read-only migration comparison; infrastructure creation is explicit through `RunAsync()` or `EnsureInfrastructureAsync()`.
 - `SkippedOperations` for safe operations disabled by options.
 - Structured reset options, readiness strategy contracts, migration lock contracts, transaction policy metadata, and `RunWithResultAsync()` execution reporting.
+- Controlled DB reset support with explicit approval, expected database validation, provider system-database protection, SQL Server reset-before-lock ordering, and optional SQL Server backup-before-reset.
 
 ## Packages
 
@@ -62,6 +66,7 @@ ModelSync 1.2.2 is the current package line for the integration workflow reliabi
 | `UmbrellaFrame.ModelSync.SqlServer` | SQL Server and Azure SQL provider |
 | `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL provider |
 | `UmbrellaFrame.ModelSync.SQLite` | SQLite provider |
+| `UmbrellaFrame.ModelSync.Oracle` | Oracle provider for table DDL |
 | `UmbrellaFrame.ModelSync.Analyzers` | Roslyn compile-time model validation |
 
 ## Install
@@ -69,17 +74,18 @@ ModelSync 1.2.2 is the current package line for the integration workflow reliabi
 Install only the provider you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.2
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.2
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.2
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.2
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.2.3
 ```
 
 Optional analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.3
 ```
 
 ## Quick Start

@@ -2,6 +2,21 @@
 
 All notable ModelSync changes are tracked here.
 
+## [1.2.3] - 2026-07-12
+
+SQL Server DBReset and native migration lock fix.
+
+### Fixed
+
+- SQL Server migration runner now performs destructive database reset before acquiring the provider-native migration lock.
+- Native lock release failures are logged without hiding the migration result.
+- SQL Server reset can optionally create a backup before dropping the target database with `DatabaseResetOptions.BackupBeforeReset`.
+
+### Tests
+
+- Added unit coverage for reset-before-lock ordering, safe lock release failure handling, and backup path validation.
+- Added SQL Server integration coverage for reset + schema/history creation + SQL migration + seed execution followed by an idempotent second run.
+
 ## [1.2.2] - 2026-07-01
 
 Integration Workflow Reliability and Release Gate Correction.

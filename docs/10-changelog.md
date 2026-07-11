@@ -8,6 +8,17 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-12 - SQL Server DBReset and Native Lock Fix
+
+### Fixed
+- SQL Server migration runner now performs destructive database reset before acquiring the provider-native migration lock. This prevents `ALTER DATABASE` / `DROP DATABASE` from breaking the lock session and causing release/dispose failures during application startup.
+- Provider-native migration lock release failures are now logged as diagnostics without hiding the original migration outcome.
+- SQL Server reset flows can optionally run `BACKUP DATABASE` before dropping the target database through `DatabaseResetOptions.BackupBeforeReset`.
+
+### Tests
+- Added unit coverage for reset-before-lock ordering, safe lock release failure handling, and backup-path validation.
+- Added SQL Server integration coverage for reset + schema/history creation + SQL migration + seed execution followed by an idempotent second run.
+
 ## [1.2.2] - 2026-07-01 - Integration Workflow Reliability and Release Gate Correction
 
 ### Fixed

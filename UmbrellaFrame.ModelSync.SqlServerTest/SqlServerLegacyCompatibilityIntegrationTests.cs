@@ -90,6 +90,30 @@ IF NOT EXISTS (
         Assert.That(result.Items.Single(i => i.ScriptId == scriptId).BatchCount, Is.EqualTo(3));
     }
 
+    [Test]
+    public async Task ResetDatabase_WithNativeLock_ShouldRecreateDatabaseRunMigrationsAndRemainIdempotent()
+    {
+        RequireIntegration();
+        var connectionString = GetConnectionString();
+        var expectedDatabase = new SqlConnectionStringBuilder(connectionString).InitialCatalog;
+
+        var first = CreateResetRunner(connectionString, expectedDatabase);
+        var firstResult = await first.RunWithResultAsync();
+
+        Assert.That(firstResult.Succeeded, Is.True);
+        Assert.That(firstResult.LockAcquired, Is.True);
+        Assert.That(TableExists(connectionString, "app", "ModelSyncResetNativeLockProbe"), Is.True);
+        Assert.That(HistoryRows(connectionString), Is.GreaterThanOrEqualTo(2));
+
+        var second = CreateResetRunner(connectionString, expectedDatabase);
+        var secondResult = await second.RunWithResultAsync();
+
+        Assert.That(secondResult.Succeeded, Is.True);
+        Assert.That(secondResult.LockAcquired, Is.True);
+        Assert.That(TableExists(connectionString, "app", "ModelSyncResetNativeLockProbe"), Is.True);
+        Assert.That(HistoryRows(connectionString), Is.GreaterThanOrEqualTo(2));
+    }
+
     private static SqlServerMigrationRunner CreateRunner(
         string seedSql = "IF OBJECT_ID(N'dbo.ModelSyncLegacySeed', N'U') IS NULL CREATE TABLE dbo.ModelSyncLegacySeed(Id INT IDENTITY(1,1) PRIMARY KEY, Name NVARCHAR(100) NOT NULL);",
         string id = "001",
@@ -100,6 +124,35 @@ IF NOT EXISTS (
         var runner = new SqlServerMigrationRunner(connectionString, MigrationRunnerOptions.Default()
             .ApplyCompatibilityProfile(MigrationCompatibilityProfiles.LegacyEmbeddedSql));
         runner.RegisterScript(MigrationScriptDefinition.Create(id, name, MigrationScriptCategory.Seeds, seedSql));
+        return runner;
+    }
+
+    private static SqlServerMigrationRunner CreateResetRunner(string connectionString, string expectedDatabase)
+    {
+        var runner = new SqlServerMigrationRunner(connectionString, new MigrationRunnerOptions
+        {
+            ResetDatabase = true,
+            ResetOptions = new DatabaseResetOptions
+            {
+                Enabled = true,
+                Approval = DestructiveOperationOptions.Allow(),
+                ExpectedDatabaseName = expectedDatabase,
+                BackupBeforeReset = false
+            }
+        });
+
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            "reset-table",
+            "Reset Native Lock Probe Table",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE app.ModelSyncResetNativeLockProbe(Id INT NOT NULL PRIMARY KEY, Name NVARCHAR(64) NOT NULL);"));
+
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            "reset-seed",
+            "Reset Native Lock Probe Seed",
+            MigrationScriptCategory.Seeds,
+            "INSERT INTO app.ModelSyncResetNativeLockProbe(Id, Name) VALUES (1, N'CreatedAfterReset');"));
+
         return runner;
     }
 
@@ -123,5 +176,28 @@ IF NOT EXISTS (
         using var command = connection.CreateCommand();
         command.CommandText = $"IF DB_ID(N'{database.Replace("'", "''")}') IS NULL CREATE DATABASE [{database.Replace("]", "]]")}];";
         command.ExecuteNonQuery();
+    }
+
+    private static bool TableExists(string connectionString, string schema, string table)
+    {
+        using var connection = new SqlConnection(connectionString);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT OBJECT_ID(@name, N'U');";
+        command.Parameters.AddWithValue("@name", $"{schema}.{table}");
+        var value = command.ExecuteScalar();
+        return value != null && value != DBNull.Value;
+    }
+
+    private static int HistoryRows(string connectionString)
+    {
+        using var connection = new SqlConnection(connectionString);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT
+    (SELECT COUNT(*) FROM sec.SchemaMigration_Tables) +
+    (SELECT COUNT(*) FROM sec.SchemaMigration_Seeds);";
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 }

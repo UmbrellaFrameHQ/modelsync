@@ -14,5 +14,9 @@ namespace UmbrellaFrame.ModelSync.Core
         public int ReadinessRetryCount { get; set; } = 20;
         public TimeSpan ReadinessRetryDelay { get; set; } = TimeSpan.FromMilliseconds(500);
         public TimeSpan CommandTimeout { get; set; } = TimeSpan.FromSeconds(30);
+        public bool BackupBeforeReset { get; set; }
+        public string? BackupFilePath { get; set; }
+        public string? BackupDirectory { get; set; }
+        public string? BackupFileName { get; set; }
     }
 }

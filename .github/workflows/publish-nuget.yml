@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Immutable release tag to publish, for example v1.2.2
+        description: Immutable release tag to publish, for example v1.2.3
         required: true
         type: string
       version:
-        description: Stable package version to publish, for example 1.2.2
+        description: Stable package version to publish, for example 1.2.3
         required: true
         type: string
       expected_commit:
@@ -179,14 +179,15 @@ jobs:
             "UmbrellaFrame.ModelSync.MySql.${version}.nupkg"
             "UmbrellaFrame.ModelSync.PostgreSQL.${version}.nupkg"
             "UmbrellaFrame.ModelSync.SQLite.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.Oracle.${version}.nupkg"
             "UmbrellaFrame.ModelSync.Analyzers.${version}.nupkg"
           )
 
           mapfile -t actual < <(find artifacts/publication -maxdepth 1 -type f -name "*.nupkg" -printf '%f\n' | sort)
           mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
 
-          if [[ "${#actual[@]}" -ne 6 ]]; then
-            echo "MODELSYNC_PACKAGE_SET_INVALID: expected exactly six nupkg files."
+          if [[ "${#actual[@]}" -ne 7 ]]; then
+            echo "MODELSYNC_PACKAGE_SET_INVALID: expected exactly seven nupkg files."
             printf '%s\n' "${actual[@]}"
             exit 1
           fi
@@ -218,7 +219,7 @@ jobs:
             --arg workflowRunId "${{ github.run_id }}" \
             '{version:$version,releaseTag:$releaseTag,expectedCommit:$expectedCommit,workflowRunId:$workflowRunId,packages:[]}' \
             > evidence.json
-          jq -n --arg version "${{ inputs.version }}" '{version:$version,packageCount:6}' > package-manifest.json
+          jq -n --arg version "${{ inputs.version }}" '{version:$version,packageCount:7}' > package-manifest.json
 
       - name: Upload publication artifact
         uses: actions/upload-artifact@v4
@@ -257,20 +258,21 @@ jobs:
             "UmbrellaFrame.ModelSync.MySql"
             "UmbrellaFrame.ModelSync.PostgreSQL"
             "UmbrellaFrame.ModelSync.SQLite"
+            "UmbrellaFrame.ModelSync.Oracle"
             "UmbrellaFrame.ModelSync.Analyzers"
           )
 
           existing=0
           for package in "${packages[@]}"; do
             id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
-            response="$(curl --fail --silent --show-error "https://api.nuget.org/v3-flatcontainer/${id}/index.json")"
+            response="$(curl --silent --show-error "https://api.nuget.org/v3-flatcontainer/${id}/index.json" || true)"
             if printf '%s' "$response" | jq -e --arg version "$version" '.versions | index($version)' >/dev/null; then
               echo "MODELSYNC_NUGET_VERSION_EXISTS: ${package} ${version}"
               existing=$((existing + 1))
             fi
           done
 
-          if [[ "$existing" -eq 6 ]]; then
+          if [[ "$existing" -eq 7 ]]; then
             echo "MODELSYNC_NUGET_ALREADY_PUBLISHED: all packages already exist."
             echo "all_exists=true" >> "$GITHUB_OUTPUT"
             echo "none_exists=false" >> "$GITHUB_OUTPUT"
@@ -278,7 +280,7 @@ jobs:
           fi
 
           if [[ "$existing" -ne 0 ]]; then
-            echo "MODELSYNC_1_2_2_PARTIAL_NUGET_PUBLICATION"
+            echo "MODELSYNC_PARTIAL_NUGET_PUBLICATION"
             exit 1
           fi
 
@@ -324,4 +326,5 @@ jobs:
           publish_one "UmbrellaFrame.ModelSync.MySql"
           publish_one "UmbrellaFrame.ModelSync.PostgreSQL"
           publish_one "UmbrellaFrame.ModelSync.SQLite"
+          publish_one "UmbrellaFrame.ModelSync.Oracle"
           publish_one "UmbrellaFrame.ModelSync.Analyzers"

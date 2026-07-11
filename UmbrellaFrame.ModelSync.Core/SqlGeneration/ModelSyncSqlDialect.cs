@@ -51,6 +51,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
                 return string.Empty;
             if (_descriptor.DefaultConstraintStyle == DefaultConstraintStyle.NamedConstraintForColumn)
                 return "ALTER TABLE " + Qualify(table.Schema, table.Name) + " ADD CONSTRAINT " + Quote("DF_" + table.Name + "_" + column.Name) + " DEFAULT " + column.DefaultSql + " FOR " + Quote(column.Name) + ";";
+            if (_descriptor.DefaultConstraintStyle == DefaultConstraintStyle.ModifyColumnDefault)
+                return "ALTER TABLE " + Qualify(table.Schema, table.Name) + " MODIFY " + Quote(column.Name) + " DEFAULT " + column.DefaultSql + ";";
             return "ALTER TABLE " + Qualify(table.Schema, table.Name) + " ALTER " + Quote(column.Name) + " SET DEFAULT " + column.DefaultSql + ";";
         }
 
@@ -61,6 +63,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
             {
                 case AlterColumnTypeStyle.ModifyColumn:
                     return prefix + "MODIFY COLUMN " + Quote(column) + " " + storeType + ";";
+                case AlterColumnTypeStyle.Modify:
+                    return prefix + "MODIFY " + Quote(column) + " " + storeType + ";";
                 case AlterColumnTypeStyle.AlterColumnType:
                     return prefix + "ALTER COLUMN " + Quote(column) + " TYPE " + storeType + ";";
                 default:
@@ -96,6 +100,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
                         ModelSyncSqlPurpose.History);
                 case HistorySqlStyle.FileStoreConflictUpdate:
                     return new ModelSyncSqlCommand(BuildHistoryTablesUnqualified(string.Empty, string.Empty, "TEXT", "CURRENT_TIMESTAMP"), ModelSyncSqlPurpose.History);
+                case HistorySqlStyle.OracleMerge:
+                    return new ModelSyncSqlCommand(BuildOracleHistoryInfrastructure(), ModelSyncSqlPurpose.History);
                 default:
                     return new ModelSyncSqlCommand(BuildQualifiedHistoryInfrastructure(schema), ModelSyncSqlPurpose.History, new[] { new ModelSyncSqlParameter("@SchemaName", schema) });
             }
@@ -140,13 +146,16 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
                 return new ModelSyncSqlCommand(sql, ModelSyncSqlPurpose.History);
             }
 
+            if (_descriptor.HistoryStyle == HistorySqlStyle.OracleMerge)
+                return new ModelSyncSqlCommand(string.Empty, ModelSyncSqlPurpose.History);
+
             return new ModelSyncSqlCommand(string.Empty, ModelSyncSqlPurpose.History);
         }
 
         public ModelSyncSqlCommand BuildReadHistoryPlan(string schema, MigrationScriptCategory category)
         {
             var table = HistoryTableName(category);
-            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate
+            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate || _descriptor.HistoryStyle == HistorySqlStyle.OracleMerge
                 ? Quote(table)
                 : Qualify(schema, table);
             var id = Quote("Id");
@@ -157,7 +166,7 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         public ModelSyncSqlCommand BuildReadLegacyHistoryPlan(string schema, MigrationScriptCategory category)
         {
             var table = HistoryTableName(category);
-            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate
+            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate || _descriptor.HistoryStyle == HistorySqlStyle.OracleMerge
                 ? Quote(table)
                 : Qualify(schema, table);
             return new ModelSyncSqlCommand("SELECT " + Quote("Id") + " FROM " + target + ";", ModelSyncSqlPurpose.History);
@@ -166,7 +175,7 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         public string BuildAddHistoryHashColumnSql(string schema, MigrationScriptCategory category)
         {
             var table = HistoryTableName(category);
-            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate
+            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate || _descriptor.HistoryStyle == HistorySqlStyle.OracleMerge
                 ? Quote(table)
                 : Qualify(schema, table);
             return "ALTER TABLE " + target + " " + _descriptor.AddColumnKeyword + " " + Quote("SqlHash") + " VARCHAR(128) NULL;";
@@ -174,7 +183,7 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
 
         public ModelSyncSqlCommand BuildRecordHistoryPlan(string schema, MigrationScriptCategory category, string id, string name, string hash)
         {
-            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate
+            var target = _descriptor.HistoryStyle == HistorySqlStyle.DuplicateKeyUpdate || _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate || _descriptor.HistoryStyle == HistorySqlStyle.OracleMerge
                 ? Quote(HistoryTableName(category))
                 : Qualify(schema, HistoryTableName(category));
             string sql;
@@ -186,6 +195,10 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
             {
                 var excluded = _descriptor.HistoryStyle == HistorySqlStyle.FileStoreConflictUpdate ? "excluded" : "EXCLUDED";
                 sql = "INSERT INTO " + target + "(" + Quote("Id") + ", " + Quote("Name") + ", " + Quote("SqlHash") + ") VALUES (@Id, @Name, @SqlHash) ON CONFLICT(" + Quote("Id") + ") DO UPDATE SET " + Quote("Name") + " = " + excluded + "." + Quote("Name") + ", " + Quote("SqlHash") + " = " + excluded + "." + Quote("SqlHash") + ", " + Quote("UpdateAt") + " = CURRENT_TIMESTAMP;";
+            }
+            else if (_descriptor.HistoryStyle == HistorySqlStyle.OracleMerge)
+            {
+                sql = "MERGE INTO " + target + " target USING (SELECT :Id AS Id, :Name AS Name, :SqlHash AS SqlHash FROM dual) source ON (target." + Quote("Id") + " = source.Id) WHEN MATCHED THEN UPDATE SET target." + Quote("Name") + " = source.Name, target." + Quote("SqlHash") + " = source.SqlHash, target." + Quote("UpdateAt") + " = SYSTIMESTAMP WHEN NOT MATCHED THEN INSERT (" + Quote("Id") + ", " + Quote("Name") + ", " + Quote("SqlHash") + ") VALUES (source.Id, source.Name, source.SqlHash)";
             }
             else
             {
@@ -206,6 +219,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
                 return new ModelSyncSqlCommand("SELECT COL_LENGTH(@ObjectName, @ColumnName)", ModelSyncSqlPurpose.Introspection, new[] { new ModelSyncSqlParameter("@ObjectName", column.Schema + "." + column.Table), new ModelSyncSqlParameter("@ColumnName", column.Column) });
             if (_descriptor.CatalogStyle == CatalogQueryStyle.FilePragma)
                 return BuildReadFileCatalogTableInfoPlan(column.Table);
+            if (_descriptor.CatalogStyle == CatalogQueryStyle.OracleDataDictionary)
+                return new ModelSyncSqlCommand("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :Table AND COLUMN_NAME = :Column", ModelSyncSqlPurpose.Introspection, new[] { new ModelSyncSqlParameter(":Table", column.Table), new ModelSyncSqlParameter(":Column", column.Column) });
             return new ModelSyncSqlCommand("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = @Schema AND table_name = @Table AND column_name = @Column;", ModelSyncSqlPurpose.Introspection, new[] { new ModelSyncSqlParameter("@Schema", column.Schema), new ModelSyncSqlParameter("@Table", column.Table), new ModelSyncSqlParameter("@Column", column.Column) });
         }
 
@@ -230,6 +245,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
             {
                 case CatalogQueryStyle.NativeSystemCatalog:
                     return new ModelSyncSqlCommand(@"SELECT s.name AS SchemaName, t.name AS TableName, c.name AS ColumnName, ty.name AS TypeName, c.max_length, c.precision, c.scale, c.is_nullable, CASE WHEN dc.object_id IS NULL THEN 0 ELSE 1 END AS HasDefault, CASE WHEN cc.object_id IS NULL THEN 0 ELSE 1 END AS HasCheck FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id JOIN sys.columns c ON c.object_id = t.object_id JOIN sys.types ty ON ty.user_type_id = c.user_type_id LEFT JOIN sys.default_constraints dc ON dc.parent_object_id = t.object_id AND dc.parent_column_id = c.column_id LEFT JOIN sys.check_constraints cc ON cc.parent_object_id = t.object_id AND cc.parent_column_id = c.column_id WHERE s.name = @Schema;", ModelSyncSqlPurpose.Introspection);
+                case CatalogQueryStyle.OracleDataDictionary:
+                    return new ModelSyncSqlCommand(@"SELECT USER AS table_schema, TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, NULLABLE, CASE WHEN DATA_DEFAULT IS NULL THEN 0 ELSE 1 END AS has_default FROM USER_TAB_COLUMNS", ModelSyncSqlPurpose.Introspection);
                 default:
                     return new ModelSyncSqlCommand(@"SELECT table_schema, table_name, column_name, data_type, character_maximum_length, numeric_precision, numeric_scale, is_nullable, CASE WHEN column_default IS NULL THEN 0 ELSE 1 END AS has_default FROM information_schema.columns WHERE table_schema = @Schema;", ModelSyncSqlPurpose.Introspection);
             }
@@ -243,6 +260,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
                     return new ModelSyncSqlCommand(@"SELECT s.name, t.name, i.name, i.is_unique, c.name FROM sys.indexes i JOIN sys.tables t ON t.object_id = i.object_id JOIN sys.schemas s ON s.schema_id = t.schema_id JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id WHERE i.is_primary_key = 0 AND i.name IS NOT NULL AND s.name = @Schema ORDER BY s.name, t.name, i.name, ic.key_ordinal;", ModelSyncSqlPurpose.Introspection);
                 case CatalogQueryStyle.ObjectRelationalCatalog:
                     return new ModelSyncSqlCommand(@"SELECT n.nspname, t.relname, i.relname, ix.indisunique, a.attname FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_class i ON i.oid = ix.indexrelid JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS keys(attnum, ord) ON true JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = keys.attnum WHERE n.nspname = @Schema AND NOT ix.indisprimary ORDER BY n.nspname, t.relname, i.relname, keys.ord;", ModelSyncSqlPurpose.Introspection);
+                case CatalogQueryStyle.OracleDataDictionary:
+                    return new ModelSyncSqlCommand(@"SELECT USER, c.TABLE_NAME, c.INDEX_NAME, CASE WHEN i.UNIQUENESS = 'UNIQUE' THEN 1 ELSE 0 END, c.COLUMN_NAME FROM USER_IND_COLUMNS c JOIN USER_INDEXES i ON i.INDEX_NAME = c.INDEX_NAME WHERE c.INDEX_NAME NOT LIKE 'SYS_%' ORDER BY c.TABLE_NAME, c.INDEX_NAME, c.COLUMN_POSITION", ModelSyncSqlPurpose.Introspection);
                 default:
                     return new ModelSyncSqlCommand("SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, NON_UNIQUE, COLUMN_NAME FROM information_schema.statistics WHERE TABLE_SCHEMA = @Schema AND INDEX_NAME <> 'PRIMARY' ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;", ModelSyncSqlPurpose.Introspection);
             }
@@ -256,6 +275,8 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
                     return new ModelSyncSqlCommand(@"SELECT s.name, t.name, kc.name, c.name FROM sys.key_constraints kc JOIN sys.tables t ON t.object_id = kc.parent_object_id JOIN sys.schemas s ON s.schema_id = t.schema_id JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id WHERE kc.type = 'UQ' AND s.name = @Schema;", ModelSyncSqlPurpose.Introspection);
                 case CatalogQueryStyle.ObjectRelationalCatalog:
                     return new ModelSyncSqlCommand(@"SELECT n.nspname, t.relname, c.conname, c.contype FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname = @Schema;", ModelSyncSqlPurpose.Introspection);
+                case CatalogQueryStyle.OracleDataDictionary:
+                    return new ModelSyncSqlCommand(@"SELECT USER, TABLE_NAME, CONSTRAINT_NAME, CASE CONSTRAINT_TYPE WHEN 'U' THEN 'UNIQUE' WHEN 'P' THEN 'PRIMARY KEY' WHEN 'R' THEN 'FOREIGN KEY' WHEN 'C' THEN 'CHECK' ELSE CONSTRAINT_TYPE END FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE IN ('U','P','R','C')", ModelSyncSqlPurpose.Introspection);
                 default:
                     return new ModelSyncSqlCommand("SELECT TABLE_SCHEMA, TABLE_NAME, CONSTRAINT_NAME, CONSTRAINT_TYPE FROM information_schema.table_constraints WHERE TABLE_SCHEMA = @Schema;", ModelSyncSqlPurpose.Introspection);
             }
@@ -272,11 +293,15 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         {
             if (_descriptor.CatalogStyle == CatalogQueryStyle.ObjectRelationalCatalog)
                 return new ModelSyncSqlCommand(@"SELECT n.nspname, t.relname, c.conname, c.contype, a.attname, rn.nspname, rt.relname, ra.attname FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ck.attnum LEFT JOIN pg_class rt ON rt.oid = c.confrelid LEFT JOIN pg_namespace rn ON rn.oid = rt.relnamespace LEFT JOIN LATERAL unnest(c.confkey) WITH ORDINALITY AS rf(attnum, ord) ON rf.ord = ck.ord LEFT JOIN pg_attribute ra ON ra.attrelid = rt.oid AND ra.attnum = rf.attnum WHERE n.nspname = @Schema AND c.contype IN ('u', 'f') ORDER BY n.nspname, t.relname, c.conname, ck.ord;", ModelSyncSqlPurpose.Introspection);
+            if (_descriptor.CatalogStyle == CatalogQueryStyle.OracleDataDictionary)
+                return new ModelSyncSqlCommand(@"SELECT USER, c.TABLE_NAME, c.CONSTRAINT_NAME, CASE c.CONSTRAINT_TYPE WHEN 'U' THEN 'UNIQUE' WHEN 'R' THEN 'FOREIGN KEY' ELSE c.CONSTRAINT_TYPE END, cc.COLUMN_NAME, USER, rc.TABLE_NAME, rcc.COLUMN_NAME FROM USER_CONSTRAINTS c JOIN USER_CONS_COLUMNS cc ON cc.CONSTRAINT_NAME = c.CONSTRAINT_NAME LEFT JOIN USER_CONSTRAINTS rc ON rc.CONSTRAINT_NAME = c.R_CONSTRAINT_NAME LEFT JOIN USER_CONS_COLUMNS rcc ON rcc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME AND rcc.POSITION = cc.POSITION WHERE c.CONSTRAINT_TYPE IN ('U','R') ORDER BY c.TABLE_NAME, c.CONSTRAINT_NAME, cc.POSITION", ModelSyncSqlPurpose.Introspection);
             return new ModelSyncSqlCommand(@"SELECT k.TABLE_SCHEMA, k.TABLE_NAME, k.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE, k.COLUMN_NAME, k.REFERENCED_TABLE_SCHEMA, k.REFERENCED_TABLE_NAME, k.REFERENCED_COLUMN_NAME FROM information_schema.key_column_usage k JOIN information_schema.table_constraints tc ON tc.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA AND tc.TABLE_NAME = k.TABLE_NAME AND tc.CONSTRAINT_NAME = k.CONSTRAINT_NAME WHERE k.TABLE_SCHEMA = @Schema AND tc.CONSTRAINT_TYPE IN ('UNIQUE', 'FOREIGN KEY') ORDER BY k.TABLE_SCHEMA, k.TABLE_NAME, k.CONSTRAINT_NAME, k.ORDINAL_POSITION;", ModelSyncSqlPurpose.Introspection);
         }
 
         public ModelSyncSqlCommand BuildReadChecksPlan()
-            => new ModelSyncSqlCommand("SELECT CONSTRAINT_SCHEMA, TABLE_NAME, CONSTRAINT_NAME FROM information_schema.check_constraints WHERE CONSTRAINT_SCHEMA = @Schema;", ModelSyncSqlPurpose.Introspection);
+            => _descriptor.CatalogStyle == CatalogQueryStyle.OracleDataDictionary
+                ? new ModelSyncSqlCommand("SELECT USER, TABLE_NAME, CONSTRAINT_NAME FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'C'", ModelSyncSqlPurpose.Introspection)
+                : new ModelSyncSqlCommand("SELECT CONSTRAINT_SCHEMA, TABLE_NAME, CONSTRAINT_NAME FROM information_schema.check_constraints WHERE CONSTRAINT_SCHEMA = @Schema;", ModelSyncSqlPurpose.Introspection);
 
         public ModelSyncSqlCommand BuildReadFileCatalogTablesPlan()
             => new ModelSyncSqlCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';", ModelSyncSqlPurpose.Introspection);
@@ -480,6 +505,10 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         private string BuildHistoryTablesUnqualified(string open, string close, string timestampType, string now)
             => string.Concat(new[] { "SchemaMigration_Tables", "SchemaMigration_StoredProcedures", "SchemaMigration_Triggers", "SchemaMigration_Seeds", "SchemaMigration_CustomSql" }
                 .Select(t => "CREATE TABLE IF NOT EXISTS " + open + t + close + "(" + open + "Id" + close + " VARCHAR(128) NOT NULL PRIMARY KEY, " + open + "Name" + close + " VARCHAR(256) NOT NULL, " + open + "SqlHash" + close + " VARCHAR(128) NULL, " + open + "AppliedAt" + close + " " + timestampType + " NOT NULL DEFAULT " + now + ", " + open + "UpdateAt" + close + " " + timestampType + " NULL);"));
+
+        private string BuildOracleHistoryInfrastructure()
+            => string.Concat(new[] { "SchemaMigration_Tables", "SchemaMigration_StoredProcedures", "SchemaMigration_Triggers", "SchemaMigration_Seeds", "SchemaMigration_CustomSql" }
+                .Select(t => "DECLARE n NUMBER; BEGIN SELECT COUNT(*) INTO n FROM USER_TABLES WHERE TABLE_NAME = '" + t.ToUpperInvariant() + "'; IF n = 0 THEN EXECUTE IMMEDIATE 'CREATE TABLE " + Quote(t) + "(" + Quote("Id") + " VARCHAR2(128) NOT NULL PRIMARY KEY, " + Quote("Name") + " VARCHAR2(256) NOT NULL, " + Quote("SqlHash") + " VARCHAR2(128) NULL, " + Quote("AppliedAt") + " TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " + Quote("UpdateAt") + " TIMESTAMP NULL)'; END IF; END;"));
 
         private static void ValidateIdentifier(string identifier)
             => SqlIdentifierValidator.Validate(identifier, nameof(identifier));

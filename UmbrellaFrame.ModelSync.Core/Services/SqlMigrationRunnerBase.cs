@@ -115,6 +115,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 TransactionPolicyStartsTransaction();
                 ResolveAtomicityLevel();
 
+                if (Options.ResetDatabase)
+                    await ResetDatabaseAsync(cancellationToken).ConfigureAwait(false);
+
                 if (Options.LockOptions != null && Options.LockOptions.Enabled && Options.LockOptions.Mode != MigrationLockMode.Disabled)
                 {
                     var strategy = ResolveLockStrategy();
@@ -122,9 +125,6 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                     lockHandle = await strategy.AcquireAsync(lockConnection, Options.LockOptions, cancellationToken).ConfigureAwait(false);
                     lockConnection = null;
                 }
-
-                if (Options.ResetDatabase)
-                    await ResetDatabaseAsync(cancellationToken).ConfigureAwait(false);
 
                 await EnsureInfrastructureAsync(cancellationToken).ConfigureAwait(false);
 
@@ -146,7 +146,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             }
             finally
             {
-                lockHandle?.Dispose();
+                SafeDisposeLock(lockHandle);
                 lockConnection?.Dispose();
             }
         }
@@ -166,6 +166,11 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 TransactionPolicyStartsTransaction();
                 ResolveAtomicityLevel();
 
+                if (Options.ResetDatabase)
+                {
+                    await ResetDatabaseAsync(cancellationToken).ConfigureAwait(false);
+                }
+
                 if (Options.LockOptions != null && Options.LockOptions.Enabled && Options.LockOptions.Mode != MigrationLockMode.Disabled)
                 {
                     var strategy = ResolveLockStrategy();
@@ -173,11 +178,6 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                     lockHandle = await strategy.AcquireAsync(lockConnection, Options.LockOptions, cancellationToken).ConfigureAwait(false);
                     lockConnection = null;
                     lockAcquired = true;
-                }
-
-                if (Options.ResetDatabase)
-                {
-                    await ResetDatabaseAsync(cancellationToken).ConfigureAwait(false);
                 }
 
                 await EnsureInfrastructureAsync(cancellationToken).ConfigureAwait(false);
@@ -242,7 +242,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             }
             finally
             {
-                lockHandle?.Dispose();
+                SafeDisposeLock(lockHandle);
                 lockConnection?.Dispose();
             }
         }
@@ -380,6 +380,10 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             {
                 if (string.IsNullOrWhiteSpace(reset.ExpectedDatabaseName))
                     throw new InvalidOperationException("ExpectedDatabaseName is required for database reset.");
+                if (reset.BackupBeforeReset &&
+                    string.IsNullOrWhiteSpace(reset.BackupFilePath) &&
+                    string.IsNullOrWhiteSpace(reset.BackupDirectory))
+                    throw new InvalidOperationException("BackupDirectory or BackupFilePath is required when BackupBeforeReset is enabled.");
                 if (reset.AllowedEnvironments != null && reset.AllowedEnvironments.Count > 0 &&
                     !reset.AllowedEnvironments.Any(e => string.Equals(e, reset.EnvironmentName, StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("Database reset is not allowed for the configured environment.");
@@ -483,6 +487,21 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
         protected virtual bool IsMissingInfrastructureException(Exception exception)
             => false;
+
+        private void SafeDisposeLock(IDisposable? lockHandle)
+        {
+            if (lockHandle == null)
+                return;
+
+            try
+            {
+                lockHandle.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Migration lock release failed after migration execution. The original migration outcome is preserved.");
+            }
+        }
 
         private void ValidateUniqueDefinitions()
         {

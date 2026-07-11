@@ -57,3 +57,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
+  modelsync-oracle:
+    # Oracle Database Free is used only as a local/integration-test fixture.
+    # The application user connects through FREEPDB1 on the mapped local port.
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: modelsync-oracle
+    environment:
+      ORACLE_PASSWORD: "ModelSync_Pass123"
+      APP_USER: "MODELSYNC_TEST"
+      APP_USER_PASSWORD: "ModelSync_Pass123"
+    ports:
+      - "11521:1521"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 60s

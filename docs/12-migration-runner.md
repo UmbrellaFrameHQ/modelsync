@@ -162,6 +162,28 @@ var options = new MigrationRunnerOptions
 
 ModelSync rejects empty expected database names, environment mismatches, and known provider system databases such as SQL Server `master`, PostgreSQL `template0`, and MySQL `information_schema`.
 
+When reset is enabled, ModelSync performs the destructive reset before acquiring the provider-native migration lock. This prevents SQL Server `DROP DATABASE` / `ALTER DATABASE` operations from breaking the lock session. After the reset finishes, infrastructure and migration scripts run under the normal migration lock.
+
+SQL Server reset can optionally create a database backup before the database is dropped:
+
+```csharp
+var options = new MigrationRunnerOptions
+{
+    ResetDatabase = true,
+    ResetOptions = new DatabaseResetOptions
+    {
+        Enabled = true,
+        Approval = DestructiveOperationOptions.Allow(),
+        ExpectedDatabaseName = "appdb",
+        BackupBeforeReset = true,
+        BackupDirectory = @"C:\SqlBackups",
+        BackupFileName = "appdb-before-reset.bak"
+    }
+};
+```
+
+You can also set `BackupFilePath` directly. Backup paths are SQL Server paths, so they must be valid from the SQL Server service account's point of view. If `BackupBeforeReset` is false, ModelSync resets without creating a backup.
+
 ## Execution Results
 
 `RunAsync()` is preserved for compatibility and returns the migration plans produced before execution. New code can call:

@@ -4,6 +4,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Services;
 
@@ -80,6 +81,59 @@ public class MigrationOperationalHardeningTests
         await runner.RunWithResultAsync();
 
         Assert.That(runner.ResetCalled, Is.True);
+    }
+
+    [Test]
+    public void RunWithResultAsync_WhenBackupBeforeResetHasNoPath_ShouldRejectBeforeReset()
+    {
+        var runner = new FakeRunner(new MigrationRunnerOptions
+        {
+            ResetDatabase = true,
+            ResetOptions = new DatabaseResetOptions
+            {
+                Enabled = true,
+                Approval = DestructiveOperationOptions.Allow(),
+                ExpectedDatabaseName = "appdb",
+                BackupBeforeReset = true
+            }
+        });
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunWithResultAsync());
+
+        Assert.That(ex!.Message, Does.Contain("BackupDirectory"));
+        Assert.That(runner.ResetCalled, Is.False);
+    }
+
+    [Test]
+    public async Task RunWithResultAsync_WhenResetAndNativeLockAreEnabled_ShouldResetBeforeLockAndIgnoreReleaseFailure()
+    {
+        var events = new List<string>();
+        var strategy = new ThrowingReleaseLockStrategy(events);
+        var runner = new FakeRunner(new MigrationRunnerOptions
+        {
+            ResetDatabase = true,
+            ResetOptions = new DatabaseResetOptions
+            {
+                Enabled = true,
+                Approval = DestructiveOperationOptions.Allow(),
+                ExpectedDatabaseName = "appdb"
+            },
+            LockOptions = new MigrationLockOptions
+            {
+                Mode = MigrationLockMode.ProviderNative,
+                Name = "modelsync-reset-lock-test"
+            }
+        }, strategy, events);
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "Create", MigrationScriptCategory.CustomSql, "OK;"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(runner.ResetCalled, Is.True);
+        Assert.That(events.Take(2).ToArray(), Is.EqualTo(new[] { "Reset", "Acquire" }));
+        Assert.That(strategy.AcquireCount, Is.EqualTo(1));
+        Assert.That(strategy.ReleaseAttemptCount, Is.EqualTo(1));
+        Assert.That(runner.RecordedHistoryCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -283,10 +337,12 @@ public class MigrationOperationalHardeningTests
     private class FakeRunner : SqlMigrationRunnerBase
     {
         private readonly IDictionary<string, string> _history = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly IList<string>? _events;
 
-        public FakeRunner(MigrationRunnerOptions? options = null)
-            : base(Configure(options ?? MigrationRunnerOptions.Default()))
+        public FakeRunner(MigrationRunnerOptions? options = null, IMigrationLockStrategy? lockStrategy = null, IList<string>? events = null)
+            : base(Configure(options ?? MigrationRunnerOptions.Default(), lockStrategy), NullLogger.Instance, lockStrategy!)
         {
+            _events = events;
         }
 
         public bool ResetCalled { get; private set; }
@@ -299,6 +355,7 @@ public class MigrationOperationalHardeningTests
         protected override Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
             ResetCalled = true;
+            _events?.Add("Reset");
             return Task.CompletedTask;
         }
 
@@ -324,10 +381,50 @@ public class MigrationOperationalHardeningTests
             return Task.CompletedTask;
         }
 
-        private static MigrationRunnerOptions Configure(MigrationRunnerOptions options)
+        protected override Task<DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<DbConnection?>(null);
+
+        private static MigrationRunnerOptions Configure(MigrationRunnerOptions options, IMigrationLockStrategy? lockStrategy)
         {
-            options.LockOptions.Mode = MigrationLockMode.InMemory;
+            if (lockStrategy == null)
+                options.LockOptions.Mode = MigrationLockMode.InMemory;
             return options;
+        }
+    }
+
+    private sealed class ThrowingReleaseLockStrategy : IMigrationLockStrategy
+    {
+        private readonly IList<string> _events;
+
+        public int AcquireCount { get; private set; }
+        public int ReleaseAttemptCount { get; private set; }
+
+        public ThrowingReleaseLockStrategy(IList<string> events)
+        {
+            _events = events;
+        }
+
+        public Task<IDisposable> AcquireAsync(DbConnection connection, MigrationLockOptions options, CancellationToken cancellationToken)
+        {
+            AcquireCount++;
+            _events.Add("Acquire");
+            return Task.FromResult<IDisposable>(new ThrowingHandle(this));
+        }
+
+        private sealed class ThrowingHandle : IDisposable
+        {
+            private readonly ThrowingReleaseLockStrategy _owner;
+
+            public ThrowingHandle(ThrowingReleaseLockStrategy owner)
+            {
+                _owner = owner;
+            }
+
+            public void Dispose()
+            {
+                _owner.ReleaseAttemptCount++;
+                throw new InvalidOperationException("Simulated broken lock connection.");
+            }
         }
     }
 
