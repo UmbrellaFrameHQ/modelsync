@@ -7,13 +7,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/UmbrellaFrameHQ/modelsync/blob/main/LICENSE)
 [![.NET Standard 2.0](https://img.shields.io/badge/.NET%20Standard-2.0-purple?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
 
-ModelSync is an attribute-based SQL schema generator for .NET. It lets you define database schema with plain C# classes and generate or execute DDL without Entity Framework or a heavy ORM.
+ModelSync is for .NET projects that want database schema to stay explicit, close to the code, and easy to review. You define tables with plain C# classes, keep migration SQL in the project, and use ModelSync to generate provider-specific DDL, run ordered migrations, synchronize stored procedures, and produce deployment reports without adopting a heavy ORM.
 
 Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic compiler. Provider packages supply structured descriptors and thin ADO.NET adapters; application-supplied SQL files remain user-authored artifacts.
 
 ## 1.3.0 CLI, Dry-Run and Migration Reporting
 
-The current package line is `1.3.0`. This release keeps 1.2.x-compatible source valid while adding the first official CLI, script validation, dry-run previews, Markdown/JSON migration reports, clearer provider support status, and the CLI/DB-first scaffolder roadmap.
+The current package line is `1.3.0`. This release adds the first official CLI, script validation, dry-run previews, and Markdown/JSON migration reports. Existing 1.2.x code remains source-compatible, but teams now have a more practical workflow for checking and documenting migrations before they reach production.
 
 Previewed capabilities:
 

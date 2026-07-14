@@ -15,9 +15,9 @@
 
 ## English
 
-ModelSync is an attribute-based SQL schema and script management toolkit for .NET. It lets you define database tables with plain C# classes, generate provider-specific SQL, execute explicit DDL operations, synchronize stored procedures, and run ordered migration scripts without introducing an ORM.
+ModelSync is for .NET developers who want database schema to stay close to the code, but do not want a full ORM just to create and maintain tables. You describe tables with plain C# classes, keep SQL scripts in your project, and let ModelSync generate provider-specific DDL, run ordered migrations, synchronize stored procedures, and produce reviewable deployment reports.
 
-ModelSync is built for teams that want Dapper, ADO.NET, or hand-written SQL, but still want repeatable schema generation, safety checks, and provider-specific SQL output.
+It works especially well with Dapper, ADO.NET, or hand-written SQL projects where every schema change should be visible, repeatable, and safe to review before it touches production.
 
 ### Packages
 
@@ -51,7 +51,7 @@ Current package version: `1.3.0`
 
 ModelSync packages can be restored by NuGet CLI, MSBuild, CI agents, Artifactory and package mirrors. Download counts are not unique user counts, but older versions continuing to restore is still a compatibility signal. Published package versions should not be overwritten or unlisted as a substitute for migration documentation.
 
-Release status: ModelSync 1.3.0 is the CLI, dry-run and migration reporting release. It keeps the 1.2.x API compatible while adding script validation, safe preview workflows, Markdown/JSON migration reports, clearer provider support status, and the CLI/DB-first scaffolder roadmap.
+Release status: ModelSync 1.3.0 is the CLI, dry-run and migration reporting release. The goal is simple: before a migration changes a database, you should be able to validate the scripts, preview the plan, run it deliberately, and keep a readable report afterwards. Existing 1.2.x APIs remain compatible.
 
 NuGet consumption note: ModelSync packages are restored by NuGet CLI, MSBuild, CI systems, Artifactory and mirrors. Download counts are not unique user counts, so this README does not publish temporary download snapshots. Continued restores of older versions still require disciplined API compatibility, migration documentation and non-destructive package version handling.
 
@@ -59,7 +59,7 @@ Architecture rule: `UmbrellaFrame.ModelSync.Core` owns SQL generation and migrat
 
 ### 1.3.0 CLI, Dry-Run and Migration Reporting
 
-The repository is preparing the 1.3.0 line for the first official CLI, safe dry-run workflows, migration reports and production usage clarity. The 1.2.0 compatibility contract remains valid.
+This release moves ModelSync from "library you can call from code" toward "schema tool you can also use from CI". The new `modelsync` CLI validates script folders, previews pending work with `--dry-run`, applies migrations through the existing runner, and can write Markdown/JSON reports for pull requests, deployment logs, and release evidence.
 
 1.3.0 compatibility scope:
 
@@ -109,7 +109,7 @@ Legacy runner migration guides:
 
 ModelSync is intentionally not an ORM. It does not track entities, generate LINQ queries, manage change tracking, lazy-load relations, or replace Dapper/ADO.NET/EF Core for runtime data access.
 
-It is also not a silent production mutation engine. Live model synchronization is dry-run-first: ModelSync can apply safe additive operations, but destructive or risky operations are reported and blocked instead of being silently executed.
+It is also not a silent production mutation engine. The safe path is visible by design: compare first, inspect the plan, then apply only the operations you deliberately allow. Destructive or risky model changes are reported and blocked instead of being quietly executed.
 
 Registered SQL scripts are treated as trusted project artifacts. ModelSync risk-classifies model-diff operations, but it does not parse arbitrary SQL script text to prove whether the script itself is destructive.
 
@@ -498,7 +498,7 @@ MIT (c) UmbrellaFrame
 
 ModelSync, .NET için attribute tabanlı SQL şema ve script yönetim aracıdır. Sade C# sınıflarıyla veritabanı tabloları tanımlamanızı, sağlayıcıya özel SQL üretmenizi, açık DDL işlemleri çalıştırmanızı, stored procedure senkronizasyonu yapmanızı ve sıralı migration scriptleri uygulamanızı sağlar. Bunu ORM bağımlılığı eklemeden yapar.
 
-ModelSync; Dapper, ADO.NET veya elle yazılmış SQL kullanan ama tekrar edilebilir şema üretimi, güvenlik kontrolleri ve sağlayıcıya özel SQL çıktısı isteyen ekipler için tasarlanmıştır.
+ModelSync; veritabanı şemasını koda yakın tutmak isteyen, ama yalnızca tablo ve migration yönetimi için ağır bir ORM kullanmak istemeyen .NET ekipleri için tasarlanmıştır. C# modelleriyle tablo yapısını tarif edebilir, SQL scriptlerini proje içinde tutabilir, migration akışını kontrollü çalıştırabilir ve sonunda okunabilir raporlar alabilirsiniz.
 
 ### Paketler
 
@@ -515,7 +515,7 @@ UmbrellaFrame.ModelSync.Cli           Komut satiri migration runner ve rapor ara
 
 Güncel paket sürümü: `1.3.0`
 
-Yayın durumu: ModelSync 1.3.0, CLI, dry-run ve migration reporting odaklı özellik sürümüdür. Script doğrulama, güvenli önizleme akışı ve Markdown/JSON migration raporları eklerken 1.2.x API uyumluluğunu korur.
+Yayın durumu: ModelSync 1.3.0, CLI, dry-run ve migration reporting odaklı özellik sürümüdür. Amaç basit: migration veritabanına dokunmadan önce scriptleri doğrulayabilin, planı görebilin, işlemi bilinçli çalıştırabilin ve sonrasında ekipçe okuyabileceğiniz bir rapor saklayabilin. 1.2.x API uyumluluğu korunur.
 
 NuGet tuketim notu: ModelSync paketleri NuGet CLI, MSBuild, CI sistemleri, Artifactory ve mirror istemcileri tarafindan restore edilir. Download sayilari benzersiz kullanici sayisi degildir; bu nedenle README gecici download snapshot yayinlamaz. Buna ragmen eski surumlerin restore edilmeye devam etmesi API compatibility, migration dokumantasyonu ve package version'lari overwrite/unlist etmeme disiplinini gerekli kilar.
 
@@ -539,7 +539,7 @@ Mimari kural: SQL üretimi ve migration planlama, provider-agnostic compiler ile
 
 ModelSync bilinçli olarak ORM değildir. Entity tracking, LINQ query üretimi, change tracking, lazy loading veya runtime data access görevi üstlenmez. Dapper, ADO.NET, EF Core veya kendi repository katmanınızın yerine geçmez.
 
-ModelSync sessiz ve kontrolsüz bir production mutasyon motoru değildir. Canlı model senkronizasyonu dry-run-first çalışır; eksik tablo, güvenli eksik kolon, indeks ve desteklenen constraint gibi additive işlemleri uygulayabilir, fakat drop, rename, tip değişikliği ve nullable-to-not-null gibi riskli işlemleri raporlar ve otomatik uygulamaz.
+ModelSync sessiz ve kontrolsüz bir production mutasyon motoru değildir. Güvenli yol özellikle görünür bırakılmıştır: önce karşılaştır, planı incele, sonra yalnız bilinçli izin verdiğin işlemleri uygula. Drop, rename, tip değişikliği ve nullable-to-not-null gibi riskli işlemler raporlanır; otomatik ve sessiz şekilde çalıştırılmaz.
 
 ### Kurulum
 
