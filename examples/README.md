@@ -12,6 +12,9 @@ This folder contains copy-friendly examples for trying ModelSync with different 
 | [MySQL stored procedures](mysql-stored-procedures/README.md) | Recreate changed MySQL/MariaDB procedures from project SQL files |
 | [PostgreSQL stored procedures](postgresql-stored-procedures/README.md) | Sync PostgreSQL procedures from project SQL files |
 | [Migration runner](migration-runner/README.md) | Apply ordered table, procedure, trigger, and seed scripts with history tracking |
+| [Migration report](migration-report.md) | Render `RunWithResultAsync()` output as a Markdown deployment report |
+| [CLI quickstart](cli-quickstart/README.md) | Validate scripts, dry-run a plan, apply migrations, and write reports from the `modelsync` tool |
+| [GitHub Actions workflow](github-actions-modelsync.yml) | Validate and preview migrations in CI, then upload Markdown/JSON reports |
 | [SQLite in-memory](sqlite-in-memory.md) | Use SQLite `:memory:` for tests and prototypes |
 | [DestructiveOperationOptions](destructive-operation-options.md) | Explicit opt-in for risky `DROP` and `ALTER` operations |
 

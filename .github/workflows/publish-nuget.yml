@@ -179,8 +179,9 @@ jobs:
             "UmbrellaFrame.ModelSync.MySql.${version}.nupkg"
             "UmbrellaFrame.ModelSync.PostgreSQL.${version}.nupkg"
             "UmbrellaFrame.ModelSync.SQLite.${version}.nupkg"
-            "UmbrellaFrame.ModelSync.Oracle.${version}.nupkg"
             "UmbrellaFrame.ModelSync.Analyzers.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.Cli.${version}.nupkg"
+            "UmbrellaFrame.ModelSync.Oracle.${version}.nupkg"
           )
 
           mapfile -t actual < <(find artifacts/publication -maxdepth 1 -type f -name "*.nupkg" -printf '%f\n' | sort)
@@ -219,7 +220,7 @@ jobs:
             --arg workflowRunId "${{ github.run_id }}" \
             '{version:$version,releaseTag:$releaseTag,expectedCommit:$expectedCommit,workflowRunId:$workflowRunId,packages:[]}' \
             > evidence.json
-          jq -n --arg version "${{ inputs.version }}" '{version:$version,packageCount:7}' > package-manifest.json
+          jq -n --arg version "${{ inputs.version }}" '{version:$version,packageCount:8}' > package-manifest.json
 
       - name: Upload publication artifact
         uses: actions/upload-artifact@v4
@@ -258,8 +259,9 @@ jobs:
             "UmbrellaFrame.ModelSync.MySql"
             "UmbrellaFrame.ModelSync.PostgreSQL"
             "UmbrellaFrame.ModelSync.SQLite"
-            "UmbrellaFrame.ModelSync.Oracle"
             "UmbrellaFrame.ModelSync.Analyzers"
+            "UmbrellaFrame.ModelSync.Cli"
+            "UmbrellaFrame.ModelSync.Oracle"
           )
 
           existing=0
@@ -272,7 +274,7 @@ jobs:
             fi
           done
 
-          if [[ "$existing" -eq 7 ]]; then
+          if [[ "$existing" -eq 8 ]]; then
             echo "MODELSYNC_NUGET_ALREADY_PUBLISHED: all packages already exist."
             echo "all_exists=true" >> "$GITHUB_OUTPUT"
             echo "none_exists=false" >> "$GITHUB_OUTPUT"
@@ -344,4 +346,5 @@ jobs:
           publish_one "UmbrellaFrame.ModelSync.PostgreSQL"
           publish_one "UmbrellaFrame.ModelSync.SQLite"
           publish_one "UmbrellaFrame.ModelSync.Analyzers"
+          publish_one "UmbrellaFrame.ModelSync.Cli"
           publish_one "UmbrellaFrame.ModelSync.Oracle"

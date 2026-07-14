@@ -8,6 +8,20 @@ Versioning: Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-14 - CLI, Dry-Run and Migration Reporting
+
+### Added
+- `MigrationExecutionMarkdownReport` renders `RunWithResultAsync()` output as a Markdown deployment report.
+- `MigrationExecutionJsonReport` renders `RunWithResultAsync()` output as machine-readable JSON without adding a new runtime dependency.
+- `UmbrellaFrame.ModelSync.Cli` adds the `modelsync` .NET tool with `version`, `validate`, and `run --dry-run` commands.
+- Provider support matrix, migration reporting guidance, and CLI/DB-first scaffolder roadmap documentation.
+- Migration report, CLI quickstart, and GitHub Actions examples for storing Markdown and JSON deployment artifacts.
+- Performance smoke coverage for rendering large migration execution reports.
+
+### Changed
+- Oracle is documented as a preview provider until the public NuGet package ID can be published with package-owner API-key permission.
+- 1.3.0 positions ModelSync as a schema lifecycle toolkit: CLI validation, dry-run previews, migration execution, reporting, provider support clarity, and future scaffolder foundation.
+
 ## [1.2.3] - 2026-07-12 - SQL Server DBReset and Native Lock Fix
 
 ### Fixed

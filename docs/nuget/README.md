@@ -1,4 +1,4 @@
-﻿# ModelSync
+# ModelSync
 
 ![ModelSync](https://raw.githubusercontent.com/UmbrellaFrameHQ/modelsync/main/assets/icons/modelsync-core.png)
 
@@ -11,9 +11,9 @@ ModelSync is an attribute-based SQL schema generator for .NET. It lets you defin
 
 Framework-owned SQL is rendered by ModelSync Core through a provider-agnostic compiler. Provider packages supply structured descriptors and thin ADO.NET adapters; application-supplied SQL files remain user-authored artifacts.
 
-## 1.2.3 SQL Server DBReset and Native Lock Fix
+## 1.3.0 CLI, Dry-Run and Migration Reporting
 
-The current package line is `1.2.3`. This release keeps 1.2.x-compatible source valid while fixing SQL Server reset/native migration lock ordering for applications that rebuild a database and then run table sync plus ordered SQL migrations.
+The current package line is `1.3.0`. This release keeps 1.2.x-compatible source valid while adding the first official CLI, script validation, dry-run previews, Markdown/JSON migration reports, clearer provider support status, and the CLI/DB-first scaffolder roadmap.
 
 Previewed capabilities:
 
@@ -28,7 +28,7 @@ Previewed capabilities:
 
 SQLite stored procedures remain unsupported.
 
-## What's New in 1.2.3
+## What's New in 1.3.0
 
 - Provider migration runners can apply ordered table, stored procedure, trigger, seed, and custom SQL scripts.
 - Migration history tables track script `Id`, `Name`, `SqlHash`, `AppliedAt`, and `UpdateAt`.
@@ -38,15 +38,17 @@ SQLite stored procedures remain unsupported.
 - Stored procedure synchronization supports SQL Server, MySQL/MariaDB, and PostgreSQL.
 - Provider model synchronizers can compare attribute models with a live database and apply only safe additive changes.
 - Migration runners explain why history tables are used instead of relying only on live catalog checks.
-- Oracle provider preview adds Docker-verified table DDL generation/execution and targets `netstandard2.1`.
+- Migration execution results can be rendered as Markdown and JSON reports for deployment evidence.
+- The `modelsync` CLI can validate migration script folders, preview plans with `--dry-run`, run migrations, and write Markdown/JSON reports without adding another migration engine.
+- Oracle provider preview adds source/local-package table DDL generation and targets `netstandard2.1`; public NuGet publication is pending package-owner API-key permission for the new package ID.
 - SQL Server `ResetDatabase=true` now performs the destructive reset before acquiring the provider-native migration lock, so `DROP DATABASE` / `ALTER DATABASE` cannot break the lock release session.
 - SQL Server reset can optionally run `BACKUP DATABASE` before dropping the target database by setting `BackupBeforeReset`.
 
-## 1.2.3 Operational Hardening
+## 1.3.0 Operational Hardening
 
-ModelSync 1.2.3 is the current package line for the SQL Server DBReset/native lock correction.
+ModelSync 1.3.0 is the current package line for reporting and production usage clarity.
 
-1.2.3 includes:
+1.3.0 includes:
 
 - `DbColumnName` for explicit column-name mapping.
 - `DbIgnore` for excluding schema-only public helper properties.
@@ -66,26 +68,42 @@ ModelSync 1.2.3 is the current package line for the SQL Server DBReset/native lo
 | `UmbrellaFrame.ModelSync.SqlServer` | SQL Server and Azure SQL provider |
 | `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL provider |
 | `UmbrellaFrame.ModelSync.SQLite` | SQLite provider |
-| `UmbrellaFrame.ModelSync.Oracle` | Oracle provider for table DDL |
+| `UmbrellaFrame.ModelSync.Oracle` | Oracle provider preview for table DDL; public NuGet pending |
 | `UmbrellaFrame.ModelSync.Analyzers` | Roslyn compile-time model validation |
+| `UmbrellaFrame.ModelSync.Cli` | `modelsync` command-line migration runner and report tool |
 
 ## Install
 
 Install only the provider you need:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.2.3
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.3
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.3
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.3
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.3
-dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
 ```
+
+Oracle note: the Oracle provider exists in source and local package validation as a preview provider. Do not document it as a public NuGet dependency until the package-owner API key can create/publish `UmbrellaFrame.ModelSync.Oracle`.
 
 Optional analyzer package:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.3
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
+```
+
+CLI tool:
+
+```bash
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
+modelsync version
+```
+
+Safe-first CLI flow:
+
+```bash
+modelsync validate --scripts ./Database/Scripts
+modelsync run --provider sqlite --connection "Data Source=modelsync-preview.db" --scripts ./Database/Scripts --dry-run
 ```
 
 ## Quick Start

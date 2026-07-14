@@ -10,7 +10,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.2.3";
+    private const string CurrentReleaseVersion = "1.3.0";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -539,7 +539,7 @@ internal static class Program
             violations.Add($"README.md: current package version is not {CurrentReleaseVersion}");
         }
 
-        foreach (var packageId in SupportedPackageIds())
+        foreach (var packageId in PublicLibraryPackageIds())
         {
             var expected = $"dotnet add package {packageId} --version {CurrentReleaseVersion}";
             if (!readme.Contains(expected, StringComparison.Ordinal))
@@ -547,6 +547,8 @@ internal static class Program
                 violations.Add($"README.md: missing install example '{expected}'");
             }
         }
+
+        RequireContains(readme, $"dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version {CurrentReleaseVersion}", "README.md: missing CLI tool install example.", violations);
 
         var nugetReadme = ReadRequired(root, "docs/nuget/README.md", violations);
         if (!nugetReadme.Contains($"What's New in {CurrentReleaseVersion}", StringComparison.Ordinal) &&
@@ -566,7 +568,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.2.3</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.3.0</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -904,14 +906,22 @@ internal static class Program
             "docs/releases/1.2.1.md",
             "docs/releases/1.2.2.md",
             "docs/releases/1.2.3.md",
+            "docs/releases/1.3.0.md",
             "docs/migrations/README.md",
             "docs/migrations/_template.md",
             "docs/migrations/1.2.0-to-1.2.1.md",
             "docs/migrations/1.2.1-to-1.2.2.md",
             "docs/migrations/1.2.2-to-1.2.3.md",
+            "docs/migrations/1.2.3-to-1.3.0.md",
             "docs/versioning-and-compatibility.md",
             "docs/deprecation-policy.md",
-            "docs/roadmap-1.3.md"
+            "docs/provider-support-matrix.md",
+            "docs/migration-reporting.md",
+            "docs/cli-and-scaffolder-roadmap.md",
+            "docs/roadmap-1.3.md",
+            "examples/cli-quickstart/README.md",
+            "examples/cli-quickstart/Database/Scripts/Tables/001_CreateCliProducts.sql",
+            "examples/github-actions-modelsync.yml"
         };
 
         foreach (var file in requiredFiles)
@@ -921,21 +931,32 @@ internal static class Program
 
         var readme = ReadRequired(root, "README.md", violations);
         RequireContains(readme, "Versioning, Release Notes and Migration Guides", "README.md: versioning/release navigation section is missing.", violations);
-        RequireContains(readme, "docs/releases/1.2.3.md", "README.md: current 1.2.3 release note link is missing.", violations);
-        RequireContains(readme, "docs/migrations/1.2.2-to-1.2.3.md", "README.md: 1.2.2 to 1.2.3 migration guide link is missing.", violations);
+        RequireContains(readme, "docs/releases/1.3.0.md", "README.md: current 1.3.0 release note link is missing.", violations);
+        RequireContains(readme, "docs/migrations/1.2.3-to-1.3.0.md", "README.md: 1.2.3 to 1.3.0 migration guide link is missing.", violations);
+        RequireContains(readme, "docs/provider-support-matrix.md", "README.md: provider support matrix link is missing.", violations);
+        RequireContains(readme, "docs/migration-reporting.md", "README.md: migration reporting link is missing.", violations);
+        RequireContains(readme, "docs/cli-and-scaffolder-roadmap.md", "README.md: CLI/scaffolder roadmap link is missing.", violations);
+        RequireContains(readme, "modelsync validate", "README.md: CLI validate example is missing.", violations);
+        RequireContains(readme, "--dry-run", "README.md: CLI dry-run example is missing.", violations);
 
-        var release = ReadRequired(root, "docs/releases/1.2.3.md", violations);
-        RequireContains(release, "ModelSync 1.2.3 - SQL Server DBReset and Native Lock Fix", "docs/releases/1.2.3.md: release title is missing.", violations);
-        RequireContains(release, "Fixed", "docs/releases/1.2.3.md: closed bug list is missing.", violations);
+        var release = ReadRequired(root, "docs/releases/1.3.0.md", violations);
+        RequireContains(release, "ModelSync 1.3.0 - CLI, Dry-Run and Migration Reporting", "docs/releases/1.3.0.md: release title is missing.", violations);
+        RequireContains(release, "MigrationExecutionJsonReport", "docs/releases/1.3.0.md: JSON reporting feature is missing.", violations);
+        RequireContains(release, "modelsync validate", "docs/releases/1.3.0.md: CLI validate feature is missing.", violations);
+        RequireContains(release, "Performance smoke", "docs/releases/1.3.0.md: performance smoke coverage note is missing.", violations);
 
         var changelog = ReadRequired(root, "CHANGELOG.md", violations);
-        RequireContains(changelog, "## [1.2.3] - 2026-07-12", "CHANGELOG.md: final 1.2.3 entry is missing.", violations);
+        RequireContains(changelog, "## [1.3.0] - 2026-07-14", "CHANGELOG.md: final 1.3.0 entry is missing.", violations);
 
-        foreach (var packageId in SupportedPackageIds())
+        foreach (var packageId in PublicLibraryPackageIds())
         {
             var expected = $"dotnet add package {packageId} --version {CurrentReleaseVersion}";
-            RequireContains(readme, expected, $"README.md: missing 1.2.3 install snippet for {packageId}.", violations);
+            RequireContains(readme, expected, $"README.md: missing 1.3.0 install snippet for {packageId}.", violations);
         }
+
+        RequireContains(readme, $"dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version {CurrentReleaseVersion}", "README.md: missing 1.3.0 install snippet for CLI tool.", violations);
+
+        RequireContains(readme, "Oracle note:", "README.md: Oracle preview/public NuGet note is missing.", violations);
 
         foreach (var project in new[]
                  {
@@ -1456,7 +1477,7 @@ internal static class Program
 
     private static string BuildConsumerProjectFile(string version)
     {
-        var packageReferences = string.Join(Environment.NewLine, SupportedPackageIds().Select(packageId =>
+        var packageReferences = string.Join(Environment.NewLine, ConsumerPackageIds().Select(packageId =>
             $"    <PackageReference Include=\"{packageId}\" Version=\"{version}\" />"));
 
         return $"""
@@ -1516,7 +1537,7 @@ internal static class Program
         }
 
         var assets = File.ReadAllText(assetsPath);
-        foreach (var packageId in SupportedPackageIds())
+        foreach (var packageId in ConsumerPackageIds())
         {
             if (!assets.Contains(packageId + "/" + requiredVersion, StringComparison.OrdinalIgnoreCase))
             {
@@ -1593,6 +1614,42 @@ internal static class Program
     }
 
     private static string[] SupportedPackageIds()
+        => new[]
+        {
+            "UmbrellaFrame.ModelSync.Core",
+            "UmbrellaFrame.ModelSync.SqlServer",
+            "UmbrellaFrame.ModelSync.MySql",
+            "UmbrellaFrame.ModelSync.PostgreSQL",
+            "UmbrellaFrame.ModelSync.SQLite",
+            "UmbrellaFrame.ModelSync.Oracle",
+            "UmbrellaFrame.ModelSync.Analyzers",
+            "UmbrellaFrame.ModelSync.Cli"
+        };
+
+    private static string[] PublicNuGetPackageIds()
+        => new[]
+        {
+            "UmbrellaFrame.ModelSync.Core",
+            "UmbrellaFrame.ModelSync.SqlServer",
+            "UmbrellaFrame.ModelSync.MySql",
+            "UmbrellaFrame.ModelSync.PostgreSQL",
+            "UmbrellaFrame.ModelSync.SQLite",
+            "UmbrellaFrame.ModelSync.Analyzers",
+            "UmbrellaFrame.ModelSync.Cli"
+        };
+
+    private static string[] PublicLibraryPackageIds()
+        => new[]
+        {
+            "UmbrellaFrame.ModelSync.Core",
+            "UmbrellaFrame.ModelSync.SqlServer",
+            "UmbrellaFrame.ModelSync.MySql",
+            "UmbrellaFrame.ModelSync.PostgreSQL",
+            "UmbrellaFrame.ModelSync.SQLite",
+            "UmbrellaFrame.ModelSync.Analyzers"
+        };
+
+    private static string[] ConsumerPackageIds()
         => new[]
         {
             "UmbrellaFrame.ModelSync.Core",

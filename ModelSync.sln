@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.7.11925.98 stable
+VisualStudioVersion = 18.7.11925.98
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UmbrellaFrame.ModelSync.Core", "UmbrellaFrame.ModelSync.Core\UmbrellaFrame.ModelSync.Core.csproj", "{E94CB81B-A40E-4FFB-806A-B6EDBC525CC1}"
 EndProject
@@ -36,6 +36,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UmbrellaFrame.ModelSync.Oracle", "UmbrellaFrame.ModelSync.Oracle\UmbrellaFrame.ModelSync.Oracle.csproj", "{F4BFB4C8-376E-476E-9233-185AA2422BA9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UmbrellaFrame.ModelSync.OracleTest", "UmbrellaFrame.ModelSync.OracleTest\UmbrellaFrame.ModelSync.OracleTest.csproj", "{B70669DB-50EA-4434-953B-F9927F5B1DB2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UmbrellaFrame.ModelSync.Cli", "UmbrellaFrame.ModelSync.Cli\UmbrellaFrame.ModelSync.Cli.csproj", "{BA9203EC-C7FA-475B-9F34-A782F0689A03}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -273,6 +275,22 @@ Global
 		{B70669DB-50EA-4434-953B-F9927F5B1DB2}.Release|x64.Build.0 = Release|Any CPU
 		{B70669DB-50EA-4434-953B-F9927F5B1DB2}.Release|x86.ActiveCfg = Release|Any CPU
 		{B70669DB-50EA-4434-953B-F9927F5B1DB2}.Release|x86.Build.0 = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|arm64.Build.0 = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|x64.Build.0 = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Debug|x86.Build.0 = Debug|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|arm64.ActiveCfg = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|arm64.Build.0 = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|x64.ActiveCfg = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|x64.Build.0 = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|x86.ActiveCfg = Release|Any CPU
+		{BA9203EC-C7FA-475B-9F34-A782F0689A03}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
