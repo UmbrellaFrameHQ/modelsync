@@ -33,10 +33,11 @@ dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
 ```
 
-`UmbrellaFrame.ModelSync.Oracle` is a preview provider for table DDL and partial safe model synchronization. Its migration runner, routine synchronization, reset, and native lock features are not production-ready.
+`UmbrellaFrame.ModelSync.Oracle` is publicly available as a preview provider for table DDL and partial safe model synchronization. Its migration runner, routine synchronization, reset, and native lock features are not production-ready.
 
 ## Quick Start
 
@@ -116,6 +117,8 @@ Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 History rows and SQL hashes make repeat runs predictable. Registered SQL files are trusted project artifacts; do not build them from user input.
 
 ## CLI And Reports
+
+The CLI supports `sqlserver`, `mysql`, `mariadb`, `postgresql`, and `sqlite`. Oracle is intentionally unavailable in the CLI while its migration runner remains preview-only.
 
 ```bash
 dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0

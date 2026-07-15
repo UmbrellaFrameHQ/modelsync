@@ -122,6 +122,14 @@ SQLite:
 dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
 ```
 
+Oracle preview:
+
+```bash
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
+```
+
+The Oracle package is publicly available, but its migration runner, stored procedure synchronization, reset, and native lock features are not production-ready. It is therefore not exposed as a `modelsync` CLI provider.
+
 Analyzer:
 
 ```bash

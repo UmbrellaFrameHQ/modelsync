@@ -49,12 +49,15 @@ dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
 ```
 
 Oracle remains a preview provider. Its migration runner, stored procedure synchronization, reset, and native lock features are not production-ready yet. See the [provider support matrix](docs/provider-support-matrix.md) before adopting it.
 
 **Oracle note:** the preview package is published for evaluation, but its support surface is intentionally smaller than the four stable providers.
+
+The `modelsync` CLI currently runs migrations for SQL Server, MySQL, MariaDB, PostgreSQL, and SQLite. Oracle is not exposed through the CLI until its migration runner reaches production-ready status.
 
 ### Five-Minute Table Example
 
@@ -292,10 +295,13 @@ Provider paketi Core paketini otomatik getirir:
 
 ```bash
 dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
 ```
 
 Oracle şu anda preview durumundadır. Tablo DDL ve güvenli model karşılaştırmasının bir bölümü vardır; migration runner, stored procedure, reset ve native lock desteği henüz production seviyesinde değildir.
+
+`modelsync` CLI; SQL Server, MySQL, MariaDB, PostgreSQL ve SQLite migration akışlarını destekler. Oracle migration runner production seviyesine ulaşana kadar CLI provider listesine dahil değildir.
 
 ### Güvenli Çalışma Akışı
 

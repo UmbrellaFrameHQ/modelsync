@@ -21,7 +21,7 @@ CLI, Dry-Run and Migration Reporting.
 
 ### Changed
 
-- Oracle is documented as a preview provider until the public NuGet package ID can be published with package-owner API-key permission.
+- `UmbrellaFrame.ModelSync.Oracle` is published on NuGet as a preview provider; publication status does not expand its intentionally limited migration surface.
 - 1.3.0 positions ModelSync as a schema lifecycle toolkit: CLI validation, dry-run previews, migration execution, reporting, provider support clarity, and future scaffolder foundation.
 - Full EN/TR guides, provider/API references, NuGet README, and CLI examples now match the 1.3.0 behavior.
 - NuGet publication and partial-recovery gates validate the complete eight-package set, including CLI and Oracle.

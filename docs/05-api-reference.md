@@ -347,6 +347,8 @@ Raporlar connection string içermez. Failed batch preview 1024 karakterle sını
 
 ## CLI
 
+Supported migration provider values are `sqlserver`, `mysql`, `mariadb`, `postgresql`, and `sqlite`. The published Oracle preview package is not a CLI provider because its migration runner is not production-ready.
+
 ```bash
 modelsync validate --scripts ./Database/Scripts
 modelsync run --provider sqlite --connection-env MODELSYNC_CONNECTION_STRING --scripts ./Database/Scripts --dry-run

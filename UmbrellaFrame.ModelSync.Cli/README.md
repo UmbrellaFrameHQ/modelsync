@@ -64,4 +64,6 @@ modelsync run \
 
 If neither connection option is supplied, the CLI reads `MODELSYNC_CONNECTION_STRING`.
 
+Oracle is available as a preview provider package, but is intentionally not accepted by the CLI because its migration runner is not production-ready.
+
 `validate` checks folder discovery, script metadata, and duplicate IDs. It does not prove arbitrary SQL safe or execute provider syntax validation. Migration files remain reviewed application artifacts.

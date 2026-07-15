@@ -126,6 +126,14 @@ dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
 dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
 ```
 
+### Oracle preview
+
+```bash
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
+```
+
+Oracle paketi NuGet'te yayımlanmıştır; ancak migration runner, stored procedure synchronization, reset ve native lock özellikleri production seviyesinde değildir. Bu nedenle `modelsync` CLI provider listesinde Oracle bulunmaz.
+
 ### Analyzer
 
 ```bash

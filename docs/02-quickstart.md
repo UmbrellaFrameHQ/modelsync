@@ -17,12 +17,16 @@ dotnet add package UmbrellaFrame.ModelSync.PostgreSQL
 # SQLite
 dotnet add package UmbrellaFrame.ModelSync.SQLite
 
+# Oracle preview
+dotnet add package UmbrellaFrame.ModelSync.Oracle
+
 # Roslyn Analyzer (derleme zamanı uyarıları için - isteğe bağlı)
 dotnet add package UmbrellaFrame.ModelSync.Analyzers
 ```
 
 > 💡 **Not:** Core paketi, provider paketlerine bağımlılık olarak otomatik kurulur.
 > Ayrıca kurmanıza gerek yoktur.
+> Oracle paketi NuGet'te yayımlanmıştır ancak migration runner kapsamı henüz preview durumundadır.
 
 ---
 

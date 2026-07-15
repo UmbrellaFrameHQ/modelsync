@@ -22,7 +22,7 @@ Versioning: Semantic Versioning.
 - Opt-in live scale coverage for one million rows on SQL Server, MySQL, MariaDB, PostgreSQL, SQLite, and Oracle.
 
 ### Changed
-- Oracle is documented as a preview provider until the public NuGet package ID can be published with package-owner API-key permission.
+- `UmbrellaFrame.ModelSync.Oracle` is published on NuGet as a preview provider; publication status does not expand its intentionally limited migration surface.
 - 1.3.0 positions ModelSync as a schema lifecycle toolkit: CLI validation, dry-run previews, migration execution, reporting, provider support clarity, and future scaffolder foundation.
 - Full EN/TR guides, provider/API references, NuGet README, and CLI examples are aligned with 1.3.0.
 - Publication and recovery workflows validate all eight packages, and Oracle integration is part of CI.

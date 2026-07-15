@@ -1,6 +1,6 @@
 # ModelSync Provider Support Matrix
 
-This matrix is intentionally conservative. A feature is listed as supported only when it has package-level API coverage and regression tests in the repository. Preview means the provider exists in source and local package validation, but the public NuGet/package or full legacy migration surface is not yet treated as production-ready.
+This matrix is intentionally conservative. A feature is listed as supported only when it has package-level API coverage and regression tests in the repository. A published package can still be marked preview when its migration surface is intentionally smaller than the stable providers.
 
 ## Public Package Status
 
@@ -11,8 +11,9 @@ This matrix is intentionally conservative. A feature is listed as supported only
 | MySQL/MariaDB | `UmbrellaFrame.ModelSync.MySql` | Published | Table sync, migration runner, stored procedures, named locks. |
 | PostgreSQL | `UmbrellaFrame.ModelSync.PostgreSQL` | Published | Table sync, migration runner, stored procedures, advisory locks. |
 | SQLite | `UmbrellaFrame.ModelSync.SQLite` | Published | Table sync, migration runner, file/in-memory test support. Stored procedures unsupported. |
-| Oracle | `UmbrellaFrame.ModelSync.Oracle` | Preview, public NuGet pending | Table DDL source and local package validation exist. Public NuGet publication requires package-owner API-key permission for the new package ID. |
+| Oracle | `UmbrellaFrame.ModelSync.Oracle` | Published (preview) | Available on NuGet for table DDL and partial safe model synchronization. Review the feature limits below before adoption. |
 | Analyzers | `UmbrellaFrame.ModelSync.Analyzers` | Published | Roslyn validation package. |
+| CLI | `UmbrellaFrame.ModelSync.Cli` | Published | .NET tool for validation, dry-run, migration execution, and Markdown/JSON reports. |
 
 ## Feature Coverage
 
@@ -35,7 +36,8 @@ This matrix is intentionally conservative. A feature is listed as supported only
 ## Production Guidance
 
 - Treat SQL Server, MySQL/MariaDB, PostgreSQL and SQLite as the current production provider set.
-- Treat Oracle as preview until its public NuGet package is published and migration-runner coverage reaches the same level as the other providers.
+- Oracle is publicly available on NuGet, but remains preview until migration-runner coverage reaches the same level as the stable providers.
+- The CLI supports SQL Server, MySQL, MariaDB, PostgreSQL, and SQLite. Oracle is intentionally excluded because its migration runner is not production-ready.
 - Prefer deployment-time migration jobs over every application instance running migrations at startup.
 - If startup migrations are used, keep native migration locks enabled.
 - Use `RunWithResultAsync()` and a persisted report for production deployments.

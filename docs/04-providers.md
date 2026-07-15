@@ -219,7 +219,7 @@ generator.CreateTables();
 
 ## Oracle Preview
 
-Oracle provider `netstandard2.1` hedefler ve 1.3.0 sürümünde tablo DDL ile güvenli model karşılaştırmasının bir bölümünü destekler.
+Oracle provider `netstandard2.1` hedefler, NuGet'te yayımlanmıştır ve 1.3.0 sürümünde tablo DDL ile güvenli model karşılaştırmasının bir bölümünü destekler. Paketin yayımlanmış olması preview durumunu değiştirmez.
 
 ```bash
 dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
