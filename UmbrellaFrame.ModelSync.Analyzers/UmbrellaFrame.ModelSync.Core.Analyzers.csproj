@@ -22,7 +22,7 @@
     <PackageId>UmbrellaFrame.ModelSync.Analyzers</PackageId>
     <Version>1.3.0</Version>
     <Authors>UmbrellaFrame</Authors>
-    <Description>Roslyn analyzer for UmbrellaFrame.ModelSync - compile-time model attribute validation (MSYNC001, MSYNC002, MSYNC003).</Description>
+    <Description>Roslyn analyzer for UmbrellaFrame.ModelSync - compile-time model and mapping validation (MSYNC001-MSYNC008).</Description>
     <PackageTags>roslyn analyzer sql schema generator attributes modelsync dotnet</PackageTags>
     <PackageProjectUrl>https://github.com/UmbrellaFrameHQ/modelsync</PackageProjectUrl>
     <RepositoryUrl>https://github.com/UmbrellaFrameHQ/modelsync</RepositoryUrl>
@@ -30,7 +30,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>ModelSync 1.3.0 reporting and productization foundation with Markdown/JSON migration reports, provider support matrix, and CLI/scaffolder roadmap.</PackageReleaseNotes>
+    <PackageReleaseNotes>ModelSync 1.3.0 adds MSYNC004-MSYNC008 mapping safety rules alongside the existing model checks.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
     <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>

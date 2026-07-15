@@ -13,7 +13,7 @@ namespace UmbrellaFrame.ModelSync.Core.Interfaces
         void RegisterProcedure(StoredProcedureDefinition definition);
 
         /// <summary>Registers a stored procedure SQL file for later comparison or synchronization.</summary>
-        StoredProcedureDefinition RegisterProcedureFile(string path, string name = null, string schema = "dbo");
+        StoredProcedureDefinition RegisterProcedureFile(string path, string? name = null, string schema = "dbo");
 
         /// <summary>Compares one project-side procedure definition with the live database.</summary>
         Task<StoredProcedureSyncPlan> CompareAsync(

@@ -39,8 +39,8 @@ namespace UmbrellaFrame.ModelSync.Core
         public static MigrationScriptDefinition FromFile(
             string path,
             MigrationScriptCategory? category = null,
-            string id = null,
-            string name = null)
+            string? id = null,
+            string? name = null)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Migration script path cannot be empty.", nameof(path));
@@ -50,8 +50,8 @@ namespace UmbrellaFrame.ModelSync.Core
             var sql = File.ReadAllText(path);
             var fileName = Path.GetFileNameWithoutExtension(path);
             var resolvedCategory = category ?? MigrationScriptDiscovery.ResolveCategory(path);
-            var resolvedId = string.IsNullOrWhiteSpace(id) ? MigrationScriptDiscovery.ResolveId(fileName) : id;
-            var resolvedName = string.IsNullOrWhiteSpace(name) ? MigrationScriptDiscovery.ResolveName(fileName) : name;
+            var resolvedId = string.IsNullOrWhiteSpace(id) ? MigrationScriptDiscovery.ResolveId(fileName) : id!;
+            var resolvedName = string.IsNullOrWhiteSpace(name) ? MigrationScriptDiscovery.ResolveName(fileName) : name!;
 
             return Create(resolvedId, resolvedName, resolvedCategory, sql, path);
         }

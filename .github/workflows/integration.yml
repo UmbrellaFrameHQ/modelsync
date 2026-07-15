@@ -62,6 +62,20 @@ jobs:
         ports:
           - 1433:1433
 
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: ModelSync_Pass123
+          APP_USER: MODELSYNC_TEST
+          APP_USER_PASSWORD: ModelSync_Pass123
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd="healthcheck.sh"
+          --health-interval=15s
+          --health-timeout=10s
+          --health-retries=30
+
     env:
       MODELSYNC_RUN_MYSQL_INTEGRATION: 1
       MODELSYNC_RUN_MARIADB_INTEGRATION: 1
@@ -75,6 +89,7 @@ jobs:
       MODELSYNC_POSTGRES_SP_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=appdb;Username=appuser;Password=apppass;
       MODELSYNC_SQLSERVER_CONNECTION_STRING: Server=127.0.0.1,1433;Database=appdb;User Id=sa;Password=YourStrong!Passw0rd;Encrypt=False;TrustServerCertificate=True;
       MODELSYNC_SQLSERVER_SP_CONNECTION_STRING: Server=127.0.0.1,1433;Database=appdb;User Id=sa;Password=YourStrong!Passw0rd;Encrypt=False;TrustServerCertificate=True;
+      MODELSYNC_ORACLE_CONNECTION: User Id=MODELSYNC_TEST;Password=ModelSync_Pass123;Data Source=127.0.0.1:1521/FREEPDB1
 
     steps:
       - name: Checkout
@@ -91,6 +106,7 @@ jobs:
           dotnet restore UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj
           dotnet restore UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj
           dotnet restore UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj
+          dotnet restore UmbrellaFrame.ModelSync.OracleTest/UmbrellaFrame.ModelSync.OracleTest.csproj
 
       - name: Build
         run: |
@@ -98,6 +114,7 @@ jobs:
           dotnet build UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --configuration Release --no-restore
           dotnet build UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --configuration Release --no-restore
           dotnet build UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --configuration Release --no-restore
+          dotnet build UmbrellaFrame.ModelSync.OracleTest/UmbrellaFrame.ModelSync.OracleTest.csproj --configuration Release --no-restore
 
       - name: Database preflight
         run: |
@@ -120,6 +137,7 @@ jobs:
           dotnet test UmbrellaFrame.ModelSync.PostgreSQLTest/UmbrellaFrame.ModelSync.PostgreSQLTest.csproj --configuration Release --no-build --filter "Category=Integration" --logger "trx;LogFileName=postgresql.trx" --results-directory TestResults
           dotnet test UmbrellaFrame.ModelSync.SqlServerTest/UmbrellaFrame.ModelSync.SqlServerTest.csproj --configuration Release --no-build --filter "Category=Integration" --logger "trx;LogFileName=sqlserver.trx" --results-directory TestResults
           dotnet test UmbrellaFrame.ModelSync.SQLiteTest/UmbrellaFrame.ModelSync.SQLiteTest.csproj --configuration Release --no-build --filter "Category=Integration" --logger "trx;LogFileName=sqlite.trx" --results-directory TestResults
+          dotnet test UmbrellaFrame.ModelSync.OracleTest/UmbrellaFrame.ModelSync.OracleTest.csproj --configuration Release --no-build --filter "Category=Integration" --logger "trx;LogFileName=oracle.trx" --results-directory TestResults
 
           if grep -R 'outcome="Failed"' TestResults/*.trx; then
             echo "MODELSYNC_INTEGRATION_RESULT_GATE_FAILED: failed integration tests were found."

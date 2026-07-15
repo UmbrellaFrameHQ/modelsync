@@ -83,6 +83,23 @@ public class ModelSyncSqlDialectTests
     }
 
     [Test]
+    public void StandardInformationSchemaChecks_ShouldResolveTableThroughTableConstraints()
+    {
+        var dialect = new ModelSyncSqlDialect(new ModelSyncProviderDescriptor
+        {
+            ProviderId = "information-schema-provider",
+            CatalogStyle = CatalogQueryStyle.StandardInformationSchema
+        });
+
+        var plan = dialect.BuildReadChecksPlan();
+
+        Assert.That(plan.CommandText, Does.Contain("FROM information_schema.table_constraints tc"));
+        Assert.That(plan.CommandText, Does.Contain("JOIN information_schema.check_constraints cc"));
+        Assert.That(plan.CommandText, Does.Contain("tc.TABLE_NAME"));
+        Assert.That(plan.CommandText, Does.Not.Contain("SELECT CONSTRAINT_SCHEMA, TABLE_NAME"));
+    }
+
+    [Test]
     public void DescriptorDrivenLockCompiler_ShouldCreateNativeLockPlans()
     {
         var application = new ModelSyncSqlDialect(new ModelSyncProviderDescriptor

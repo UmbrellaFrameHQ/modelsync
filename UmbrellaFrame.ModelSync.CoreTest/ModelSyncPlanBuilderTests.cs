@@ -226,6 +226,53 @@ public class ModelSyncPlanBuilderTests
         Assert.That(result.BlockedOperations, Is.Empty);
     }
 
+    [TestCase("TIMESTAMP", "TIMESTAMP WITHOUT TIME ZONE")]
+    [TestCase("TIMESTAMP", "TIMESTAMP(6)")]
+    public void Build_ShouldTreatProviderDefaultTimestampRepresentationsAsEquivalent(string modelType, string databaseType)
+    {
+        var table = Table("Events", Column("CreatedAt", storeType: modelType));
+        var databaseTable = new DatabaseTableDefinition { Schema = "app", Name = "Events" };
+        databaseTable.Columns["CreatedAt"] = new DatabaseColumnDefinition
+        {
+            Name = "CreatedAt",
+            StoreType = databaseType,
+            IsNullable = true
+        };
+
+        var plans = Builder().Build(
+            new[] { table },
+            new Dictionary<string, DatabaseTableDefinition>
+            {
+                [ModelSyncPlanBuilder.Key("app", "Events")] = databaseTable
+            },
+            new ModelSyncOptions());
+
+        Assert.That(plans.Any(p => p.ChangeType == ModelSyncChangeType.AlterColumnType), Is.False);
+    }
+
+    [Test]
+    public void Build_ShouldKeepExplicitTimestampPrecisionDifferencesBlocked()
+    {
+        var table = Table("Events", Column("CreatedAt", storeType: "TIMESTAMP(3)"));
+        var databaseTable = new DatabaseTableDefinition { Schema = "app", Name = "Events" };
+        databaseTable.Columns["CreatedAt"] = new DatabaseColumnDefinition
+        {
+            Name = "CreatedAt",
+            StoreType = "TIMESTAMP(6)",
+            IsNullable = true
+        };
+
+        var plans = Builder().Build(
+            new[] { table },
+            new Dictionary<string, DatabaseTableDefinition>
+            {
+                [ModelSyncPlanBuilder.Key("app", "Events")] = databaseTable
+            },
+            new ModelSyncOptions());
+
+        Assert.That(plans.Any(p => p.ChangeType == ModelSyncChangeType.AlterColumnType), Is.True);
+    }
+
     private static ModelSyncPlanBuilder Builder()
         => new ModelSyncPlanBuilder(
             identifier => identifier,
@@ -246,11 +293,11 @@ public class ModelSyncPlanBuilderTests
         return table;
     }
 
-    private static ModelColumnDefinition Column(string name, bool indexed = false, bool unique = false, string foreignTable = "", string referenceColumn = "")
+    private static ModelColumnDefinition Column(string name, bool indexed = false, bool unique = false, string foreignTable = "", string referenceColumn = "", string storeType = "INT")
         => new ModelColumnDefinition
         {
             Name = name,
-            StoreType = "INT",
+            StoreType = storeType,
             IsIndexed = indexed,
             IsUnique = unique,
             ForeignKeyTable = foreignTable,

@@ -168,11 +168,6 @@ jobs:
           expired="$(printf '%s' "$artifact_json" | jq -r '.expired')"
           digest="$(printf '%s' "$artifact_json" | jq -r '.digest')"
 
-          if [[ "$artifact_id" != "8002008340" ]]; then
-            echo "MODELSYNC_RECOVERY_ARTIFACT_INVALID: unexpected artifact ID ${artifact_id}."
-            exit 1
-          fi
-
           if [[ "$expired" != "false" ]]; then
             echo "MODELSYNC_RECOVERY_ARTIFACT_INVALID: canonical artifact is expired."
             exit 1
@@ -220,13 +215,15 @@ jobs:
             "UmbrellaFrame.ModelSync.PostgreSQL.${{ inputs.version }}.nupkg"
             "UmbrellaFrame.ModelSync.SQLite.${{ inputs.version }}.nupkg"
             "UmbrellaFrame.ModelSync.Analyzers.${{ inputs.version }}.nupkg"
+            "UmbrellaFrame.ModelSync.Cli.${{ inputs.version }}.nupkg"
+            "UmbrellaFrame.ModelSync.Oracle.${{ inputs.version }}.nupkg"
           )
 
           mapfile -t actual < <(find . -maxdepth 1 -type f -name "*.nupkg" -printf '%f\n' | sort)
           mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
 
-          if [[ "${#actual[@]}" -ne 6 ]]; then
-            echo "MODELSYNC_RECOVERY_ARTIFACT_INVALID: expected exactly six nupkg files."
+          if [[ "${#actual[@]}" -ne 8 ]]; then
+            echo "MODELSYNC_RECOVERY_ARTIFACT_INVALID: expected exactly eight nupkg files."
             printf '%s\n' "${actual[@]}"
             exit 1
           fi
@@ -267,38 +264,32 @@ jobs:
               | jq -e --arg version "$version" '.versions | index($version)' >/dev/null
           }
 
-          wait_for_core() {
-            for attempt in {1..180}; do
-              if exists "UmbrellaFrame.ModelSync.Core"; then
-                return 0
-              fi
-              sleep 10
-            done
-            echo "MODELSYNC_RECOVERY_CORE_VISIBILITY_TIMEOUT"
-            return 1
-          }
-
-          wait_for_core
-
-          unexpected=()
+          existing=()
+          missing=()
           for package in \
+            "UmbrellaFrame.ModelSync.Core" \
             "UmbrellaFrame.ModelSync.SqlServer" \
             "UmbrellaFrame.ModelSync.MySql" \
             "UmbrellaFrame.ModelSync.PostgreSQL" \
             "UmbrellaFrame.ModelSync.SQLite" \
-            "UmbrellaFrame.ModelSync.Analyzers"; do
+            "UmbrellaFrame.ModelSync.Analyzers" \
+            "UmbrellaFrame.ModelSync.Cli" \
+            "UmbrellaFrame.ModelSync.Oracle"; do
             if exists "$package"; then
-              unexpected+=("$package")
+              existing+=("$package")
+            else
+              missing+=("$package")
             fi
           done
 
-          if [[ "${#unexpected[@]}" -ne 0 ]]; then
-            echo "MODELSYNC_RECOVERY_PARTIAL_STATE_UNEXPECTED: non-Core package already exists."
-            printf '%s\n' "${unexpected[@]}"
+          if [[ "${#existing[@]}" -eq 0 || "${#missing[@]}" -eq 0 ]]; then
+            echo "MODELSYNC_RECOVERY_PARTIAL_STATE_INVALID: expected both published and missing packages."
             exit 1
           fi
 
-          echo "MODELSYNC_1_2_2_PARTIAL_NUGET_PUBLICATION_CONFIRMED"
+          printf 'Published: %s\n' "${existing[*]}"
+          printf 'Missing: %s\n' "${missing[*]}"
+          echo "MODELSYNC_PARTIAL_NUGET_PUBLICATION_CONFIRMED"
 
       - name: Publish missing packages
         env:
@@ -334,8 +325,8 @@ jobs:
             local path="artifacts/recovery/${package}.${version}.nupkg"
 
             if package_exists "$package"; then
-              echo "MODELSYNC_RECOVERY_PARTIAL_STATE_UNEXPECTED: ${package} ${version} already exists before push."
-              exit 1
+              echo "MODELSYNC_RECOVERY_SKIP_EXISTING: ${package} ${version}"
+              return 0
             fi
 
             dotnet nuget push "$path" \
@@ -345,11 +336,14 @@ jobs:
             wait_for_version "$package"
           }
 
+          publish_missing "UmbrellaFrame.ModelSync.Core"
           publish_missing "UmbrellaFrame.ModelSync.SqlServer"
           publish_missing "UmbrellaFrame.ModelSync.MySql"
           publish_missing "UmbrellaFrame.ModelSync.PostgreSQL"
           publish_missing "UmbrellaFrame.ModelSync.SQLite"
           publish_missing "UmbrellaFrame.ModelSync.Analyzers"
+          publish_missing "UmbrellaFrame.ModelSync.Cli"
+          publish_missing "UmbrellaFrame.ModelSync.Oracle"
 
       - name: Verify complete NuGet publication
         shell: bash
@@ -363,10 +357,12 @@ jobs:
             "UmbrellaFrame.ModelSync.MySql" \
             "UmbrellaFrame.ModelSync.PostgreSQL" \
             "UmbrellaFrame.ModelSync.SQLite" \
-            "UmbrellaFrame.ModelSync.Analyzers"; do
+            "UmbrellaFrame.ModelSync.Analyzers" \
+            "UmbrellaFrame.ModelSync.Cli" \
+            "UmbrellaFrame.ModelSync.Oracle"; do
             id="$(printf '%s' "$package" | tr '[:upper:]' '[:lower:]')"
             curl --fail --silent "https://api.nuget.org/v3-flatcontainer/${id}/index.json" \
               | jq -e --arg version "$version" '.versions | index($version)' >/dev/null
           done
 
-          echo "MODELSYNC_1_2_2_CANONICAL_ARTIFACT_RECOVERY_FULL_PASS"
+          echo "MODELSYNC_CANONICAL_ARTIFACT_RECOVERY_FULL_PASS"

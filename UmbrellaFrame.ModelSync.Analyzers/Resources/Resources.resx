@@ -63,6 +63,22 @@
     <value>Every database table model should designate at least one property as a primary key.</value>
   </data>
 
+  <data name="MSYNC004_Title" xml:space="preserve"><value>Ignored property has mapping attributes</value></data>
+  <data name="MSYNC004_MessageFormat" xml:space="preserve"><value>Property '{0}' uses DbIgnore together with database mapping attributes</value></data>
+  <data name="MSYNC004_Description" xml:space="preserve"><value>An ignored property must not also define database mapping metadata.</value></data>
+  <data name="MSYNC005_Title" xml:space="preserve"><value>Invalid database column name</value></data>
+  <data name="MSYNC005_MessageFormat" xml:space="preserve"><value>Property '{0}' has invalid database column name '{1}'</value></data>
+  <data name="MSYNC005_Description" xml:space="preserve"><value>Explicit column names must use the safe ModelSync identifier format.</value></data>
+  <data name="MSYNC006_Title" xml:space="preserve"><value>Conflicting generated-value attributes</value></data>
+  <data name="MSYNC006_MessageFormat" xml:space="preserve"><value>Property '{0}' has more than one default or generated-value attribute</value></data>
+  <data name="MSYNC006_Description" xml:space="preserve"><value>A property must have one unambiguous database-generated default definition.</value></data>
+  <data name="MSYNC007_Title" xml:space="preserve"><value>Generated value is not supported for this property type</value></data>
+  <data name="MSYNC007_MessageFormat" xml:space="preserve"><value>Property '{0}' enables auto-increment on unsupported type '{1}'</value></data>
+  <data name="MSYNC007_Description" xml:space="preserve"><value>Auto-increment primary keys must use an integral CLR type.</value></data>
+  <data name="MSYNC008_Title" xml:space="preserve"><value>Multiple provider primary-key attributes</value></data>
+  <data name="MSYNC008_MessageFormat" xml:space="preserve"><value>Property '{0}' has multiple provider primary-key attributes</value></data>
+  <data name="MSYNC008_Description" xml:space="preserve"><value>A property must use one provider-specific primary-key mapping.</value></data>
+
   <!-- DbColumnTypeAttribute -->
   <data name="Attr_InvalidLength" xml:space="preserve">
     <value>Invalid length for {0}. Must be a number &lt;= 65535 or 'MAX'.</value>

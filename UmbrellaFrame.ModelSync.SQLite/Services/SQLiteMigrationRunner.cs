@@ -20,7 +20,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
         private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(SQLiteProviderDescriptor.Create());
         private readonly string _connectionString;
 
-        public SQLiteMigrationRunner(string connectionString, MigrationRunnerOptions options = null, ILogger<SQLiteMigrationRunner> logger = null)
+        public SQLiteMigrationRunner(string connectionString, MigrationRunnerOptions? options = null, ILogger<SQLiteMigrationRunner>? logger = null)
             : base(ConfigureDefaults(options), logger ?? NullLogger<SQLiteMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))
@@ -28,7 +28,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             _connectionString = connectionString;
         }
 
-        private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
+        private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions? options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
             configured.LockOptions.Mode = MigrationLockMode.Disabled;

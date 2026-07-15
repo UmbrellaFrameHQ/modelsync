@@ -17,12 +17,18 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>ModelSync 1.3.0 CLI foundation for migration execution with Markdown and JSON reports.</PackageReleaseNotes>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>ModelSync 1.3.0 CLI validates scripts, previews migrations, requires explicit apply, protects connection secrets, and writes Markdown/JSON reports.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\icons\modelsync-core.png" Pack="true" PackagePath="icon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UmbrellaFrame.ModelSync.CliTest" />
   </ItemGroup>
 
   <ItemGroup>

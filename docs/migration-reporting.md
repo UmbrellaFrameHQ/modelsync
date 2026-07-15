@@ -33,11 +33,14 @@ CLI usage:
 ```bash
 modelsync run \
   --provider sqlite \
-  --connection "Data Source=app.db" \
+  --connection-env MODELSYNC_CONNECTION_STRING \
   --scripts ./Database/Scripts \
+  --apply \
   --report-md ./artifacts/modelsync-report.md \
   --report-json ./artifacts/modelsync-report.json
 ```
+
+Set `MODELSYNC_CONNECTION_STRING` through your shell or CI secret store. The inline `--connection` option is retained for compatibility but can expose credentials in process listings. `--apply` is required for mutation; use `--dry-run` for a read-only preview.
 
 Recommended production flow:
 

@@ -9,7 +9,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
     public class SQLiteColumnTypeAttribute : DbColumnTypeAttribute
     {
         private new SQLiteColumnType ColumnType { get; }
-        public new object AllowedValues { get; }
+        public object? AllowedValues { get; }
 
         public SQLiteColumnTypeAttribute(SQLiteColumnType columnType) : base(columnType.ToString(), "")
         {

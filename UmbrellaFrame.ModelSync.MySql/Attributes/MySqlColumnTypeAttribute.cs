@@ -9,8 +9,8 @@ namespace UmbrellaFrame.ModelSync.MySql
     public class MySqlColumnTypeAttribute : DbColumnTypeAttribute
     {
         public new MySqlColumnType ColumnType { get; }
-        public new string Length { get; } = null;
-        public new Type AllowedValues { get; }
+        public new string? Length { get; }
+        public Type? AllowedValues { get; }
 
         public MySqlColumnTypeAttribute(MySqlColumnType columnType) : base(columnType.ToString())
         {
@@ -23,7 +23,7 @@ namespace UmbrellaFrame.ModelSync.MySql
             AllowedValues = allowedValues;
         }
 
-        public MySqlColumnTypeAttribute(MySqlColumnType columnType, string length = null) : base(columnType.ToString(), length)
+        public MySqlColumnTypeAttribute(MySqlColumnType columnType, string? length = null) : base(columnType.ToString(), length)
         {
             ColumnType = columnType;
             if (ColumnType == MySqlColumnType.ENUM || ColumnType == MySqlColumnType.SET)

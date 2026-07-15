@@ -32,7 +32,7 @@ namespace UmbrellaFrame.ModelSync.MySql
 
         /// <param name="connectionString">A valid MySQL connection string.</param>
         /// <param name="logger">Optional logger instance.</param>
-        public MySqlTableGenerator(string connectionString, ILogger<MySqlTableGenerator> logger = null)
+        public MySqlTableGenerator(string connectionString, ILogger<MySqlTableGenerator>? logger = null)
             : base(logger)
         {
             if (string.IsNullOrEmpty(connectionString))
@@ -130,7 +130,7 @@ namespace UmbrellaFrame.ModelSync.MySql
             => await DropTablesAsync(null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task DropTablesAsync(DestructiveOperationOptions options, CancellationToken cancellationToken = default)
+        public async Task DropTablesAsync(DestructiveOperationOptions? options, CancellationToken cancellationToken = default)
         {
             RequireDestructivePermission(options, nameof(DropTablesAsync));
 
@@ -188,7 +188,7 @@ namespace UmbrellaFrame.ModelSync.MySql
             => await DropColumnAsync<T>(columnName, null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task DropColumnAsync<T>(string columnName, DestructiveOperationOptions options, CancellationToken cancellationToken = default) where T : class, new()
+        public async Task DropColumnAsync<T>(string columnName, DestructiveOperationOptions? options, CancellationToken cancellationToken = default) where T : class, new()
         {
             RequireDestructivePermission(options, nameof(DropColumnAsync));
 
@@ -251,7 +251,7 @@ namespace UmbrellaFrame.ModelSync.MySql
             => await AlterColumnTypeAsync<T>(columnName, null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task AlterColumnTypeAsync<T>(string columnName, DestructiveOperationOptions options, CancellationToken cancellationToken = default) where T : class, new()
+        public async Task AlterColumnTypeAsync<T>(string columnName, DestructiveOperationOptions? options, CancellationToken cancellationToken = default) where T : class, new()
         {
             RequireDestructivePermission(options, nameof(AlterColumnTypeAsync));
 

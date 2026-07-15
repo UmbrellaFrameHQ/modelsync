@@ -23,11 +23,14 @@ jobs:
       - name: Validate migration scripts
         run: modelsync validate --scripts ./Database/Scripts
 
+      - name: Configure disposable preview connection
+        run: echo "MODELSYNC_CONNECTION_STRING=Data Source=modelsync-preview.db" >> "$GITHUB_ENV"
+
       - name: Dry-run migration plan
         run: |
           modelsync run \
             --provider sqlite \
-            --connection "Data Source=modelsync-preview.db" \
+            --connection-env MODELSYNC_CONNECTION_STRING \
             --scripts ./Database/Scripts \
             --dry-run
 
@@ -35,8 +38,9 @@ jobs:
         run: |
           modelsync run \
             --provider sqlite \
-            --connection "Data Source=modelsync-preview.db" \
+            --connection-env MODELSYNC_CONNECTION_STRING \
             --scripts ./Database/Scripts \
+            --apply \
             --report-md ./artifacts/modelsync-report.md \
             --report-json ./artifacts/modelsync-report.json
 
@@ -44,4 +48,3 @@ jobs:
         with:
           name: modelsync-migration-report
           path: artifacts/
-

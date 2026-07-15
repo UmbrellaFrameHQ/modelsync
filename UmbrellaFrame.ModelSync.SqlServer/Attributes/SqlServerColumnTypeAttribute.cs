@@ -9,14 +9,14 @@ namespace UmbrellaFrame.ModelSync.SqlServer
     public class SqlServerColumnTypeAttribute : DbColumnTypeAttribute
     {
         private new SqlServerColumnType ColumnType { get; }
-        public new string Length { get; }
+        public new string? Length { get; }
 
         public SqlServerColumnTypeAttribute(SqlServerColumnType columnType) : base(columnType.ToString())
         {
             ColumnType = columnType;
         }
 
-        public SqlServerColumnTypeAttribute(SqlServerColumnType columnType, string length = null) : base(columnType.ToString(), length)
+        public SqlServerColumnTypeAttribute(SqlServerColumnType columnType, string? length = null) : base(columnType.ToString(), length)
         {
             ColumnType = columnType;
             Length = length;

@@ -38,9 +38,9 @@ Guvenli islemler konfigürasyonla kapatilabilir. Bu durumda islem `ModelSyncResu
 
 ## Tablo Bazli Execution Policy
 
-Yayinlanmamis 1.2.0 sertlestirme calismasi, ayni calistirmada farkli tablolar icin farkli migration sahipligi tanimlamayi ekler. Policy runtime options uzerinden verilir; model attribute'u degildir. Cunku manuel/otomatik migration karari genellikle ortama ve deployment stratejisine baglidir:
+ModelSync, aynı çalıştırmada farklı tablolar için farklı migration sahipliği tanımlayabilir. Policy runtime options üzerinden verilir; model attribute'u değildir. Çünkü manuel/otomatik migration kararı genellikle ortama ve deployment stratejisine bağlıdır:
 
-Gelecekteki 1.2.0 legacy runner compatibility calismasi ayni guvenlik sinirini korur: migration history tablolarina kontrollu `SqlHash` infrastructure upgrade uygulanabilmesi, model synchronizer safe ALTER kurallarini gevsetmez. Model tablolari icin drop, narrowing, riskli not-null, riskli rename ve destructive constraint degisiklikleri otomatik safe apply kapsaminda engellenmeye devam eder.
+Legacy runner compatibility aynı güvenlik sınırını korur: migration history tablolarına kontrollü `SqlHash` infrastructure upgrade uygulanabilmesi, model synchronizer safe ALTER kurallarını gevşetmez. Model tabloları için drop, narrowing, riskli not-null, riskli rename ve destructive constraint değişiklikleri otomatik safe apply kapsamında engellenmeye devam eder.
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;

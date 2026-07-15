@@ -33,7 +33,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
 
         /// <param name="connectionString">A valid SQL Server connection string.</param>
         /// <param name="logger">Optional logger instance.</param>
-        public SqlServerTableGenerator(string connectionString, ILogger<SqlServerTableGenerator> logger = null)
+        public SqlServerTableGenerator(string connectionString, ILogger<SqlServerTableGenerator>? logger = null)
             : base(logger)
         {
             if (string.IsNullOrEmpty(connectionString))
@@ -179,7 +179,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             => await DropTablesAsync(null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task DropTablesAsync(DestructiveOperationOptions options, CancellationToken cancellationToken = default)
+        public async Task DropTablesAsync(DestructiveOperationOptions? options, CancellationToken cancellationToken = default)
         {
             RequireDestructivePermission(options, nameof(DropTablesAsync));
 
@@ -238,7 +238,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             => await DropColumnAsync<T>(columnName, null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task DropColumnAsync<T>(string columnName, DestructiveOperationOptions options, CancellationToken cancellationToken = default) where T : class, new()
+        public async Task DropColumnAsync<T>(string columnName, DestructiveOperationOptions? options, CancellationToken cancellationToken = default) where T : class, new()
         {
             RequireDestructivePermission(options, nameof(DropColumnAsync));
 
@@ -315,7 +315,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             => await AlterColumnTypeAsync<T>(columnName, null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task AlterColumnTypeAsync<T>(string columnName, DestructiveOperationOptions options, CancellationToken cancellationToken = default) where T : class, new()
+        public async Task AlterColumnTypeAsync<T>(string columnName, DestructiveOperationOptions? options, CancellationToken cancellationToken = default) where T : class, new()
         {
             RequireDestructivePermission(options, nameof(AlterColumnTypeAsync));
 

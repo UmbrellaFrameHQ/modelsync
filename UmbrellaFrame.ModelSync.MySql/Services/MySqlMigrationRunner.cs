@@ -20,7 +20,7 @@ namespace UmbrellaFrame.ModelSync.MySql
         private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(MySqlProviderDescriptor.Create());
         private readonly string _connectionString;
 
-        public MySqlMigrationRunner(string connectionString, MigrationRunnerOptions options = null, ILogger<MySqlMigrationRunner> logger = null)
+        public MySqlMigrationRunner(string connectionString, MigrationRunnerOptions? options = null, ILogger<MySqlMigrationRunner>? logger = null)
             : base(options, logger ?? NullLogger<MySqlMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))

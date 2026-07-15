@@ -17,7 +17,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             => throw CreateNotSupported();
 
         /// <inheritdoc/>
-        public StoredProcedureDefinition RegisterProcedureFile(string path, string name = null, string schema = "dbo")
+        public StoredProcedureDefinition RegisterProcedureFile(string path, string? name = null, string schema = "dbo")
             => throw CreateNotSupported();
 
         /// <inheritdoc/>

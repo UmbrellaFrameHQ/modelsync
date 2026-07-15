@@ -109,11 +109,14 @@ public string GenerateDropTableSql<T>() where T : class, new()
 Üretilen SQL:
 
 ```sql
--- MySQL / PostgreSQL / SQLite
+-- MySQL
 DROP TABLE IF EXISTS `users`;
 
 -- SQL Server
 DROP TABLE IF EXISTS [users];
+
+-- PostgreSQL / SQLite
+DROP TABLE IF EXISTS "users";
 ```
 
 ---
@@ -237,6 +240,7 @@ Boşluk, tire, nokta, quote, bracket, noktalı virgül gibi şüpheli karakterle
 | SQL Server | `SqlServerTableGenerator` | `GenerateSqlServerTable<T>()` |
 | PostgreSQL | `PostgresTableGenerator` | `GeneratePostgresTable<T>()` |
 | SQLite | `SQLiteTableGenerator` | `GenerateSQLiteTable<T>()` |
+| Oracle preview | `OracleTableGenerator` | `GenerateOracleTable<T>()` |
 
 Bu ek metotlar `GenerateSqlTable<T>()` için alias niteliğindedir; yani aynı sonucu dönerler.
 
@@ -278,3 +282,75 @@ TAttribute GetClassAttribute<TAttribute>()
 | `PropertyNotFoundException` | `GetAttribute()` ile var olmayan property adı verildiğinde |
 | `ArgumentException` | `connectionString` boş ya da null olduğunda; `DbColumnDefault`/`DbColumnCheck` constructor'ına boş değer geçildiğinde |
 | `InvalidOperationException` | `GenerateSqlTable<T>()` çağrısında column type attribute eksik olduğunda |
+
+---
+
+## IMigrationRunner
+
+Migration runner, registered SQL dosyalarını karşılaştırır ve kategori sırasına göre çalıştırır:
+
+```csharp
+Task<IReadOnlyList<MigrationSyncPlan>> CompareRegisteredAsync(
+    CancellationToken cancellationToken = default);
+
+Task RunAsync(CancellationToken cancellationToken = default);
+
+Task<MigrationExecutionResult> RunWithResultAsync(
+    CancellationToken cancellationToken = default);
+```
+
+`CompareRegisteredAsync()` read-only çalışır. History ve infrastructure nesneleri `RunAsync()`, `RunWithResultAsync()` veya açık `EnsureInfrastructureAsync()` çağrısında oluşturulur.
+
+`MigrationExecutionResult`, genel başarı durumu, atomicity, lock/transaction/history bilgileri ve her script için batch, hash ve güvenli hata ayrıntıları taşır.
+
+## Model Synchronizer
+
+Provider synchronizer'ları aynı temel akışı sunar:
+
+```csharp
+var result = await SqlServerModelSynchronizer
+    .FromAssemblies(options, typeof(Product).Assembly)
+    .CompareAsync(cancellationToken);
+
+result.AutomaticOperations;
+result.ManualOperations;
+result.SkippedOperations;
+result.BlockedOperations;
+
+await result.ApplyAsync(cancellationToken);
+```
+
+`ApplyAsync()` yalnız automatic-safe kapsamı uygular. `ManualOnly` işlemleri raporlanır, `Ignore` tablolar normal diff dışında kalır ve destructive/risky işlemler otomatik çalıştırılmaz.
+
+## Reset, Lock ve Transaction Seçenekleri
+
+`MigrationRunnerOptions` içindeki operasyonel ayarlar:
+
+| Ayar | Amaç |
+|---|---|
+| `ResetOptions` | Onay, beklenen database, ortam ve readiness doğrulaması |
+| `LockOptions` | Provider-native migration lock adı ve timeout |
+| `TransactionPolicy` | `Auto`, `Required` veya `Forbidden` |
+| `CategoryPolicies` | Script kategorisine göre `RunOnce`, `HashTracked`, `EveryRun` |
+
+SQL Server `DatabaseResetOptions` ayrıca reset öncesi backup yolu tanımlayabilir.
+
+## Migration Raporları
+
+```csharp
+var result = await runner.RunWithResultAsync(cancellationToken);
+var markdown = MigrationExecutionMarkdownReport.Create(result);
+var json = MigrationExecutionJsonReport.Create(result);
+```
+
+Raporlar connection string içermez. Failed batch preview 1024 karakterle sınırlandırılır.
+
+## CLI
+
+```bash
+modelsync validate --scripts ./Database/Scripts
+modelsync run --provider sqlite --connection-env MODELSYNC_CONNECTION_STRING --scripts ./Database/Scripts --dry-run
+modelsync run --provider sqlite --connection-env MODELSYNC_CONNECTION_STRING --scripts ./Database/Scripts --apply
+```
+
+`--apply` mutation için zorunludur. `--connection-env` secret değerinin process argümanında görünmesini engeller.

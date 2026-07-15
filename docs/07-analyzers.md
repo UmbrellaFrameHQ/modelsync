@@ -17,6 +17,17 @@ Analyzer'lar otomatik olarak aktive olur. Ek yapılandırma gerekmez.
 
 ## Kural Listesi
 
+| Kural | Kontrol |
+|---|---|
+| `MSYNC001` | Public property'de kolon tipi eksik |
+| `MSYNC002` | Kolon attribute'u olan sınıfta tablo adı eksik |
+| `MSYNC003` | Tablo modelinde primary key eksik |
+| `MSYNC004` | `DbIgnore` ile mapping attribute'ları birlikte kullanılmış |
+| `MSYNC005` | `DbColumnName` güvenli identifier formatında değil |
+| `MSYNC006` | Birden fazla default/generated-value attribute'u var |
+| `MSYNC007` | Auto-increment desteklenmeyen CLR tipinde kullanılmış |
+| `MSYNC008` | Aynı property'de birden fazla provider primary-key attribute'u var |
+
 ### MSYNC001 — Eksik Kolon Tipi Attribute'u
 
 | Özellik | Değer |
@@ -129,6 +140,29 @@ public int LogId { get; set; }
 
 ---
 
+### Mapping Güvenliği — MSYNC004–MSYNC008
+
+Bu kurallar çakışan mapping tanımlarını runtime'a bırakmadan build sırasında gösterir:
+
+```csharp
+// MSYNC004: Ignore edilen property database mapping taşımamalı.
+[DbIgnore]
+[MySqlColumnType(MySqlColumnType.INT)]
+public int CalculatedValue { get; set; }
+
+// MSYNC005: Güvenli identifier kullanın.
+[DbColumnName("order-code")]
+public string Code { get; set; } = string.Empty;
+
+// MSYNC007: Auto increment integral CLR tiplerinde kullanılmalı.
+[MySqlColumnPrimaryKey(isAutoIncrement: true)]
+public string Id { get; set; } = string.Empty;
+```
+
+`MSYNC006` birden fazla default/generated-value tanımını, `MSYNC008` ise aynı property üzerindeki farklı provider primary-key attribute'larını bildirir.
+
+---
+
 ## Kuralı Bastırma (Suppress)
 
 Belirli bir uyarıyı kasıtlı olarak görmezden gelmek istiyorsanız:
@@ -175,6 +209,11 @@ dotnet_diagnostic.MSYNC003.severity = none
 dotnet_diagnostic.MSYNC001.severity = error
 dotnet_diagnostic.MSYNC002.severity = error
 dotnet_diagnostic.MSYNC003.severity = error
+dotnet_diagnostic.MSYNC004.severity = error
+dotnet_diagnostic.MSYNC005.severity = error
+dotnet_diagnostic.MSYNC006.severity = error
+dotnet_diagnostic.MSYNC007.severity = error
+dotnet_diagnostic.MSYNC008.severity = error
 
 # Kapat
 dotnet_diagnostic.MSYNC001.severity = none

@@ -17,9 +17,9 @@ namespace UmbrellaFrame.ModelSync.Core.Services
     {
         private readonly List<MigrationScriptDefinition> _definitions = new List<MigrationScriptDefinition>();
         private readonly ILogger _logger;
-        private readonly IMigrationLockStrategy _lockStrategy;
+        private readonly IMigrationLockStrategy? _lockStrategy;
 
-        protected SqlMigrationRunnerBase(MigrationRunnerOptions options = null, ILogger logger = null, IMigrationLockStrategy lockStrategy = null)
+        protected SqlMigrationRunnerBase(MigrationRunnerOptions? options = null, ILogger? logger = null, IMigrationLockStrategy? lockStrategy = null)
         {
             Options = options ?? MigrationRunnerOptions.Default();
             _logger = logger ?? NullLogger.Instance;
@@ -35,7 +35,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             _definitions.Add(definition);
         }
 
-        public MigrationScriptDefinition RegisterScriptFile(string path, MigrationScriptCategory? category = null, string id = null, string name = null)
+        public MigrationScriptDefinition RegisterScriptFile(string path, MigrationScriptCategory? category = null, string? id = null, string? name = null)
         {
             var definition = MigrationScriptDefinition.FromFile(path, category, id, name);
             RegisterScript(definition);
@@ -122,7 +122,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 {
                     var strategy = ResolveLockStrategy();
                     lockConnection = await CreateLockConnectionAsync(cancellationToken).ConfigureAwait(false);
-                    lockHandle = await strategy.AcquireAsync(lockConnection, Options.LockOptions, cancellationToken).ConfigureAwait(false);
+                    lockHandle = await strategy.AcquireAsync(lockConnection!, Options.LockOptions, cancellationToken).ConfigureAwait(false);
                     lockConnection = null;
                 }
 
@@ -175,7 +175,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 {
                     var strategy = ResolveLockStrategy();
                     lockConnection = await CreateLockConnectionAsync(cancellationToken).ConfigureAwait(false);
-                    lockHandle = await strategy.AcquireAsync(lockConnection, Options.LockOptions, cancellationToken).ConfigureAwait(false);
+                    lockHandle = await strategy.AcquireAsync(lockConnection!, Options.LockOptions, cancellationToken).ConfigureAwait(false);
                     lockConnection = null;
                     lockAcquired = true;
                 }

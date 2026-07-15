@@ -23,8 +23,8 @@ namespace UmbrellaFrame.ModelSync.SqlServer
 
         public SqlServerMigrationRunner(
             string connectionString,
-            MigrationRunnerOptions options = null,
-            ILogger<SqlServerMigrationRunner> logger = null)
+            MigrationRunnerOptions? options = null,
+            ILogger<SqlServerMigrationRunner>? logger = null)
             : base(ConfigureDefaults(options), logger ?? NullLogger<SqlServerMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))
@@ -252,7 +252,7 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
                 command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
         }
 
-        private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
+        private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions? options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
             if (string.IsNullOrWhiteSpace(configured.HistorySchema))

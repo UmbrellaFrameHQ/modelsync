@@ -14,11 +14,28 @@ CLI, Dry-Run and Migration Reporting.
 - Provider support matrix, migration reporting guidance, and CLI/DB-first scaffolder roadmap documentation.
 - Migration report, CLI quickstart, and GitHub Actions examples for storing Markdown and JSON deployment artifacts.
 - Performance smoke coverage for rendering large migration execution reports.
+- CLI support for environment-variable connection strings, explicit `--apply`, Ctrl+C cancellation, and secret redaction.
+- Direct CLI security and argument tests.
+- Analyzer rules `MSYNC004`-`MSYNC008` for mapping conflicts, invalid column names, generated values, and provider primary-key conflicts.
+- Opt-in live scale coverage for one million rows on SQL Server, MySQL, MariaDB, PostgreSQL, SQLite, and Oracle.
 
 ### Changed
 
 - Oracle is documented as a preview provider until the public NuGet package ID can be published with package-owner API-key permission.
 - 1.3.0 positions ModelSync as a schema lifecycle toolkit: CLI validation, dry-run previews, migration execution, reporting, provider support clarity, and future scaffolder foundation.
+- Full EN/TR guides, provider/API references, NuGet README, and CLI examples now match the 1.3.0 behavior.
+- NuGet publication and partial-recovery gates validate the complete eight-package set, including CLI and Oracle.
+- Repository builds treat warnings as errors; production projects no longer suppress nullable warnings.
+
+### Fixed
+
+- MySQL 8 check-constraint introspection resolves table ownership through `table_constraints`; it no longer reads a non-existent `TABLE_NAME` field from `check_constraints`.
+- Schema comparison treats PostgreSQL `TIMESTAMP WITHOUT TIME ZONE` and Oracle's default `TIMESTAMP(6)` as equivalent to an unspecified `TIMESTAMP`, while explicit precision differences remain blocked.
+
+### Tests
+
+- Added a six-provider, one-million-row synchronization matrix covering live compare, safe column/index changes, idempotency, destructive-change blocking, and migration history where supported.
+- Added a weekly and manually triggered scale workflow without adding the expensive matrix to routine pull-request CI.
 
 ## [1.2.3] - 2026-07-12
 

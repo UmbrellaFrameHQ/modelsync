@@ -8,7 +8,7 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         public ModelSyncSqlCommand(
             string commandText,
             ModelSyncSqlPurpose purpose,
-            IEnumerable<ModelSyncSqlParameter> parameters = null,
+            IEnumerable<ModelSyncSqlParameter>? parameters = null,
             bool supportsTransaction = true,
             bool isDestructive = false,
             bool requiresAdministrativeConnection = false)

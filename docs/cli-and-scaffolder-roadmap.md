@@ -29,14 +29,15 @@ modelsync validate \
 
 modelsync run \
   --provider sqlserver \
-  --connection "<connection-string>" \
+  --connection-env MODELSYNC_CONNECTION_STRING \
   --scripts ./Database/Scripts \
   --dry-run
 
 modelsync run \
   --provider sqlserver \
-  --connection "<connection-string>" \
+  --connection-env MODELSYNC_CONNECTION_STRING \
   --scripts ./Database/Scripts \
+  --apply \
   --report-md ./artifacts/modelsync-report.md \
   --report-json ./artifacts/modelsync-report.json
 ```
@@ -59,6 +60,8 @@ modelsync scaffold
 CLI rules:
 
 - no hidden destructive action,
+- explicit `--apply` confirmation for mutation,
+- environment-variable connection strings for CI and production,
 - exact provider selection,
 - dry-run first where possible,
 - structured JSON output for CI,

@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Core.Interfaces;
@@ -19,6 +21,8 @@ namespace UmbrellaFrame.ModelSync.Cli
         private const int Success = 0;
         private const int UsageError = 2;
         private const int ExecutionError = 1;
+        private const int Cancelled = 130;
+        internal const string DefaultConnectionEnvironmentVariable = "MODELSYNC_CONNECTION_STRING";
 
         public static async Task<int> Main(string[] args)
         {
@@ -28,43 +32,65 @@ namespace UmbrellaFrame.ModelSync.Cli
                 return Success;
             }
 
-            try
+            using (var cancellation = new CancellationTokenSource())
             {
-                var command = args[0].Trim().ToLowerInvariant();
-                var options = CliOptions.Parse(args.Skip(1));
-
-                switch (command)
+                ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
                 {
-                    case "version":
-                        Console.WriteLine(GetVersion());
-                        return Success;
-                    case "validate":
-                        return Validate(options);
-                    case "run":
-                        return await RunAsync(options).ConfigureAwait(false);
-                    default:
-                        Console.Error.WriteLine($"Unknown command: {args[0]}");
-                        PrintHelp();
-                        return UsageError;
+                    eventArgs.Cancel = true;
+                    cancellation.Cancel();
+                };
+
+                Console.CancelKeyPress += cancelHandler;
+                try
+                {
+                    var command = args[0].Trim().ToLowerInvariant();
+                    var options = CliOptions.Parse(args.Skip(1));
+
+                    switch (command)
+                    {
+                        case "version":
+                            Console.WriteLine(GetVersion());
+                            return Success;
+                        case "validate":
+                            return Validate(options);
+                        case "run":
+                            return await RunAsync(options, cancellation.Token).ConfigureAwait(false);
+                        default:
+                            Console.Error.WriteLine($"Unknown command: {args[0]}");
+                            PrintHelp();
+                            return UsageError;
+                    }
                 }
-            }
-            catch (CliUsageException ex)
-            {
-                Console.Error.WriteLine(ex.Message);
-                return UsageError;
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine(SafeMessage(ex));
-                return ExecutionError;
+                catch (CliUsageException ex)
+                {
+                    Console.Error.WriteLine(ex.Message);
+                    return UsageError;
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.Error.WriteLine("ModelSync operation was cancelled.");
+                    return Cancelled;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(SafeMessage(ex));
+                    return ExecutionError;
+                }
+                finally
+                {
+                    Console.CancelKeyPress -= cancelHandler;
+                }
             }
         }
 
-        private static async Task<int> RunAsync(CliOptions cli)
+        private static async Task<int> RunAsync(CliOptions cli, CancellationToken cancellationToken)
         {
             var provider = cli.Require("provider");
-            var connection = cli.Require("connection");
+            var connection = ResolveConnectionString(cli);
             var scripts = cli.Require("scripts");
+
+            if (!cli.HasFlag("dry-run") && !cli.HasFlag("apply"))
+                throw new CliUsageException("Applying migrations requires explicit --apply confirmation. Use --dry-run to preview changes.");
 
             var options = new MigrationRunnerOptions
             {
@@ -81,12 +107,12 @@ namespace UmbrellaFrame.ModelSync.Cli
 
             if (cli.HasFlag("dry-run"))
             {
-                var plan = await runner.CompareRegisteredAsync().ConfigureAwait(false);
+                var plan = await runner.CompareRegisteredAsync(cancellationToken).ConfigureAwait(false);
                 PrintDryRun(plan);
                 return Success;
             }
 
-            var result = await runner.RunWithResultAsync().ConfigureAwait(false);
+            var result = await runner.RunWithResultAsync(cancellationToken).ConfigureAwait(false);
             WriteReports(cli, result);
             PrintSummary(result);
             return result.Succeeded ? Success : ExecutionError;
@@ -213,9 +239,38 @@ namespace UmbrellaFrame.ModelSync.Cli
             return string.IsNullOrWhiteSpace(version) ? "1.3.0" : version;
         }
 
-        private static string SafeMessage(Exception ex)
+        internal static string ResolveConnectionString(CliOptions cli)
         {
-            return string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+            var inline = cli.Get("connection", string.Empty);
+            var environmentName = cli.Get("connection-env", string.Empty);
+
+            if (!string.IsNullOrWhiteSpace(inline) && !string.IsNullOrWhiteSpace(environmentName))
+                throw new CliUsageException("Use either --connection or --connection-env, not both.");
+
+            if (!string.IsNullOrWhiteSpace(inline))
+            {
+                Console.Error.WriteLine("Warning: --connection may be visible in process listings. Prefer --connection-env.");
+                return inline;
+            }
+
+            if (string.IsNullOrWhiteSpace(environmentName))
+                environmentName = DefaultConnectionEnvironmentVariable;
+
+            if (!Regex.IsMatch(environmentName, @"^[A-Za-z_][A-Za-z0-9_]*$"))
+                throw new CliUsageException("The connection environment variable name is invalid.");
+
+            var value = Environment.GetEnvironmentVariable(environmentName);
+            if (string.IsNullOrWhiteSpace(value))
+                throw new CliUsageException($"Connection string environment variable '{environmentName}' is not set.");
+
+            return value;
+        }
+
+        internal static string SafeMessage(Exception ex)
+        {
+            var message = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+            var redacted = Regex.Replace(message, @"(?i)(password|pwd|token|api[_-]?key|secret|access[_-]?key)\s*=\s*[^;\s]+", "$1=<redacted>");
+            return Regex.Replace(redacted, @"(?i)(password|pwd|token|api[_-]?key|secret|access[_-]?key)\s*[:=]\s*['""]?[^,'""\s;]+", "$1=<redacted>");
         }
 
         private static bool IsHelp(string value)
@@ -232,15 +287,19 @@ namespace UmbrellaFrame.ModelSync.Cli
             Console.WriteLine("Usage:");
             Console.WriteLine("  modelsync version");
             Console.WriteLine("  modelsync validate --scripts <directory>");
-            Console.WriteLine("  modelsync run --provider <provider> --connection <connection-string> --scripts <directory> [--dry-run] [--report-md <path>] [--report-json <path>]");
+            Console.WriteLine("  modelsync run --provider <provider> --connection-env <variable> --scripts <directory> --dry-run");
+            Console.WriteLine("  modelsync run --provider <provider> --connection-env <variable> --scripts <directory> --apply [--report-md <path>] [--report-json <path>]");
             Console.WriteLine();
             Console.WriteLine("Providers:");
             Console.WriteLine("  sqlserver, mysql, mariadb, postgresql, sqlite");
             Console.WriteLine();
             Console.WriteLine("Options:");
+            Console.WriteLine($"  --connection-env <name>     Reads the connection string from an environment variable. Default: {DefaultConnectionEnvironmentVariable}.");
+            Console.WriteLine("  --connection <value>        Inline compatibility option; may be visible in process listings.");
             Console.WriteLine("  --history-schema <schema>   Defaults to sec.");
             Console.WriteLine("  --legacy-profile            Applies MigrationCompatibilityProfiles.LegacyEmbeddedSql.");
             Console.WriteLine("  --dry-run                   Compares registered scripts without applying them.");
+            Console.WriteLine("  --apply                     Explicitly confirms migration execution.");
         }
     }
 
@@ -265,7 +324,8 @@ namespace UmbrellaFrame.ModelSync.Cli
                     throw new CliUsageException("Option name cannot be empty.");
 
                 if (name.Equals("legacy-profile", StringComparison.OrdinalIgnoreCase) ||
-                    name.Equals("dry-run", StringComparison.OrdinalIgnoreCase))
+                    name.Equals("dry-run", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("apply", StringComparison.OrdinalIgnoreCase))
                 {
                     result._flags.Add(name);
                     continue;

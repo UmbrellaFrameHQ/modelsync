@@ -28,7 +28,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
 
         /// <param name="connectionString">A valid SQLite connection string.</param>
         /// <param name="logger">Optional logger instance.</param>
-        public SQLiteTableGenerator(string connectionString, ILogger<SQLiteTableGenerator> logger = null)
+        public SQLiteTableGenerator(string connectionString, ILogger<SQLiteTableGenerator>? logger = null)
             : base(logger)
         {
             if (string.IsNullOrEmpty(connectionString))
@@ -111,7 +111,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             => await DropTablesAsync(null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task DropTablesAsync(DestructiveOperationOptions options, CancellationToken cancellationToken = default)
+        public async Task DropTablesAsync(DestructiveOperationOptions? options, CancellationToken cancellationToken = default)
         {
             RequireDestructivePermission(options, nameof(DropTablesAsync));
 
@@ -169,7 +169,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             => await DropColumnAsync<T>(columnName, null, cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task DropColumnAsync<T>(string columnName, DestructiveOperationOptions options, CancellationToken cancellationToken = default) where T : class, new()
+        public async Task DropColumnAsync<T>(string columnName, DestructiveOperationOptions? options, CancellationToken cancellationToken = default) where T : class, new()
         {
             RequireDestructivePermission(options, nameof(DropColumnAsync));
 
@@ -219,7 +219,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             => AlterColumnTypeAsync<T>(columnName, null, cancellationToken);
 
         /// <inheritdoc/>
-        public Task AlterColumnTypeAsync<T>(string columnName, DestructiveOperationOptions options, CancellationToken cancellationToken = default) where T : class, new()
+        public Task AlterColumnTypeAsync<T>(string columnName, DestructiveOperationOptions? options, CancellationToken cancellationToken = default) where T : class, new()
         {
             RequireDestructivePermission(options, nameof(AlterColumnTypeAsync));
             throw new NotSupportedException("SQLite does not support altering a column type directly. Recreate the table instead.");

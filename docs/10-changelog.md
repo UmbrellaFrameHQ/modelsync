@@ -17,10 +17,24 @@ Versioning: Semantic Versioning.
 - Provider support matrix, migration reporting guidance, and CLI/DB-first scaffolder roadmap documentation.
 - Migration report, CLI quickstart, and GitHub Actions examples for storing Markdown and JSON deployment artifacts.
 - Performance smoke coverage for rendering large migration execution reports.
+- CLI support for `--connection-env`, explicit `--apply`, Ctrl+C cancellation, secret redaction, and direct tests.
+- Analyzer rules `MSYNC004`-`MSYNC008` for mapping and generated-value conflicts.
+- Opt-in live scale coverage for one million rows on SQL Server, MySQL, MariaDB, PostgreSQL, SQLite, and Oracle.
 
 ### Changed
 - Oracle is documented as a preview provider until the public NuGet package ID can be published with package-owner API-key permission.
 - 1.3.0 positions ModelSync as a schema lifecycle toolkit: CLI validation, dry-run previews, migration execution, reporting, provider support clarity, and future scaffolder foundation.
+- Full EN/TR guides, provider/API references, NuGet README, and CLI examples are aligned with 1.3.0.
+- Publication and recovery workflows validate all eight packages, and Oracle integration is part of CI.
+- Builds treat warnings as errors and production nullable suppressions were removed.
+
+### Fixed
+- MySQL 8 check-constraint introspection now joins `table_constraints` with `check_constraints` instead of reading a non-existent `TABLE_NAME` column.
+- Live schema comparison recognizes PostgreSQL `TIMESTAMP WITHOUT TIME ZONE` and Oracle's default `TIMESTAMP(6)` as the default `TIMESTAMP` representation while preserving explicit precision drift.
+
+### Tests
+- Added an opt-in six-provider scale project that creates one million rows per database and verifies safe additive synchronization, index creation, idempotency, destructive-change blocking, and migration history where supported.
+- Added a weekly and manually triggered GitHub Actions scale workflow; routine pull-request CI remains lightweight.
 
 ## [1.2.3] - 2026-07-12 - SQL Server DBReset and Native Lock Fix
 

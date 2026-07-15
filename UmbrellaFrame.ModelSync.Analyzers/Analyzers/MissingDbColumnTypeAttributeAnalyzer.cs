@@ -50,6 +50,10 @@ namespace UmbrellaFrame.ModelSync.Core.Analyzers
                 if (member.DeclaredAccessibility != Accessibility.Public) continue;
                 if (member.IsStatic) continue;
 
+                bool isIgnored = member.GetAttributes().Any(a =>
+                    a.AttributeClass?.Name == "DbIgnoreAttribute");
+                if (isIgnored) continue;
+
                 bool hasColumnTypeAttr = member.GetAttributes().Any(a =>
                     a.AttributeClass?.Name.EndsWith("ColumnTypeAttribute") == true);
 

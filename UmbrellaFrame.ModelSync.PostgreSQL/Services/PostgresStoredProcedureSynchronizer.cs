@@ -19,7 +19,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         private readonly StoredProcedureSqlPlanner _planner = new StoredProcedureSqlPlanner(PostgresProviderDescriptor.Create());
         private readonly List<StoredProcedureDefinition> _definitions = new List<StoredProcedureDefinition>();
 
-        public PostgresStoredProcedureSynchronizer(string connectionString, ILogger<PostgresStoredProcedureSynchronizer> logger = null)
+        public PostgresStoredProcedureSynchronizer(string connectionString, ILogger<PostgresStoredProcedureSynchronizer>? logger = null)
         {
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new ArgumentException("Connection string cannot be empty.", nameof(connectionString));
@@ -33,7 +33,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             _definitions.Add(definition);
         }
 
-        public StoredProcedureDefinition RegisterProcedureFile(string path, string name = null, string schema = "dbo")
+        public StoredProcedureDefinition RegisterProcedureFile(string path, string? name = null, string schema = "dbo")
         {
             var definition = StoredProcedureDefinition.FromFile(path, name, schema);
             RegisterProcedure(definition);

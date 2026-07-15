@@ -20,7 +20,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         private static readonly ModelSyncSqlDialect Dialect = new ModelSyncSqlDialect(PostgresProviderDescriptor.Create());
         private readonly string _connectionString;
 
-        public PostgresMigrationRunner(string connectionString, MigrationRunnerOptions options = null, ILogger<PostgresMigrationRunner> logger = null)
+        public PostgresMigrationRunner(string connectionString, MigrationRunnerOptions? options = null, ILogger<PostgresMigrationRunner>? logger = null)
             : base(ConfigureDefaults(options), logger ?? NullLogger<PostgresMigrationRunner>.Instance, new ProviderNativeMigrationLockStrategy(Dialect))
         {
             if (string.IsNullOrWhiteSpace(connectionString))
@@ -35,8 +35,8 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         {
             var builder = new NpgsqlConnectionStringBuilder(_connectionString);
             var database = builder.Database;
-            ValidateIdentifier(database, nameof(database));
-            ValidateResetDatabaseName(database);
+            ValidateIdentifier(database!, nameof(database));
+            ValidateResetDatabaseName(database!);
             builder.Database = "postgres";
             using (var connection = PostgresConnectionFactory.Create(builder.ConnectionString))
             {
@@ -46,9 +46,9 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
                     terminate.Parameters.AddWithValue("@db", database);
                     await terminate.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
-                using (var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{EscapeIdentifier(database)}\";", connection))
+                    using (var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{EscapeIdentifier(database!)}\";", connection))
                     await drop.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                using (var create = new NpgsqlCommand($"CREATE DATABASE \"{EscapeIdentifier(database)}\";", connection))
+                    using (var create = new NpgsqlCommand($"CREATE DATABASE \"{EscapeIdentifier(database!)}\";", connection))
                     await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
         }
@@ -207,7 +207,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             result.ErrorObjectName = Redact(postgres.Routine ?? string.Empty);
         }
 
-        private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions options)
+        private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions? options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
             if (string.IsNullOrWhiteSpace(configured.HistorySchema))

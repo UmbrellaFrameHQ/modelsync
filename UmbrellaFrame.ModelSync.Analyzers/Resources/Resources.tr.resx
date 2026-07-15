@@ -32,24 +32,24 @@
 
   <!-- MSYNC001 -->
   <data name="MSYNC001_Title" xml:space="preserve">
-    <value>Kolon tipi attribute eksik</value>
+    <value>Kolon tipi attribute'u eksik</value>
   </data>
   <data name="MSYNC001_MessageFormat" xml:space="preserve">
-    <value>'{0}' property'si bir kolon tipi attribute'u ile isaretlenmemis (ornek: MySqlColumnTypeAttribute, SqlServerColumnTypeAttribute)</value>
+    <value>'{0}' property'si bir kolon tipi attribute'u ile işaretlenmemiş (örnek: MySqlColumnTypeAttribute, SqlServerColumnTypeAttribute)</value>
   </data>
   <data name="MSYNC001_Description" xml:space="preserve">
-    <value>Tablo adi attribute'u ile isaretlenmis bir model sinifindaki tum public property'ler, dogru SQL uretimi icin bir kolon tipi attribute'una sahip olmalidir.</value>
+    <value>Tablo adı attribute'u ile işaretlenmiş bir model sınıfındaki tüm public property'ler, doğru SQL üretimi için bir kolon tipi attribute'una sahip olmalıdır.</value>
   </data>
 
   <!-- MSYNC002 -->
   <data name="MSYNC002_Title" xml:space="preserve">
-    <value>Tablo adi attribute eksik</value>
+    <value>Tablo adı attribute'u eksik</value>
   </data>
   <data name="MSYNC002_MessageFormat" xml:space="preserve">
-    <value>'{0}' sinifi kolon tipi attribute'larina sahip ancak tablo adi attribute'u eksik (ornek: MySqlTableNameAttribute)</value>
+    <value>'{0}' sınıfı kolon tipi attribute'larına sahip ancak tablo adı attribute'u eksik (örnek: MySqlTableNameAttribute)</value>
   </data>
   <data name="MSYNC002_Description" xml:space="preserve">
-    <value>Property'lerinde kolon tipi attribute'u bulunan siniflar, dogru SQL uretimi icin bir tablo adi attribute'una da sahip olmalidir.</value>
+    <value>Property'lerinde kolon tipi attribute'u bulunan sınıflar, doğru SQL üretimi için bir tablo adı attribute'una da sahip olmalıdır.</value>
   </data>
 
   <!-- MSYNC003 -->
@@ -57,17 +57,33 @@
     <value>Primary key attribute eksik</value>
   </data>
   <data name="MSYNC003_MessageFormat" xml:space="preserve">
-    <value>'{0}' model sinifinda primary key attribute'u ile isaretlenmis hicbir property bulunamadi</value>
+    <value>'{0}' model sınıfında primary key attribute'u ile işaretlenmiş hiçbir property bulunamadı</value>
   </data>
   <data name="MSYNC003_Description" xml:space="preserve">
-    <value>Her veritabani tablo modeli, en az bir property'yi primary key olarak tanimlamalidir.</value>
+    <value>Her veritabanı tablo modeli, en az bir property'yi primary key olarak tanımlamalıdır.</value>
   </data>
+
+  <data name="MSYNC004_Title" xml:space="preserve"><value>Ignore edilen property mapping attribute'u taşıyor</value></data>
+  <data name="MSYNC004_MessageFormat" xml:space="preserve"><value>'{0}' property'si DbIgnore ile database mapping attribute'larını birlikte kullanıyor</value></data>
+  <data name="MSYNC004_Description" xml:space="preserve"><value>Ignore edilen bir property database mapping metadata'sı taşımamalıdır.</value></data>
+  <data name="MSYNC005_Title" xml:space="preserve"><value>Geçersiz database kolon adı</value></data>
+  <data name="MSYNC005_MessageFormat" xml:space="preserve"><value>'{0}' property'sinin database kolon adı '{1}' geçersizdir</value></data>
+  <data name="MSYNC005_Description" xml:space="preserve"><value>Kolon adları güvenli ModelSync identifier formatını kullanmalıdır.</value></data>
+  <data name="MSYNC006_Title" xml:space="preserve"><value>Çakışan generated-value attribute'ları</value></data>
+  <data name="MSYNC006_MessageFormat" xml:space="preserve"><value>'{0}' property'sinde birden fazla default veya generated-value attribute'u var</value></data>
+  <data name="MSYNC006_Description" xml:space="preserve"><value>Bir property tek ve açık bir database-generated default tanımına sahip olmalıdır.</value></data>
+  <data name="MSYNC007_Title" xml:space="preserve"><value>Generated value bu property tipi için desteklenmiyor</value></data>
+  <data name="MSYNC007_MessageFormat" xml:space="preserve"><value>'{0}' property'si desteklenmeyen '{1}' tipinde auto-increment kullanıyor</value></data>
+  <data name="MSYNC007_Description" xml:space="preserve"><value>Auto-increment primary key integral bir CLR tipi kullanmalıdır.</value></data>
+  <data name="MSYNC008_Title" xml:space="preserve"><value>Birden fazla provider primary-key attribute'u</value></data>
+  <data name="MSYNC008_MessageFormat" xml:space="preserve"><value>'{0}' property'sinde birden fazla provider primary-key attribute'u var</value></data>
+  <data name="MSYNC008_Description" xml:space="preserve"><value>Bir property yalnız bir provider'a özel primary-key mapping kullanmalıdır.</value></data>
 
   <!-- DbColumnTypeAttribute -->
   <data name="Attr_InvalidLength" xml:space="preserve">
-    <value>{0} icin gecersiz uzunluk. Deger 65535'ten kucuk veya esit bir sayi ya da 'MAX' olmalidir.</value>
+    <value>{0} için geçersiz uzunluk. Değer 65535'ten küçük veya eşit bir sayı ya da 'MAX' olmalıdır.</value>
   </data>
   <data name="Attr_LengthNotSupported" xml:space="preserve">
-    <value>{0} tipi icin uzunluk (Length) desteklenmemektedir.</value>
+    <value>{0} tipi için uzunluk (Length) desteklenmemektedir.</value>
   </data>
 </root>

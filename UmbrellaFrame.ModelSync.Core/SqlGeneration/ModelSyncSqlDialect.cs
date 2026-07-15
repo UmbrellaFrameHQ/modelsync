@@ -301,7 +301,13 @@ namespace UmbrellaFrame.ModelSync.Core.SqlGeneration
         public ModelSyncSqlCommand BuildReadChecksPlan()
             => _descriptor.CatalogStyle == CatalogQueryStyle.OracleDataDictionary
                 ? new ModelSyncSqlCommand("SELECT USER, TABLE_NAME, CONSTRAINT_NAME FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'C'", ModelSyncSqlPurpose.Introspection)
-                : new ModelSyncSqlCommand("SELECT CONSTRAINT_SCHEMA, TABLE_NAME, CONSTRAINT_NAME FROM information_schema.check_constraints WHERE CONSTRAINT_SCHEMA = @Schema;", ModelSyncSqlPurpose.Introspection);
+                : new ModelSyncSqlCommand(@"SELECT tc.CONSTRAINT_SCHEMA, tc.TABLE_NAME, tc.CONSTRAINT_NAME
+FROM information_schema.table_constraints tc
+JOIN information_schema.check_constraints cc
+  ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+ AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+WHERE tc.CONSTRAINT_SCHEMA = @Schema
+  AND tc.CONSTRAINT_TYPE = 'CHECK';", ModelSyncSqlPurpose.Introspection);
 
         public ModelSyncSqlCommand BuildReadFileCatalogTablesPlan()
             => new ModelSyncSqlCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';", ModelSyncSqlPurpose.Introspection);

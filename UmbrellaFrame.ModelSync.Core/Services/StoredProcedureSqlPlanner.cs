@@ -22,7 +22,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         {
             ValidateDefinition(definition);
             var applySql = BuildApplySql(definition);
-            var targetHash = SqlDefinitionNormalizer.ComputeHash(BuildComparableSql(definition.Sql));
+            var targetHash = SqlDefinitionNormalizer.ComputeHash(BuildComparableSql(definition.Sql ?? string.Empty));
 
             if (string.IsNullOrWhiteSpace(currentSql))
             {
@@ -35,7 +35,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 };
             }
 
-            var currentHash = SqlDefinitionNormalizer.ComputeHash(BuildComparableSql(currentSql));
+            var currentHash = SqlDefinitionNormalizer.ComputeHash(BuildComparableSql(currentSql!));
             var hasChanges = !string.Equals(currentHash, targetHash, StringComparison.Ordinal);
             return new StoredProcedureSyncPlan
             {

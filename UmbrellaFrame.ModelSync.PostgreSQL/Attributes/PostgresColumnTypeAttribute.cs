@@ -8,14 +8,14 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
     public class PostgresColumnTypeAttribute : DbColumnTypeAttribute
     {
         private new PostgresColumnType ColumnType { get; }
-        public new string Length { get; } = null;
+        public new string? Length { get; }
 
         public PostgresColumnTypeAttribute(PostgresColumnType columnType) : base(MapTypeName(columnType))
         {
             ColumnType = columnType;
         }
 
-        public PostgresColumnTypeAttribute(PostgresColumnType columnType, string length = null) : base(MapTypeName(columnType), length)
+        public PostgresColumnTypeAttribute(PostgresColumnType columnType, string? length = null) : base(MapTypeName(columnType), length)
         {
             ColumnType = columnType;
             Length = length;

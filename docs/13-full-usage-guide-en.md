@@ -2,7 +2,7 @@
 
 Installation, model definition, SQL generation, DDL execution, migration runner, stored procedure synchronization, live model synchronization, analyzers, testing, troubleshooting, and production usage.
 
-**Version scope:** 1.2.2
+**Version scope:** 1.3.0
 **Author:** UmbrellaFrame / ModelSync
 
 # Table Of Contents
@@ -30,19 +30,20 @@ Installation, model definition, SQL generation, DDL execution, migration runner,
 21. [Production Guide](#production-guide)
 22. [Complete Project Structure](#complete-project-structure)
 23. [Quick API Reference](#quick-api-reference)
-24. [Version 1.2.2 Limits](#version-108-limits)
-25. [FAQ](#faq)
-26. [Conclusion](#conclusion)
+24. [CLI And Migration Reports](#cli-and-migration-reports)
+25. [Version 1.3.0 Limits](#version-130-limits)
+26. [FAQ](#faq)
+27. [Conclusion](#conclusion)
 
 # About This Guide
 
-This guide is written for .NET developers who install **ModelSync 1.2.2** from NuGet and want to use it correctly without reading the source code first.
+This guide is written for .NET developers who install **ModelSync 1.3.0** from NuGet and want to use it correctly without reading the source code first.
 
-> Legacy runner note: ModelSync 1.2.0 includes compatibility support for embedded SQL runners. See [Legacy Runner Migration - English](legacy-runner-migration-en.md).
+> Legacy runner note: ModelSync keeps compatibility support for embedded SQL runners. See [Legacy Runner Migration - English](legacy-runner-migration-en.md).
 
-### Legacy Execution Modes Preview
+### Migration Execution Modes
 
-The upcoming compatibility work introduces `RunOnce`, `HashTracked`, and `EveryRun` migration script execution modes through `MigrationRunnerOptions.CategoryPolicies`.
+ModelSync supports `RunOnce`, `HashTracked`, and `EveryRun` migration script execution modes through `MigrationRunnerOptions.CategoryPolicies`.
 
 `MigrationCompatibilityProfiles.LegacyEmbeddedSql` maps stored procedures and triggers to `EveryRun`, seeds to `RunOnce`, and custom SQL to `HashTracked`. Compare APIs remain read-only: they can report required `SqlHash` upgrade and legacy hash adoption, but they do not mutate history tables or execute scripts.
 
@@ -87,9 +88,11 @@ Main use cases:
 | `UmbrellaFrame.ModelSync.MySql` | MySQL / MariaDB implementation | Yes, for MySQL / MariaDB. |
 | `UmbrellaFrame.ModelSync.PostgreSQL` | PostgreSQL implementation | Yes, for PostgreSQL. |
 | `UmbrellaFrame.ModelSync.SQLite` | SQLite implementation | Yes, for SQLite. |
+| `UmbrellaFrame.ModelSync.Oracle` | Oracle preview table DDL and partial safe model synchronization | Preview only; read the provider matrix first. |
 | `UmbrellaFrame.ModelSync.Analyzers` | Compile-time model validation | Optional, recommended. |
+| `UmbrellaFrame.ModelSync.Cli` | Command-line validation, dry-run, execution, and reports | Optional .NET tool. |
 
-All packages target `netstandard2.0`.
+Core and the stable provider packages target `netstandard2.0`. Oracle preview targets `netstandard2.1`; the CLI targets `net8.0`.
 
 # Installation
 
@@ -98,31 +101,31 @@ Install only the provider you need.
 SQL Server / Azure SQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
 ```
 
 MySQL / MariaDB:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
 ```
 
 PostgreSQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
 ```
 
 SQLite:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
 ```
 
 Analyzer:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
 ```
 
 Common namespaces:
@@ -346,7 +349,7 @@ Every public property intended as a column should have a provider column type at
 public string Email { get; set; } = string.Empty;
 ```
 
-By default, the column name is the property name. In the current repository, `DbColumnName("database_column")` can override the database column name and `DbIgnore` can exclude public helper properties from schema discovery. The latest NuGet package is `1.2.2`; these mapping attributes are included in the current package line.
+By default, the column name is the property name. `DbColumnName("database_column")` overrides it and `DbIgnore` excludes public helper properties from schema discovery. Both are part of the 1.3.0 package line.
 
 ## Primary Key
 
@@ -415,7 +418,7 @@ Cross-provider attributes:
 [SQLiteColumnForeignKey("UserId", "users", "Id")]
 ```
 
-Foreign key snippets are intentionally simple in 1.2.0. Avoid spaces, dots, brackets, quoted names, and schema-qualified names in foreign key parameters. Use migration scripts for advanced cascade behavior or schema-qualified constraints.
+Foreign key attributes intentionally cover the common case. Avoid spaces, dots, brackets, quoted names, and schema-qualified names in their parameters. Use migration scripts for advanced cascade behavior or schema-qualified constraints.
 
 # Provider Column Types
 
@@ -674,20 +677,29 @@ This feature is script-based. Adding a C# property to a model does not trigger a
 
 ## Optional Database Reset
 
-Database reset is destructive and requires explicit permission:
+Database reset is destructive. Prefer the structured contract so the target database and environment are verified before any reset command is built:
 
 ```csharp
 var options = new MigrationRunnerOptions
 {
     ResetDatabase = true,
-    DestructiveOptions = DestructiveOperationOptions.Allow()
+    ResetOptions = new DatabaseResetOptions
+    {
+        Enabled = true,
+        Approval = DestructiveOperationOptions.Allow(),
+        ExpectedDatabaseName = "AppDb",
+        EnvironmentName = "Development",
+        AllowedEnvironments = new[] { "Development" },
+        BackupBeforeReset = true, // SQL Server only
+        BackupDirectory = @"C:\SqlBackups"
+    }
 };
 
 var runner = new SqlServerMigrationRunner(connectionString, options);
 await runner.RunAsync();
 ```
 
-If `ResetDatabase` is true without `DestructiveOperationOptions.Allow()`, ModelSync throws before touching the database.
+ModelSync rejects missing approval, database-name mismatches, disallowed environments, and provider system databases. SQL Server resets before acquiring the native migration lock, waits for readiness, then creates infrastructure and runs scripts under the normal lock. Backup paths are evaluated from the SQL Server service account's filesystem.
 
 # Stored Procedure Synchronization
 
@@ -748,13 +760,13 @@ Rules:
 
 - Each file should contain one procedure definition.
 - The SQL procedure name must match the registered name.
-- Do not use SQL Server `GO` in stored procedure synchronizer files.
-- PostgreSQL overloaded procedure signatures are not supported in 1.2.0.
+- Strict mode rejects SQL Server `GO` in procedure files. Use `LegacyEmbeddedSql` only for supported deployment-style files that require terminal `GO` and session-setting batches.
+- PostgreSQL overloaded procedure signatures are not supported.
 - MySQL procedure updates drop and recreate the procedure; review production plans carefully.
 
 # Live Model Synchronization
 
-Model synchronizers are the 1.2.0 dry-run-first layer for comparing attribute models with a live database.
+Model synchronizers are the dry-run-first layer for comparing attribute models with a live database.
 
 Use them when the database already exists and you want ModelSync to answer:
 
@@ -818,7 +830,7 @@ var result = await SqlServerModelSynchronizer
 
 ## Table Execution Policies
 
-ModelSync 1.2.2 lets one run mix manual and automatic table ownership:
+ModelSync 1.3.0 lets one run mix manual and automatic table ownership:
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
@@ -881,7 +893,7 @@ For the focused reference, see [14 - Model Synchronizer](14-model-synchronizer.m
 Install:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.2.2
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
 ```
 
 Rules:
@@ -982,6 +994,19 @@ Test against real providers:
 
 SQLite shared-memory tests are useful, but they do not replace SQL Server/MySQL/PostgreSQL provider tests.
 
+## Million-Row Scale Tests
+
+The opt-in `UmbrellaFrame.ModelSync.ScaleTest` project runs the same one-million-row scenario against SQL Server, MySQL, MariaDB, PostgreSQL, SQLite, and Oracle. It covers the operations whose cost depends most directly on table size: catalog introspection, stable compare, nullable column addition, index creation, repeat comparison, destructive-change blocking, and migration-history idempotency where supported.
+
+```text
+docker compose -f compose.integration.yml up -d
+$env:MODELSYNC_RUN_SCALE_INTEGRATION = "1"
+dotnet test UmbrellaFrame.ModelSync.ScaleTest/UmbrellaFrame.ModelSync.ScaleTest.csproj -c Release --filter "Category=Scale"
+docker compose -f compose.integration.yml down -v
+```
+
+The normal provider integration projects still verify the wider feature set, including reset, native locks, routines, triggers, seeds, constraints, and foreign keys. Do not interpret a scale-test duration as a production service-level guarantee; hardware, database configuration, network latency, indexes, and real data distribution all affect DDL time.
+
 # Production Guide
 
 Recommended split:
@@ -1046,7 +1071,7 @@ MyApplication/
   appsettings.json
 ```
 
-Keep schema models separate from domain entities and API DTOs when possible. ModelSync 1.2.2 can exclude helpers with `DbIgnore`.
+Keep schema models separate from domain entities and API DTOs when possible. ModelSync 1.3.0 can exclude helpers with `DbIgnore`.
 
 # Quick API Reference
 
@@ -1103,10 +1128,31 @@ Keep schema models separate from domain entities and API DTOs when possible. Mod
 | `ModelSyncResult.SkippedOperations` | Safe operations intentionally skipped by configuration. |
 | `ApplyAsync()` | Applies only when no blocked operations exist. |
 
-# Version 1.2.2 Limits
+# CLI And Migration Reports
+
+Install the CLI as a .NET tool:
+
+```bash
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
+```
+
+Keep credentials outside process arguments, preview first, and require explicit apply:
+
+```bash
+export MODELSYNC_CONNECTION_STRING='Data Source=modelsync-preview.db'
+modelsync validate --scripts ./Database/Scripts
+modelsync run --provider sqlite --connection-env MODELSYNC_CONNECTION_STRING --scripts ./Database/Scripts --dry-run
+modelsync run --provider sqlite --connection-env MODELSYNC_CONNECTION_STRING --scripts ./Database/Scripts --apply --report-md ./artifacts/report.md --report-json ./artifacts/report.json
+```
+
+`validate` checks discovery and duplicate IDs; it does not prove arbitrary SQL safe. `--connection` remains available for compatibility but can expose secrets in process listings. Ctrl+C is propagated to migration operations.
+
+# Version 1.3.0 Limits
 
 - Model-to-live-database diff is additive/safety-first, not a full destructive migration engine.
-- ModelSync 1.2.2 includes `DbIgnore` and `DbColumnName` for schema discovery control.
+- ModelSync 1.3.0 includes `DbIgnore` and `DbColumnName` for schema discovery control.
+- Oracle is preview-only and does not yet include the full migration runner, stored procedure, reset, or native-lock feature set.
+- CLI validation checks migration metadata and duplicate IDs; it is not a provider SQL parser.
 - Schema-qualified table-name attributes are intentionally limited by strict identifier validation.
 - Index SQL is not executed automatically.
 - Foreign key attributes do not model advanced quoting or cascade behavior.

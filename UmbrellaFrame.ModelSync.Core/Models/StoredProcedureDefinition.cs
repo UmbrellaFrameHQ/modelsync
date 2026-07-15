@@ -12,13 +12,13 @@ namespace UmbrellaFrame.ModelSync.Core
         public string Schema { get; set; } = "dbo";
 
         /// <summary>Procedure name without schema.</summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>Project-side SQL definition.</summary>
-        public string Sql { get; set; }
+        public string Sql { get; set; } = string.Empty;
 
         /// <summary>Optional source file path for diagnostics, tooling, and editor integrations.</summary>
-        public string SourcePath { get; set; }
+        public string SourcePath { get; set; } = string.Empty;
 
         /// <summary>Creates a stored procedure definition from explicit SQL text.</summary>
         public static StoredProcedureDefinition Create(string name, string sql, string schema = "dbo")
@@ -37,7 +37,7 @@ namespace UmbrellaFrame.ModelSync.Core
         }
 
         /// <summary>Creates a stored procedure definition from a SQL file.</summary>
-        public static StoredProcedureDefinition FromFile(string path, string name = null, string schema = "dbo")
+        public static StoredProcedureDefinition FromFile(string path, string? name = null, string schema = "dbo")
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Procedure file path cannot be empty.", nameof(path));
@@ -65,7 +65,7 @@ namespace UmbrellaFrame.ModelSync.Core
             return new StoredProcedureDefinition
             {
                 Schema = string.IsNullOrWhiteSpace(resolvedSchema) ? "dbo" : resolvedSchema,
-                Name = resolvedName,
+                Name = resolvedName ?? fileName,
                 Sql = File.ReadAllText(path),
                 SourcePath = path
             };

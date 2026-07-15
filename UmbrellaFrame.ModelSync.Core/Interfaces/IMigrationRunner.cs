@@ -9,7 +9,7 @@ namespace UmbrellaFrame.ModelSync.Core.Interfaces
     public interface IMigrationRunner
     {
         void RegisterScript(MigrationScriptDefinition definition);
-        MigrationScriptDefinition RegisterScriptFile(string path, MigrationScriptCategory? category = null, string id = null, string name = null);
+        MigrationScriptDefinition RegisterScriptFile(string path, MigrationScriptCategory? category = null, string? id = null, string? name = null);
         IReadOnlyList<MigrationScriptDefinition> RegisterEmbeddedScripts(Assembly assembly, params string[] prefixes);
         Task EnsureInfrastructureAsync(CancellationToken cancellationToken = default);
         Task<IReadOnlyList<MigrationSyncPlan>> CompareRegisteredAsync(CancellationToken cancellationToken = default);

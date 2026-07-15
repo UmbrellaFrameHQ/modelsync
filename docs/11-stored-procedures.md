@@ -135,7 +135,7 @@ ALTER PROCEDURE
 CREATE OR REPLACE PROCEDURE
 ```
 
-Do not include SQL Server `GO` batch separators inside procedure files. `GO` is a client-side command, not a SQL statement.
+In strict mode, do not include SQL Server `GO` separators inside procedure files because `GO` is a client command, not SQL. The explicit `LegacyEmbeddedSql` compatibility profile can normalize supported deployment-style files with terminal `GO`, `SET ANSI_NULLS`, and `SET QUOTED_IDENTIFIER` batches; unsupported side batches remain blocked.
 
 ## File Naming
 

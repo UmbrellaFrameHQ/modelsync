@@ -11,7 +11,7 @@ namespace UmbrellaFrame.ModelSync.Core
             Type notNullAttribute,
             Type uniqueAttribute,
             Type foreignKeyAttribute,
-            Func<DbColumnPrimaryKeyAttribute, ModelColumnDefinition, DbValueGenerationKind> valueGenerationResolver = null)
+            Func<DbColumnPrimaryKeyAttribute, ModelColumnDefinition, DbValueGenerationKind>? valueGenerationResolver = null)
         {
             TableNameAttribute = RequireAssignable(tableNameAttribute, typeof(DbTableNameAttribute), nameof(tableNameAttribute));
             ColumnTypeAttribute = RequireAssignable(columnTypeAttribute, typeof(DbColumnTypeAttribute), nameof(columnTypeAttribute));
@@ -28,7 +28,7 @@ namespace UmbrellaFrame.ModelSync.Core
         public Type NotNullAttribute { get; }
         public Type UniqueAttribute { get; }
         public Type ForeignKeyAttribute { get; }
-        public Func<DbColumnPrimaryKeyAttribute, ModelColumnDefinition, DbValueGenerationKind> ValueGenerationResolver { get; }
+        public Func<DbColumnPrimaryKeyAttribute, ModelColumnDefinition, DbValueGenerationKind>? ValueGenerationResolver { get; }
 
         public static ProviderAttributeSet Generic { get; } =
             new ProviderAttributeSet(

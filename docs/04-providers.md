@@ -66,10 +66,14 @@ var generator = new SqlServerTableGenerator(
 
 ### IF NOT EXISTS — SQL Server Farkı
 
-SQL Server, `CREATE TABLE IF NOT EXISTS` sözdizimini desteklemez.
-ModelSync, SQL Server'da bu koruyu çıkarmaz (boş string döner).
-Tablo var/yok kontrolü için kendiniz `IF NOT EXISTS (SELECT ...)` bloğu yazmanız gerekir
-ya da explicit onay ile `DropTables(DestructiveOperationOptions.Allow())` + `CreateTables()` akışını kullanın.
+SQL Server, `CREATE TABLE IF NOT EXISTS` sözdizimini desteklemez. ModelSync
+`ifNotExists: true` verildiğinde eşdeğer bir `IF OBJECT_ID(...) IS NULL` bloğu üretir:
+
+```csharp
+var sql = generator.GenerateSqlServerTable<Product>(ifNotExists: true);
+```
+
+Tabloyu yeniden oluşturmak için drop işlemine yönelmeyin. Drop yalnız bilinçli veri kaybı senaryolarında ve `DestructiveOperationOptions.Allow()` ile kullanılmalıdır.
 
 ### IDENTITY (Auto Increment)
 
@@ -210,6 +214,37 @@ generator.GenerateSQLiteTable<User>(ifNotExists: true);
 generator.CreateTables();
 // Artık bellek içi SQLite'de 'users' tablosu mevcut
 ```
+
+---
+
+## Oracle Preview
+
+Oracle provider `netstandard2.1` hedefler ve 1.3.0 sürümünde tablo DDL ile güvenli model karşılaştırmasının bir bölümünü destekler.
+
+```bash
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
+```
+
+```csharp
+using UmbrellaFrame.ModelSync.Oracle;
+
+[OracleTableName("PRODUCTS")]
+public sealed class OracleProduct
+{
+    [OracleColumnType(OracleColumnType.NUMBER, "10")]
+    [OracleColumnPrimaryKey(isIdentity: true)]
+    public int Id { get; set; }
+
+    [OracleColumnType(OracleColumnType.VARCHAR2, "200")]
+    [OracleColumnNotNull]
+    public string Name { get; set; } = string.Empty;
+}
+
+var generator = new OracleTableGenerator(connectionString);
+var sql = generator.GenerateOracleTable<OracleProduct>(ifNotExists: true);
+```
+
+Oracle `IF NOT EXISTS` sözdizimini desteklemediği için generator doğrudan bu ifadeyi üretmez. Oracle migration runner, stored procedure synchronization, reset ve native lock desteği henüz production seviyesinde değildir. Güncel durum için [provider destek matrisini](provider-support-matrix.md) kullanın.
 
 ---
 

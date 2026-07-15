@@ -28,8 +28,8 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             Func<ModelTableDefinition, ModelColumnDefinition, string> addUniqueSql,
             Func<ModelTableDefinition, ModelColumnDefinition, string> addForeignKeySql,
             Func<ModelTableDefinition, ModelColumnDefinition, string> addIndexSql,
-            IModelSyncOperationRiskEvaluator riskEvaluator = null,
-            IModelSyncTablePolicyResolver policyResolver = null)
+            IModelSyncOperationRiskEvaluator? riskEvaluator = null,
+            IModelSyncTablePolicyResolver? policyResolver = null)
         {
             _quote = quote;
             _qualify = qualify;
@@ -206,10 +206,26 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             => $"{schema ?? string.Empty}.{table ?? string.Empty}";
 
         private static bool SameStoreType(string modelType, string dbType)
-            => Normalize(modelType) == Normalize(dbType);
+        {
+            var normalizedModel = Normalize(modelType);
+            var normalizedDatabase = Normalize(dbType);
+            if (normalizedModel == normalizedDatabase)
+                return true;
+
+            normalizedModel = NormalizeDefaultTimestamp(normalizedModel);
+            normalizedDatabase = NormalizeDefaultTimestamp(normalizedDatabase);
+            return normalizedModel == normalizedDatabase;
+        }
 
         private static string Normalize(string value)
             => new string((value ?? string.Empty).Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
+
+        private static string NormalizeDefaultTimestamp(string value)
+        {
+            if (value == "TIMESTAMPWITHOUTTIMEZONE" || value == "TIMESTAMP(6)")
+                return "TIMESTAMP";
+            return value;
+        }
 
         private static bool IsModelSyncHistoryTable(string tableName)
             => !string.IsNullOrWhiteSpace(tableName) &&
@@ -333,7 +349,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         private static string FormatTableName(string schema, string table)
             => string.IsNullOrWhiteSpace(schema) ? table : schema + "." + table;
 
-        private static ModelSyncPlanItem Safe(ModelSyncPlanPhase phase, ModelSyncChangeType changeType, ModelTableDefinition table, ModelColumnDefinition column, string sql, string reason, bool enabled)
+        private static ModelSyncPlanItem Safe(ModelSyncPlanPhase phase, ModelSyncChangeType changeType, ModelTableDefinition table, ModelColumnDefinition? column, string sql, string reason, bool enabled)
             => new ModelSyncPlanItem
             {
                 Phase = enabled ? phase : ModelSyncPlanPhase.BlockedReview,
@@ -348,7 +364,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 CanApplyAutomatically = enabled
             };
 
-        private static ModelSyncPlanItem Blocked(ModelSyncChangeType changeType, ModelSyncOperationRisk risk, ModelTableDefinition table, ModelColumnDefinition column, string reason)
+        private static ModelSyncPlanItem Blocked(ModelSyncChangeType changeType, ModelSyncOperationRisk risk, ModelTableDefinition table, ModelColumnDefinition? column, string reason)
             => new ModelSyncPlanItem
             {
                 Phase = ModelSyncPlanPhase.BlockedReview,

@@ -178,7 +178,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             return tables;
         }
 
-        private static void SetPrimaryKeySnippet(ModelColumnDefinition column, DbColumnPrimaryKeyAttribute primaryKey)
+        private static void SetPrimaryKeySnippet(ModelColumnDefinition column, DbColumnPrimaryKeyAttribute? primaryKey)
         {
 #pragma warning disable CS0618
             column.PrimaryKeySqlSnippet = primaryKey?.GetSqlSnippet() ?? string.Empty;

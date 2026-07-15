@@ -42,7 +42,7 @@ Kalan compatibility alanları:
 
 ## Legacy Runner Compatibility Architecture
 
-ModelSync 1.2.0 hazırlığı, legacy embedded SQL runner davranışını yeni bir migration engine oluşturmadan kapatmayı hedefler.
+Legacy embedded SQL compatibility, ikinci bir migration engine oluşturmadan mevcut runner içinde uygulanır.
 
 - Execution mode kararı Core runner içinde verilir: `RunOnce`, `HashTracked`, `EveryRun`.
 - Category policy kaynağı `MigrationRunnerOptions.CategoryPolicies` nesnesidir.

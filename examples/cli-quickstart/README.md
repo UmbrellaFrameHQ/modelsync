@@ -13,6 +13,12 @@ This example shows the first safe workflow for the `modelsync` command-line tool
 dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
 ```
 
+Keep the connection string outside process arguments:
+
+```bash
+export MODELSYNC_CONNECTION_STRING='Data Source=cli-quickstart.db'
+```
+
 ## Validate Scripts
 
 ```bash
@@ -32,7 +38,7 @@ Tables: 1
 ```bash
 modelsync run \
   --provider sqlite \
-  --connection "Data Source=cli-quickstart.db" \
+  --connection-env MODELSYNC_CONNECTION_STRING \
   --scripts ./Database/Scripts \
   --dry-run
 ```
@@ -44,11 +50,11 @@ modelsync run \
 ```bash
 modelsync run \
   --provider sqlite \
-  --connection "Data Source=cli-quickstart.db" \
+  --connection-env MODELSYNC_CONNECTION_STRING \
   --scripts ./Database/Scripts \
+  --apply \
   --report-md ./artifacts/modelsync-report.md \
   --report-json ./artifacts/modelsync-report.json
 ```
 
 Keep the generated reports with your CI or deployment artifacts. The JSON report is useful for automation; the Markdown report is easier to review in pull requests and release notes.
-

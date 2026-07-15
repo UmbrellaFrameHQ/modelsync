@@ -1,0 +1,120 @@
+name: Million Row Scale Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * 0"
+
+jobs:
+  million-row-scale:
+    name: Six Providers / One Million Rows Each
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: ModelSync_Pass123
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ModelSync_Pass123 -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ModelSync_Pass123 -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+      mysql:
+        image: mysql:8.4.10
+        env:
+          MYSQL_ROOT_PASSWORD: ModelSync_Pass123
+          MYSQL_DATABASE: appdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pModelSync_Pass123 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+      mariadb:
+        image: mariadb:11.8.8
+        env:
+          MARIADB_ROOT_PASSWORD: ModelSync_Pass123
+          MARIADB_DATABASE: appdb
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: modelsync_test
+          POSTGRES_PASSWORD: ModelSync_Pass123
+          POSTGRES_DB: modelsync_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U modelsync_test -d modelsync_integration"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: ModelSync_Pass123
+          APP_USER: MODELSYNC_TEST
+          APP_USER_PASSWORD: ModelSync_Pass123
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd="healthcheck.sh"
+          --health-interval=15s
+          --health-timeout=10s
+          --health-retries=40
+
+    env:
+      MODELSYNC_RUN_SCALE_INTEGRATION: 1
+      MODELSYNC_SQLSERVER_CONNECTION_STRING: Server=127.0.0.1,1433;Database=appdb;User Id=sa;Password=ModelSync_Pass123;Encrypt=False;TrustServerCertificate=True;
+      MODELSYNC_MYSQL_CONNECTION_STRING: Server=127.0.0.1;Port=3306;Database=appdb;User ID=root;Password=ModelSync_Pass123;Allow User Variables=true;
+      MODELSYNC_MARIADB_CONNECTION_STRING: Server=127.0.0.1;Port=3307;Database=appdb;User ID=root;Password=ModelSync_Pass123;Allow User Variables=true;
+      MODELSYNC_POSTGRES_CONNECTION_STRING: Host=127.0.0.1;Port=5432;Database=modelsync_integration;Username=modelsync_test;Password=ModelSync_Pass123;
+      MODELSYNC_ORACLE_CONNECTION: User Id=MODELSYNC_TEST;Password=ModelSync_Pass123;Data Source=127.0.0.1:1521/FREEPDB1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.x"
+
+      - name: Restore and build scale tests
+        run: |
+          dotnet restore UmbrellaFrame.ModelSync.ScaleTest/UmbrellaFrame.ModelSync.ScaleTest.csproj
+          dotnet build UmbrellaFrame.ModelSync.ScaleTest/UmbrellaFrame.ModelSync.ScaleTest.csproj --configuration Release --no-restore
+
+      - name: Run one-million-row provider matrix
+        run: |
+          mkdir -p TestResults
+          dotnet test UmbrellaFrame.ModelSync.ScaleTest/UmbrellaFrame.ModelSync.ScaleTest.csproj \
+            --configuration Release \
+            --no-build \
+            --filter "Category=Scale" \
+            --logger "trx;LogFileName=million-row-scale.trx" \
+            --results-directory TestResults
+
+      - name: Upload scale evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: million-row-scale-results
+          path: TestResults
+          if-no-files-found: error
