@@ -16,7 +16,7 @@
     <DebugSymbols>false</DebugSymbols>
     <IncludeSymbols>false</IncludeSymbols>
     <PackageId>UmbrellaFrame.ModelSync.Oracle</PackageId>
-    <Version>1.4.0-rc.1</Version>
+    <Version>1.4.0</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>Oracle provider for UmbrellaFrame.ModelSync - attribute-based schema generator.</Description>
     <PackageTags>oracle sql schema generator orm-free attributes dotnet</PackageTags>
@@ -26,7 +26,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>ModelSync 1.4.0-rc.1 keeps Oracle as a preview provider while aligning shared execution diagnostics and package metadata.</PackageReleaseNotes>
+    <PackageReleaseNotes>ModelSync 1.4.0 keeps Oracle as a preview provider while aligning shared execution diagnostics and package metadata.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 

@@ -5,7 +5,7 @@
 ## Install
 
 ```bash
-dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.4.0-rc.1
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.4.0
 modelsync version
 ```
 

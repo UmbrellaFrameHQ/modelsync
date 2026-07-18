@@ -6,7 +6,7 @@ Versioning: Semantic Versioning.
 
 ---
 
-## [1.4.0-rc.1] - 2026-07-16
+## [1.4.0] - 2026-07-18
 
 ### Security
 - Database reset now requires the structured `DatabaseResetOptions` contract: `Enabled = true`, explicit approval, and a non-empty `ExpectedDatabaseName`. `DestructiveOptions.Allow()` alone no longer authorizes a full database reset.

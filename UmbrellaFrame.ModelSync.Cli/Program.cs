@@ -252,7 +252,7 @@ namespace UmbrellaFrame.ModelSync.Cli
             var version = Assembly.GetExecutingAssembly()
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-            return string.IsNullOrWhiteSpace(version) ? "1.4.0-rc.1" : version;
+            return string.IsNullOrWhiteSpace(version) ? "1.4.0" : version;
         }
 
         internal static string ResolveConnectionString(CliOptions cli)

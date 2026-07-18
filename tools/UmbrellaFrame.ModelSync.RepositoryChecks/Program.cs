@@ -10,7 +10,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.4.0-rc.1";
+    private const string CurrentReleaseVersion = "1.4.0";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -568,7 +568,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.4.0-rc.1</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.4.0</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -907,14 +907,14 @@ internal static class Program
             "docs/releases/1.2.2.md",
             "docs/releases/1.2.3.md",
             "docs/releases/1.3.0.md",
-            "docs/releases/1.4.0-rc.1.md",
+            "docs/releases/1.4.0.md",
             "docs/migrations/README.md",
             "docs/migrations/_template.md",
             "docs/migrations/1.2.0-to-1.2.1.md",
             "docs/migrations/1.2.1-to-1.2.2.md",
             "docs/migrations/1.2.2-to-1.2.3.md",
             "docs/migrations/1.2.3-to-1.3.0.md",
-            "docs/migrations/1.3.0-to-1.4.0-rc.1.md",
+            "docs/migrations/1.3.0-to-1.4.0.md",
             "docs/versioning-and-compatibility.md",
             "docs/deprecation-policy.md",
             "docs/provider-support-matrix.md",
@@ -934,8 +934,8 @@ internal static class Program
 
         var readme = ReadRequired(root, "README.md", violations);
         RequireContains(readme, "Versioning, Release Notes and Migration Guides", "README.md: versioning/release navigation section is missing.", violations);
-        RequireContains(readme, "docs/releases/1.4.0-rc.1.md", "README.md: current RC release note link is missing.", violations);
-        RequireContains(readme, "docs/migrations/1.3.0-to-1.4.0-rc.1.md", "README.md: current RC migration guide link is missing.", violations);
+        RequireContains(readme, "docs/releases/1.4.0.md", "README.md: current stable release note link is missing.", violations);
+        RequireContains(readme, "docs/migrations/1.3.0-to-1.4.0.md", "README.md: current stable migration guide link is missing.", violations);
         RequireContains(readme, "docs/provider-support-matrix.md", "README.md: provider support matrix link is missing.", violations);
         RequireContains(readme, "docs/migration-reporting.md", "README.md: migration reporting link is missing.", violations);
         RequireContains(readme, "docs/cli-and-scaffolder-roadmap.md", "README.md: CLI/scaffolder roadmap link is missing.", violations);
@@ -949,19 +949,20 @@ internal static class Program
         RequireContains(release, "modelsync validate", "docs/releases/1.3.0.md: CLI validate feature is missing.", violations);
         RequireContains(release, "Performance smoke", "docs/releases/1.3.0.md: performance smoke coverage note is missing.", violations);
 
-        var candidateRelease = ReadRequired(root, "docs/releases/1.4.0-rc.1.md", violations);
-        RequireContains(candidateRelease, "## Fixed", "RC release notes: Fixed section is missing.", violations);
-        RequireContains(candidateRelease, "## Changed", "RC release notes: Changed section is missing.", violations);
-        RequireContains(candidateRelease, "## Compatibility", "RC release notes: Compatibility section is missing.", violations);
-        RequireContains(candidateRelease, "## Migration notes", "RC release notes: Migration notes section is missing.", violations);
-        RequireContains(candidateRelease, "## Provider validation", "RC release notes: Provider validation section is missing.", violations);
-        RequireContains(candidateRelease, "## Known limitations", "RC release notes: Known limitations section is missing.", violations);
+        var currentRelease = ReadRequired(root, "docs/releases/1.4.0.md", violations);
+        RequireContains(currentRelease, "## Fixed", "Stable release notes: Fixed section is missing.", violations);
+        RequireContains(currentRelease, "## Changed", "Stable release notes: Changed section is missing.", violations);
+        RequireContains(currentRelease, "## Compatibility", "Stable release notes: Compatibility section is missing.", violations);
+        RequireContains(currentRelease, "## Migration notes", "Stable release notes: Migration notes section is missing.", violations);
+        RequireContains(currentRelease, "## Provider validation", "Stable release notes: Provider validation section is missing.", violations);
+        RequireContains(currentRelease, "## Known limitations", "Stable release notes: Known limitations section is missing.", violations);
 
-        var migrationGuide = ReadRequired(root, "docs/migrations/1.3.0-to-1.4.0-rc.1.md", violations);
-        RequireContains(migrationGuide, "Changed table scripts now require manual review by default", "RC migration guide: changed table manual-review rule is missing.", violations);
-        RequireContains(migrationGuide, "AutoAddMissingColumnsFromTableScripts` is disabled by default", "RC migration guide: AutoAdd default policy is missing.", violations);
+        var migrationGuide = ReadRequired(root, "docs/migrations/1.3.0-to-1.4.0.md", violations);
+        RequireContains(migrationGuide, "Changed table scripts now require manual review by default", "Stable migration guide: changed table manual-review rule is missing.", violations);
+        RequireContains(migrationGuide, "AutoAddMissingColumnsFromTableScripts` is disabled by default", "Stable migration guide: AutoAdd default policy is missing.", violations);
 
         var changelog = ReadRequired(root, "CHANGELOG.md", violations);
+        RequireContains(changelog, "## [1.4.0] - 2026-07-18", "CHANGELOG.md: stable 1.4.0 entry is missing.", violations);
         RequireContains(changelog, "## [1.3.0] - 2026-07-14", "CHANGELOG.md: final 1.3.0 entry is missing.", violations);
 
         foreach (var packageId in PublicLibraryPackageIds())

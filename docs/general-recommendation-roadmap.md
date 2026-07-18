@@ -4,7 +4,7 @@ This document separates current ModelSync capability from the maturity work requ
 
 ## Current Position
 
-ModelSync is a strong fit for Dapper, ADO.NET, hand-written SQL, and teams that want schema changes to remain visible in code review. The current 1.4.0-rc.1 line includes:
+ModelSync is a strong fit for Dapper, ADO.NET, hand-written SQL, and teams that want schema changes to remain visible in code review. The current 1.4.0 line includes:
 
 - provider-specific table DDL generation from attributed C# models,
 - live model/database comparison with safe additive apply,
@@ -38,7 +38,7 @@ Prefer FluentMigrator or another mature migration framework when:
 
 | Priority | Work | Current Status |
 |---|---|---|
-| P0 | Transaction and partial-failure model | 1.4.0-rc.1 has structured states and provider-aware transaction behavior; provider limits remain documented. |
+| P0 | Transaction and partial-failure model | 1.4.0 has structured states and provider-aware transaction behavior; provider limits remain documented. |
 | P0 | Rollback and forward-only workflow | Not implemented as a first-class workflow. Rollback scripts are currently user-managed. |
 | P0 | Fault-injection and upgrade testing | Some compatibility and live provider gates exist; process-kill and network-loss gates should be expanded. |
 | P0 | Independent production evidence | Not a code feature; requires external adopters, issues, PRs, and case studies. |

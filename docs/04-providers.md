@@ -1,4 +1,4 @@
-﻿# 04 — Provider Kılavuzları
+# 04 — Provider Kılavuzları
 
 ## MySQL / MariaDB
 
@@ -219,10 +219,10 @@ generator.CreateTables();
 
 ## Oracle Preview
 
-Oracle provider `netstandard2.1` hedefler, NuGet'te yayımlanmıştır ve 1.4.0-rc.1 sürümünde tablo DDL ile güvenli model karşılaştırmasının bir bölümünü destekler. Paketin yayımlanmış olması preview durumunu değiştirmez.
+Oracle provider `netstandard2.1` hedefler, NuGet'te yayımlanmıştır ve 1.4.0 sürümünde tablo DDL ile güvenli model karşılaştırmasının bir bölümünü destekler. Paketin yayımlanmış olması preview durumunu değiştirmez.
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.4.0
 ```
 
 ```csharp

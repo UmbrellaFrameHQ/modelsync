@@ -18,7 +18,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.MySql</PackageId>
-    <Version>1.4.0-rc.1</Version>
+    <Version>1.4.0</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>MySQL provider for UmbrellaFrame.ModelSync - attribute-based schema generator.</Description>
     <PackageTags>mysql sql schema generator orm-free attributes dotnet</PackageTags>
@@ -28,7 +28,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>ModelSync 1.4.0-rc.1 hardens migration failure reporting, repair/history integrity, and execution-state diagnostics.</PackageReleaseNotes>
+    <PackageReleaseNotes>ModelSync 1.4.0 hardens migration failure reporting, repair/history integrity, and execution-state diagnostics.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 

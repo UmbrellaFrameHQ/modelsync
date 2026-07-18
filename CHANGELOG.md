@@ -2,6 +2,14 @@
 
 All notable ModelSync changes are tracked here.
 
+## [1.4.0] - 2026-07-18
+
+Stable release of Migration Execution Hardening.
+
+The stable package set promotes the verified `1.4.0-rc.1` implementation without changing its public runtime behavior. Release build, repository checks, live provider integration, package smoke tests, prerelease publication, and an independent public NuGet consumer build completed before promotion.
+
+See the [1.4.0 release notes](docs/releases/1.4.0.md) and [1.3.0 to 1.4.0 migration guide](docs/migrations/1.3.0-to-1.4.0.md).
+
 ## [1.4.0-rc.1] - 2026-07-16
 
 Migration Execution Hardening release candidate.

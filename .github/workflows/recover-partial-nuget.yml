@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       version:
-        description: Package version to recover, for example 1.2.2 or 1.4.0-rc.1
+        description: Package version to recover, for example 1.2.2 or 1.4.0
         required: true
         type: string
       expected_commit:

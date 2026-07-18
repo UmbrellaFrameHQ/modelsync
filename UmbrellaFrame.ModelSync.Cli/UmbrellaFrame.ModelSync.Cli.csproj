@@ -8,7 +8,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>modelsync</ToolCommandName>
     <PackageId>UmbrellaFrame.ModelSync.Cli</PackageId>
-    <Version>1.4.0-rc.1</Version>
+    <Version>1.4.0</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>Command-line tool for ModelSync migration execution and reporting.</Description>
     <PackageTags>sql schema migration cli dotnet modelsync</PackageTags>
@@ -18,7 +18,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>ModelSync 1.4.0-rc.1 aligns dry-run output with execution and maps cancellation to exit code 130.</PackageReleaseNotes>
+    <PackageReleaseNotes>ModelSync 1.4.0 aligns dry-run output with execution and maps cancellation to exit code 130.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
   </PropertyGroup>
 

@@ -20,7 +20,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>UmbrellaFrame.ModelSync.Analyzers</PackageId>
-    <Version>1.4.0-rc.1</Version>
+    <Version>1.4.0</Version>
     <Authors>UmbrellaFrame</Authors>
     <Description>Roslyn analyzer for UmbrellaFrame.ModelSync - compile-time model and mapping validation (MSYNC001-MSYNC008).</Description>
     <PackageTags>roslyn analyzer sql schema generator attributes modelsync dotnet</PackageTags>
@@ -30,7 +30,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>ModelSync 1.4.0-rc.1 aligns analyzer packaging with the migration hardening release candidate.</PackageReleaseNotes>
+    <PackageReleaseNotes>ModelSync 1.4.0 aligns analyzer packaging with the stable migration execution hardening release.</PackageReleaseNotes>
     <Copyright>Copyright (c) 2026 UmbrellaFrame</Copyright>
     <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
