@@ -4,5 +4,6 @@ namespace UmbrellaFrame.ModelSync.Core
     public static class MigrationCompatibilityProfiles
     {
         public const string LegacyEmbeddedSql = "LegacyEmbeddedSql";
+        public const string LegacyApplicationSchemas = "LegacyApplicationSchemas";
     }
 }

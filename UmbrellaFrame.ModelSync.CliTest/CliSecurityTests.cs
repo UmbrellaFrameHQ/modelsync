@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.Cli;
 
 namespace UmbrellaFrame.ModelSync.CliTest;
@@ -81,5 +82,23 @@ public sealed class CliSecurityTests
         {
             Directory.Delete(scripts, recursive: true);
         }
+    }
+
+    [TestCase(MigrationExecutionState.Cancelled, false, 130)]
+    [TestCase(MigrationExecutionState.Failed, false, 1)]
+    [TestCase(MigrationExecutionState.LockTimeout, false, 1)]
+    [TestCase(MigrationExecutionState.Committed, true, 0)]
+    [TestCase(MigrationExecutionState.CompletedWithoutTransaction, true, 0)]
+    public void MapExecutionResultToExitCode_UsesDocumentedProcessCodes(
+        MigrationExecutionState state,
+        bool successfulItem,
+        int expected)
+    {
+        var items = successfulItem
+            ? new[] { new MigrationExecutionItemResult { Action = MigrationExecutionAction.Applied } }
+            : Array.Empty<MigrationExecutionItemResult>();
+        var result = new MigrationExecutionResult(items, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, state);
+
+        Assert.That(Program.MapExecutionResultToExitCode(result), Is.EqualTo(expected));
     }
 }

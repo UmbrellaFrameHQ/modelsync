@@ -51,7 +51,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             return $"DELETE FROM {QuoteIdentifier(tableName)};";
         }
 
-        // �� DDL execution ���������������������������������������������������
+        // DDL execution
 
         /// <inheritdoc/>
         /// <remarks>SQLite automatically creates the database file on first connection. This is a no-op.</remarks>
@@ -126,7 +126,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             }
         }
 
-        // �� ALTER TABLE �����������������������������������������������������
+        // ALTER TABLE
 
         /// <inheritdoc/>
         public void AddColumn<T>(string columnName) where T : class, new()

@@ -6,7 +6,24 @@ Versioning: Semantic Versioning.
 
 ---
 
-## [Unreleased]
+## [1.4.0-rc.1] - 2026-07-16
+
+### Security
+- Database reset now requires the structured `DatabaseResetOptions` contract: `Enabled = true`, explicit approval, and a non-empty `ExpectedDatabaseName`. `DestructiveOptions.Allow()` alone no longer authorizes a full database reset.
+- SQL definition hashing now strips comments with SQL literal awareness, so text such as `'value--A'` and `'value--B'` no longer collapses to the same normalized definition.
+- Failed-batch previews now redact SQL string literal values before writing JSON or Markdown migration reports.
+
+### Changed
+- Reset flows wait for the target database to become reachable after reset using `ReadinessRetryCount` and `ReadinessRetryDelay`.
+- Root infrastructure failures are now included in `MigrationExecutionResult` and rendered by JSON/Markdown reports without exposing connection strings or raw exception dumps.
+- SQL Server and PostgreSQL migration execution scopes now commit script execution and history writes together when transaction policy allows.
+- `RunAsync()` now throws `MigrationExecutionException` for a failed migration instead of discarding the structured failure result.
+- Changed table scripts expose review-only repair suggestions and no longer advance the full script hash after a partial additive repair.
+- Changed table scripts now require manual review by default; `AutoAddMissingColumnsFromTableScripts` is opt-in and only produces review-only repair suggestions.
+- Migration script category discovery now uses exact folder/resource segments so names like `CreateCustomer.sql` no longer match the `Custom` category.
+- Analyzer table-model rules now recognize the suffix-less PostgreSQL `[PostgresTableName]` attribute.
+- SQL Server creates only the configured history schema by default. The former application-specific schema set is available through the explicit `LegacyApplicationSchemas` compatibility profile.
+- CLI cancellation maps to process exit code `130`.
 
 ## [1.3.0] - 2026-07-14 - CLI, Dry-Run and Migration Reporting
 

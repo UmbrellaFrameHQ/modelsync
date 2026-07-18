@@ -2,6 +2,43 @@
 
 All notable ModelSync changes are tracked here.
 
+## [1.4.0-rc.1] - 2026-07-16
+
+Migration Execution Hardening release candidate.
+
+### Security
+
+- Database reset now requires `DatabaseResetOptions.Enabled`, explicit destructive approval, and an exact `ExpectedDatabaseName` match.
+- SQL-aware definition hashing preserves comment markers inside literals instead of treating them as comments.
+- Failed-batch previews redact SQL literal values and remain bounded before they are written to JSON or Markdown reports.
+
+### Changed
+
+- `RunAsync()` throws `MigrationExecutionException` when execution, history recording, or a reviewed plan fails. `RunWithResultAsync()` remains available for structured failure handling.
+- Changed table scripts require manual review. Optional missing-column repair output is advisory and does not advance the complete source hash.
+- SQL Server and PostgreSQL execute compatible script batches and their history write in the same transaction.
+- Execution results distinguish committed, non-transactional, rolled-back, partially applied, cancelled, lock-timeout, and failed outcomes.
+- Reset flows wait for the recreated target database to become reachable before infrastructure and migrations continue.
+- SQL Server creates only the configured history schema by default. The previous application-specific schema set is available through `LegacyApplicationSchemas`.
+- CLI cancellation returns process exit code `130`.
+
+### Fixed
+
+- Migration failures are no longer reported as successful runs.
+- SQL Server history comparison no longer treats unrelated missing-object or permission errors as absent history.
+- Migration category discovery uses exact path segments, avoiding accidental category matches in file names.
+- PostgreSQL table attributes are recognized correctly by analyzer table-model rules.
+
+### Packaging
+
+- The CLI package intentionally bundles the supported provider clients and cross-platform SQLite native assets so one tool installation can target SQL Server, MySQL/MariaDB, PostgreSQL, and SQLite. Oracle remains outside the CLI while its migration runner is preview-only.
+
+### Known limitations
+
+- Oracle remains a preview provider with a smaller validated surface than the four stable providers.
+- MySQL/MariaDB DDL can commit implicitly; full migration/history atomicity is not claimed for those operations.
+- Application-authored migration SQL remains trusted input and is not treated as a complete SQL security parser.
+
 ## [1.3.0] - 2026-07-14
 
 CLI, Dry-Run and Migration Reporting.

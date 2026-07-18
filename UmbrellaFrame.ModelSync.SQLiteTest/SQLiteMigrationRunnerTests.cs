@@ -58,11 +58,58 @@ public class SQLiteMigrationRunnerTests
             MigrationScriptCategory.StoredProcedures,
             "CREATE PROCEDURE p AS SELECT 1;"));
 
-        Assert.ThrowsAsync<NotSupportedException>(async () => await runner.RunAsync());
+        var ex = Assert.ThrowsAsync<MigrationExecutionException>(async () => await runner.RunAsync());
+        Assert.That(ex!.Item!.FailureStage, Is.EqualTo("ProviderCapability"));
     }
 
     [Test]
-    public async Task RunAsync_ShouldAddMissingColumnsWhenTableScriptChanges()
+    public async Task ChangedTableScript_ShouldExposeRepairWithoutAdvancingHistoryOrMutatingDatabase()
+    {
+        var path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"modelsync-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={path}";
+
+        var first = new SQLiteMigrationRunner(connectionString);
+        first.RegisterScript(MigrationScriptDefinition.Create(
+            "001",
+            "CreateUsers",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE Users(Id INTEGER PRIMARY KEY);"));
+        await first.RunAsync();
+
+        var second = new SQLiteMigrationRunner(connectionString, new MigrationRunnerOptions
+        {
+            AutoAddMissingColumnsFromTableScripts = true
+        });
+        second.RegisterScript(MigrationScriptDefinition.Create(
+            "001",
+            "CreateUsers",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE Users(Id INTEGER PRIMARY KEY, Name TEXT NULL);"));
+
+        var plans = await second.CompareRegisteredAsync();
+
+        Assert.That(plans.Single().ChangeType, Is.EqualTo(MigrationChangeType.Reapply));
+        Assert.That(plans.Single().RequiresManualReview, Is.True);
+        Assert.That(plans.Single().PlannedExecutionSql, Is.Empty);
+        Assert.That(plans.Single().RepairSql.Single(), Does.Contain("ADD COLUMN"));
+        Assert.That(plans.Single().HistoryDecision, Is.EqualTo(MigrationHistoryDecision.ManualReviewRequired));
+
+        var result = await second.RunWithResultAsync();
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Items.Single().Action, Is.EqualTo(MigrationExecutionAction.Blocked));
+
+        using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Users') WHERE name = 'Name';";
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(0));
+
+        command.CommandText = "SELECT SqlHash FROM SchemaMigration_Tables WHERE Id = '001';";
+        Assert.That(await command.ExecuteScalarAsync(), Is.EqualTo(plans.Single().CurrentHash));
+    }
+
+    [Test]
+    public async Task ChangedTableScript_DefaultPolicy_ShouldRequireManualReviewWithoutRepair()
     {
         var path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"modelsync-{Guid.NewGuid():N}.db");
         var connectionString = $"Data Source={path}";
@@ -82,14 +129,27 @@ public class SQLiteMigrationRunnerTests
             MigrationScriptCategory.Tables,
             "CREATE TABLE Users(Id INTEGER PRIMARY KEY, Name TEXT NULL);"));
 
-        var plans = await second.RunAsync();
+        var plans = await second.CompareRegisteredAsync();
 
         Assert.That(plans.Single().ChangeType, Is.EqualTo(MigrationChangeType.Reapply));
+        Assert.That(plans.Single().RequiresManualReview, Is.True);
+        Assert.That(plans.Single().PlannedExecutionSql, Is.Empty);
+        Assert.That(plans.Single().RepairSql, Is.Empty);
+        Assert.That(plans.Single().HistoryDecision, Is.EqualTo(MigrationHistoryDecision.ManualReviewRequired));
+        Assert.That(plans.Single().UnappliedDrift, Has.Some.Contains("repair is disabled"));
+
+        var result = await second.RunWithResultAsync();
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Items.Single().Action, Is.EqualTo(MigrationExecutionAction.Blocked));
+
         using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Users') WHERE name = 'Name';";
-        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(1));
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(0));
+
+        command.CommandText = "SELECT SqlHash FROM SchemaMigration_Tables WHERE Id = '001';";
+        Assert.That(await command.ExecuteScalarAsync(), Is.EqualTo(plans.Single().CurrentHash));
     }
 
     [Test]
@@ -131,7 +191,10 @@ public class SQLiteMigrationRunnerTests
         var result = await runner.RunWithResultAsync();
 
         Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.State, Is.EqualTo(MigrationExecutionState.RolledBack));
+        Assert.That(result.TransactionStarted, Is.True);
         Assert.That(result.Items.Single().Action, Is.EqualTo(MigrationExecutionAction.Failed));
+        Assert.That(result.Items.Single().RollbackSucceeded, Is.True);
 
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync();
@@ -187,6 +250,40 @@ public class SQLiteMigrationRunnerTests
         var retryResult = await retry.RunWithResultAsync();
 
         Assert.That(retryResult.Succeeded, Is.True);
+    }
+
+    [Test]
+    public async Task ConcurrentSQLiteRunners_ShouldRecordMigrationOnceAndConverge()
+    {
+        var path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"modelsync-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={path};Default Timeout=5";
+        var first = new SQLiteMigrationRunner(connectionString);
+        var second = new SQLiteMigrationRunner(connectionString);
+        var script = MigrationScriptDefinition.Create(
+            "001",
+            "CreateConcurrentProbe",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE ConcurrentProbe(Id INTEGER PRIMARY KEY);");
+        first.RegisterScript(script);
+        second.RegisterScript(script);
+
+        var results = await Task.WhenAll(first.RunWithResultAsync(), second.RunWithResultAsync());
+
+        Assert.That(results.Count(result => result.Succeeded), Is.GreaterThanOrEqualTo(1));
+
+        var verification = new SQLiteMigrationRunner(connectionString);
+        verification.RegisterScript(script);
+        var converged = await verification.RunWithResultAsync();
+        Assert.That(converged.Succeeded, Is.True);
+        Assert.That(converged.Items.Single().Action, Is.EqualTo(MigrationExecutionAction.Skipped));
+
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'ConcurrentProbe';";
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(1));
+        command.CommandText = "SELECT COUNT(*) FROM SchemaMigration_Tables WHERE Id = '001';";
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(1));
     }
 
     [Test]

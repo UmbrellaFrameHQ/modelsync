@@ -19,7 +19,22 @@ public class MigrationOperationalHardeningTests
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunWithResultAsync());
 
-        Assert.That(ex!.Message, Does.Contain("destructive"));
+        Assert.That(ex!.Message, Does.Contain("ResetOptions.Enabled"));
+        Assert.That(runner.ResetCalled, Is.False);
+    }
+
+    [Test]
+    public void RunWithResultAsync_WhenLegacyDestructiveApprovalIsUsedForReset_ShouldRejectBeforeReset()
+    {
+        var runner = new FakeRunner(new MigrationRunnerOptions
+        {
+            ResetDatabase = true,
+            DestructiveOptions = DestructiveOperationOptions.Allow()
+        });
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunWithResultAsync());
+
+        Assert.That(ex!.Message, Does.Contain("ResetOptions.Enabled"));
         Assert.That(runner.ResetCalled, Is.False);
     }
 
@@ -81,6 +96,27 @@ public class MigrationOperationalHardeningTests
         await runner.RunWithResultAsync();
 
         Assert.That(runner.ResetCalled, Is.True);
+        Assert.That(runner.ReadinessCalled, Is.True);
+    }
+
+    [Test]
+    public async Task RunAsync_WhenResetIsApproved_ShouldWaitForReadiness()
+    {
+        var runner = new FakeRunner(new MigrationRunnerOptions
+        {
+            ResetDatabase = true,
+            ResetOptions = new DatabaseResetOptions
+            {
+                Enabled = true,
+                Approval = DestructiveOperationOptions.Allow(),
+                ExpectedDatabaseName = "appdb"
+            }
+        });
+
+        await runner.RunAsync();
+
+        Assert.That(runner.ResetCalled, Is.True);
+        Assert.That(runner.ReadinessCalled, Is.True);
     }
 
     [Test]
@@ -101,6 +137,28 @@ public class MigrationOperationalHardeningTests
         var ex = Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunWithResultAsync());
 
         Assert.That(ex!.Message, Does.Contain("BackupDirectory"));
+        Assert.That(runner.ResetCalled, Is.False);
+    }
+
+    [Test]
+    public void RunWithResultAsync_WhenProviderDoesNotSupportBackup_ShouldRejectBeforeReset()
+    {
+        var runner = new FakeRunner(new MigrationRunnerOptions
+        {
+            ResetDatabase = true,
+            ResetOptions = new DatabaseResetOptions
+            {
+                Enabled = true,
+                Approval = DestructiveOperationOptions.Allow(),
+                ExpectedDatabaseName = "appdb",
+                BackupBeforeReset = true,
+                BackupFilePath = "appdb.bak"
+            }
+        });
+
+        var ex = Assert.ThrowsAsync<NotSupportedException>(() => runner.RunWithResultAsync());
+
+        Assert.That(ex!.Message, Does.Contain("does not support BackupBeforeReset"));
         Assert.That(runner.ResetCalled, Is.False);
     }
 
@@ -154,6 +212,42 @@ public class MigrationOperationalHardeningTests
         Assert.That(result.Items[0].ErrorMessage, Does.Not.Contain("super-secret"));
         Assert.That(runner.RecordedHistoryCount, Is.EqualTo(0));
         Assert.That(result.HistoryWritten, Is.False);
+    }
+
+    [Test]
+    public void RunAsync_WhenBatchFails_ShouldThrowMigrationExecutionException()
+    {
+        var runner = new FakeRunner();
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "Broken", MigrationScriptCategory.CustomSql, "OK;FAIL;"));
+
+        var ex = Assert.ThrowsAsync<MigrationExecutionException>(() => runner.RunAsync());
+
+        Assert.That(ex!.Item!.ScriptId, Is.EqualTo("001"));
+        Assert.That(ex.Item.Action, Is.EqualTo(MigrationExecutionAction.Failed));
+        Assert.That(runner.RecordedHistoryCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void CreateBatchPreview_ShouldRedactSqlLiteralValues()
+    {
+        var runner = new FakeRunner();
+        var preview = runner.Preview("INSERT INTO ApiKeys(Value) VALUES ('abc123-secret-token');");
+
+        Assert.That(preview, Does.Contain("'<redacted>'"));
+        Assert.That(preview, Does.Not.Contain("abc123-secret-token"));
+    }
+
+    [Test]
+    public void CreateBatchPreview_ShouldRedactProviderSpecificLiteralsAndComments()
+    {
+        var runner = new FakeRunner();
+        var preview = runner.Preview("SELECT $$pg-secret$$, q'[oracle-secret]', \"mysql-secret\", 987654; -- comment-secret");
+
+        Assert.That(preview, Does.Not.Contain("pg-secret"));
+        Assert.That(preview, Does.Not.Contain("oracle-secret"));
+        Assert.That(preview, Does.Not.Contain("mysql-secret"));
+        Assert.That(preview, Does.Not.Contain("987654"));
+        Assert.That(preview, Does.Not.Contain("comment-secret"));
     }
 
     [Test]
@@ -216,6 +310,40 @@ public class MigrationOperationalHardeningTests
     }
 
     [Test]
+    public void SqlDefinitionNormalizer_ShouldKeepLineCommentTokensInsideStringLiterals()
+    {
+        var first = SqlDefinitionNormalizer.Normalize("INSERT INTO T VALUES ('value--A'); -- deployment comment");
+        var second = SqlDefinitionNormalizer.Normalize("INSERT INTO T VALUES ('value--B'); -- deployment comment");
+
+        Assert.That(first, Does.Contain("value--A"));
+        Assert.That(second, Does.Contain("value--B"));
+        Assert.That(first, Is.Not.EqualTo(second));
+        Assert.That(SqlDefinitionNormalizer.ComputeHash(first), Is.Not.EqualTo(SqlDefinitionNormalizer.ComputeHash(second)));
+    }
+
+    [Test]
+    public void SqlDefinitionNormalizer_ShouldKeepBlockCommentTokensInsideStringLiterals()
+    {
+        var normalized = SqlDefinitionNormalizer.Normalize("INSERT INTO T VALUES ('literal /* not comment */ value'); /* real comment */");
+
+        Assert.That(normalized, Does.Contain("literal /* not comment */ value"));
+        Assert.That(normalized, Does.Not.Contain("real comment"));
+    }
+
+    [Test]
+    public void SqlDefinitionNormalizer_ShouldKeepProviderSpecificQuotedContent()
+    {
+        var postgresA = SqlDefinitionNormalizer.ComputeHash("SELECT $$value--A$$; -- comment");
+        var postgresB = SqlDefinitionNormalizer.ComputeHash("SELECT $$value--B$$; -- comment");
+        var oracle = SqlDefinitionNormalizer.Normalize("SELECT q'[value/*A*/]' FROM dual; /* comment */");
+        var mysql = SqlDefinitionNormalizer.Normalize("SELECT `value--identifier` FROM T; -- comment");
+
+        Assert.That(postgresA, Is.Not.EqualTo(postgresB));
+        Assert.That(oracle, Does.Contain("value/*A*/"));
+        Assert.That(mysql, Does.Contain("value--identifier"));
+    }
+
+    [Test]
     public async Task RunWithResultAsync_LegacyHashMissingForRunOnceSeed_ShouldAdoptHashWithoutExecuting()
     {
         var options = MigrationRunnerOptions.Default();
@@ -268,6 +396,93 @@ public class MigrationOperationalHardeningTests
 
         Assert.That(ex!.Message, Does.Contain("TransactionRequiredButUnsupported"));
         Assert.That(runner.RecordedHistoryCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task NonTransactionalFailure_AfterAppliedItem_ShouldReturnPartiallyApplied()
+    {
+        var runner = new FakeRunner();
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "First", MigrationScriptCategory.CustomSql, "OK;"));
+        runner.RegisterScript(MigrationScriptDefinition.Create("002", "Second", MigrationScriptCategory.CustomSql, "FAIL;"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.State, Is.EqualTo(MigrationExecutionState.PartiallyApplied));
+        Assert.That(result.Items[0].Action, Is.EqualTo(MigrationExecutionAction.Applied));
+        Assert.That(result.Items[1].Action, Is.EqualTo(MigrationExecutionAction.Failed));
+        Assert.That(result.HistoryWritten, Is.True);
+    }
+
+    [Test]
+    public async Task SuccessfulNonTransactionalRun_ShouldReturnCompletedWithoutTransaction()
+    {
+        var runner = new FakeRunner();
+        runner.RegisterScript(MigrationScriptDefinition.Create("001", "First", MigrationScriptCategory.CustomSql, "OK;"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.State, Is.EqualTo(MigrationExecutionState.CompletedWithoutTransaction));
+        Assert.That(result.TransactionStarted, Is.False);
+        Assert.That(result.Succeeded, Is.True);
+    }
+
+    [Test]
+    public async Task ManualReviewBlock_ShouldStopBeforeExecutingFollowingScripts()
+    {
+        var options = MigrationRunnerOptions.Default();
+        options.AutoAddMissingColumnsFromTableScripts = true;
+        var runner = new FakeRunner(options);
+        runner.SetHistory(MigrationScriptCategory.Tables, "001", "different-hash");
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            "001",
+            "Changed table",
+            MigrationScriptCategory.Tables,
+            "CREATE TABLE Users(Id INTEGER PRIMARY KEY, Name TEXT);"));
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            "002",
+            "Must not run",
+            MigrationScriptCategory.CustomSql,
+            "OK;"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Items, Has.Count.EqualTo(1));
+        Assert.That(result.Items.Single().Action, Is.EqualTo(MigrationExecutionAction.Blocked));
+        Assert.That(runner.ExecutedSqlCount, Is.EqualTo(0));
+        Assert.That(runner.RecordedHistoryCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ResolveScriptTransactionPolicy_ShouldHonorOverrideAndAutoCompatibility()
+    {
+        var runner = new TransactionAwareFakeRunner(new MigrationRunnerOptions
+        {
+            TransactionPolicy = MigrationTransactionPolicy.Auto
+        });
+        var incompatible = MigrationScriptDefinition.Create("001", "Admin", MigrationScriptCategory.CustomSql, "ADMIN;");
+        var forced = MigrationScriptDefinition.Create(
+            "002",
+            "Forced",
+            MigrationScriptCategory.CustomSql,
+            "ADMIN;",
+            transactionPolicyOverride: MigrationTransactionPolicy.Required);
+
+        Assert.That(runner.ResolvePolicy(incompatible), Is.EqualTo(MigrationTransactionPolicy.Forbidden));
+        Assert.That(runner.ResolvePolicy(forced), Is.EqualTo(MigrationTransactionPolicy.Required));
+    }
+
+    [Test]
+    public async Task RunWithResultAsync_WhenInfrastructureFailsBeforeItems_ShouldReturnRootError()
+    {
+        var runner = new InfrastructureFailingRunner();
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.ErrorCode, Is.EqualTo(nameof(InvalidOperationException)));
+        Assert.That(result.ErrorMessage, Does.Contain("infrastructure failed"));
+        Assert.That(result.Items, Is.Empty);
     }
 
     [Test]
@@ -346,6 +561,7 @@ public class MigrationOperationalHardeningTests
         }
 
         public bool ResetCalled { get; private set; }
+        public bool ReadinessCalled { get; private set; }
         public int RecordedHistoryCount { get; private set; }
         public int ExecutedSqlCount { get; private set; }
 
@@ -356,6 +572,12 @@ public class MigrationOperationalHardeningTests
         {
             ResetCalled = true;
             _events?.Add("Reset");
+            return Task.CompletedTask;
+        }
+
+        protected override Task WaitUntilDatabaseReadyAfterResetAsync(CancellationToken cancellationToken)
+        {
+            ReadinessCalled = true;
             return Task.CompletedTask;
         }
 
@@ -381,6 +603,8 @@ public class MigrationOperationalHardeningTests
             return Task.CompletedTask;
         }
 
+        public string Preview(string sql) => CreateBatchPreview(sql);
+
         protected override Task<DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult<DbConnection?>(null);
 
@@ -390,6 +614,28 @@ public class MigrationOperationalHardeningTests
                 options.LockOptions.Mode = MigrationLockMode.InMemory;
             return options;
         }
+    }
+
+    private sealed class InfrastructureFailingRunner : FakeRunner
+    {
+        protected override Task EnsureHistoryTablesAsync(CancellationToken cancellationToken)
+            => throw new InvalidOperationException("infrastructure failed password=secret-value");
+    }
+
+    private sealed class TransactionAwareFakeRunner : FakeRunner
+    {
+        public TransactionAwareFakeRunner(MigrationRunnerOptions options)
+            : base(options)
+        {
+        }
+
+        public MigrationTransactionPolicy ResolvePolicy(MigrationScriptDefinition definition)
+            => ResolveScriptTransactionPolicy(definition);
+
+        protected override bool SupportsTransactions => true;
+        protected override bool SupportsTransactionalDdl => true;
+        protected override bool IsTransactionCompatible(MigrationScriptDefinition definition)
+            => !definition.Sql.Contains("ADMIN", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class ThrowingReleaseLockStrategy : IMigrationLockStrategy

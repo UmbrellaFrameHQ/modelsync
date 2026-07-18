@@ -139,7 +139,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             {
                 HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
-                AutoAddMissingColumnsFromTableScripts = true,
+                AutoAddMissingColumnsFromTableScripts = false,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null
             };
             options.Schemas.Add(_options.HistorySchema);

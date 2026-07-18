@@ -129,7 +129,7 @@ IF NOT EXISTS (
 
     private static SqlServerMigrationRunner CreateResetRunner(string connectionString, string expectedDatabase)
     {
-        var runner = new SqlServerMigrationRunner(connectionString, new MigrationRunnerOptions
+        var options = new MigrationRunnerOptions
         {
             ResetDatabase = true,
             ResetOptions = new DatabaseResetOptions
@@ -139,7 +139,9 @@ IF NOT EXISTS (
                 ExpectedDatabaseName = expectedDatabase,
                 BackupBeforeReset = false
             }
-        });
+        };
+        options.Schemas.Add("app");
+        var runner = new SqlServerMigrationRunner(connectionString, options);
 
         runner.RegisterScript(MigrationScriptDefinition.Create(
             "reset-table",

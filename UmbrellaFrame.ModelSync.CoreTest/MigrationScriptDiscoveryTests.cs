@@ -33,6 +33,21 @@ public class MigrationScriptDiscoveryTests
     }
 
     [Test]
+    public void ResolveCategory_ShouldNotUseFileNameSubstringsAsSegments()
+    {
+        Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Tables.001_CreateCustomer.sql"), Is.EqualTo(MigrationScriptCategory.Tables));
+        Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Tables.002_CreateCustomerOrders.sql"), Is.EqualTo(MigrationScriptCategory.Tables));
+        Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Tables.003_CustomizationSettings.sql"), Is.EqualTo(MigrationScriptCategory.Tables));
+    }
+
+    [Test]
+    public void ResolveCategory_ShouldSupportExactCustomSegmentOnly()
+    {
+        Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Custom.999_AfterSetup.sql"), Is.EqualTo(MigrationScriptCategory.CustomSql));
+        Assert.That(MigrationScriptDiscovery.ResolveCategory("Scripts.Customer.999_AfterSetup.sql"), Is.EqualTo(MigrationScriptCategory.Tables));
+    }
+
+    [Test]
     public void SqlServerGoSplitter_ShouldSplitGoBatches()
     {
         var batches = SqlBatchSplitter.SplitGoBatches("SELECT 1;\r\nGO\r\nSELECT 2;\r\nGO");

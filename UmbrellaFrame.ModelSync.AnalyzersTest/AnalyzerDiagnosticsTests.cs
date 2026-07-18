@@ -10,6 +10,7 @@ using NUnit.Framework;
 using UmbrellaFrame.ModelSync.Core.Analyzers;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.MySql;
+using UmbrellaFrame.ModelSync.PostgreSQL;
 
 namespace UmbrellaFrame.ModelSync.AnalyzersTest;
 
@@ -99,6 +100,29 @@ public class Product
         Assert.That(diagnostics.Select(d => d.Id), Does.Contain("MSYNC003"));
     }
 
+    [Test]
+    public async Task PostgreSqlTableNameWithoutAttributeSuffix_IsRecognizedByTableAnalyzers()
+    {
+        const string source = @"
+using UmbrellaFrame.ModelSync.PostgreSQL;
+
+[PostgresTableName(""products"")]
+public class Product
+{
+    [PostgresColumnType(PostgresColumnType.INTEGER)]
+    [PostgresColumnPrimaryKey]
+    public int Id { get; set; }
+}";
+
+        var missingTableDiagnostics = await RunAnalyzerAsync(source, new MissingTableNameAttributeAnalyzer());
+        var missingPrimaryKeyDiagnostics = await RunAnalyzerAsync(source, new MissingPrimaryKeyAnalyzer());
+        var missingColumnTypeDiagnostics = await RunAnalyzerAsync(source, new MissingDbColumnTypeAttributeAnalyzer());
+
+        Assert.That(missingTableDiagnostics.Select(d => d.Id), Does.Not.Contain("MSYNC002"));
+        Assert.That(missingPrimaryKeyDiagnostics.Select(d => d.Id), Does.Not.Contain("MSYNC003"));
+        Assert.That(missingColumnTypeDiagnostics.Select(d => d.Id), Does.Not.Contain("MSYNC001"));
+    }
+
     [TestCase("MSYNC004", "[DbIgnore, MySqlColumnType(MySqlColumnType.INT)] public int Value { get; set; }")]
     [TestCase("MSYNC005", "[DbColumnName(\"bad-name\"), MySqlColumnType(MySqlColumnType.INT)] public int Value { get; set; }")]
     [TestCase("MSYNC006", "[DbColumnDefault(\"0\"), MySqlColumnDefault(MySqlDefaultExpression.CurrentTimestamp), MySqlColumnType(MySqlColumnType.INT)] public int Value { get; set; }")]
@@ -136,6 +160,7 @@ public class Product
             {
                 MetadataReference.CreateFromFile(typeof(DbIgnoreAttribute).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(MySqlTableNameAttribute).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(PostgresTableName).Assembly.Location),
             })
             .GroupBy(reference => reference.Display, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First());

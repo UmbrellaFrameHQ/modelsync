@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace UmbrellaFrame.ModelSync.Core
 {
     /// <summary>Dry-run result for one migration script.</summary>
@@ -8,6 +10,12 @@ namespace UmbrellaFrame.ModelSync.Core
         public string CurrentHash { get; set; } = string.Empty;
         public string TargetHash { get; set; } = string.Empty;
         public string SqlToApply { get; set; } = string.Empty;
+        public string SourceSql { get; set; } = string.Empty;
+        public IReadOnlyList<string> PlannedExecutionSql { get; set; } = new List<string>();
+        public IReadOnlyList<string> RepairSql { get; set; } = new List<string>();
+        public IReadOnlyList<string> UnappliedDrift { get; set; } = new List<string>();
+        public bool RequiresManualReview { get; set; }
+        public MigrationHistoryDecision HistoryDecision { get; set; }
         public string Reason { get; set; } = string.Empty;
         public MigrationScriptExecutionMode ExecutionMode { get; set; } = MigrationScriptExecutionMode.HashTracked;
         public string DecisionReason { get; set; } = string.Empty;

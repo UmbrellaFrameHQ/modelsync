@@ -9,7 +9,7 @@ namespace UmbrellaFrame.ModelSync.Core.Analyzers.Attributes
         protected const int MaxVarcharLength = 65535;
 
         public string Length { get; }
-        public abstract string DatabaseType { get; } // Her veritaban� katman�nda uygulanacak
+        public abstract string DatabaseType { get; } // Implemented by each database layer.
 
         protected DbColumnTypeAttribute(string length = null)
         {

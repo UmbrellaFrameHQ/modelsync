@@ -111,7 +111,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             {
                 HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
-                AutoAddMissingColumnsFromTableScripts = true,
+                AutoAddMissingColumnsFromTableScripts = false,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null
             });
             foreach (var script in _scripts)

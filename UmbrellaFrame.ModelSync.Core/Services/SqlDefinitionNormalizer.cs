@@ -10,12 +10,6 @@ namespace UmbrellaFrame.ModelSync.Core.Services
     /// </summary>
     public static class SqlDefinitionNormalizer
     {
-        private static readonly Regex LineCommentPattern =
-            new Regex(@"--.*?$", RegexOptions.Compiled | RegexOptions.Multiline);
-
-        private static readonly Regex BlockCommentPattern =
-            new Regex(@"/\*.*?\*/", RegexOptions.Compiled | RegexOptions.Singleline);
-
         private static readonly Regex WhitespacePattern =
             new Regex(@"\s+", RegexOptions.Compiled);
 
@@ -25,9 +19,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             if (string.IsNullOrWhiteSpace(sql))
                 return string.Empty;
 
-            var normalized = sql.Replace("\r\n", "\n").Replace("\r", "\n");
-            normalized = BlockCommentPattern.Replace(normalized, " ");
-            normalized = LineCommentPattern.Replace(normalized, " ");
+            var normalized = SqlTextSanitizer.StripComments(sql.Replace("\r\n", "\n").Replace("\r", "\n"));
             normalized = WhitespacePattern.Replace(normalized, " ");
             return normalized.Trim();
         }

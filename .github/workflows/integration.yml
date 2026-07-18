@@ -2,6 +2,12 @@ name: Integration Tests
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'ModelSync.sln'
+      - '.github/workflows/integration.yml'
   push:
     branches: [ main ]
     tags: [ 'v*' ]
@@ -152,3 +158,12 @@ jobs:
           grep -R "LegacyUpgradeFirstRun" TestResults/mysql.trx
           grep -R "LegacyUpgradeSecondRun" TestResults/mysql.trx
           grep -R "SyncRegisteredAsync_CreatesProcedure_ThenDetectsNoChange" TestResults/mysql.trx
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modelsync-integration-test-results
+          path: TestResults/*.trx
+          if-no-files-found: error
+          retention-days: 14

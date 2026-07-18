@@ -8,7 +8,7 @@ Her provider kendi attribute setine sahiptir. Attribute isimleri şu şablonu iz
 {Provider}{Amaç}Attribute
 ```
 
-Örnek: `MySqlColumnTypeAttribute`, `SqlServerColumnPrimaryKeyAttribute`, `PostgresTableNameAttribute`, `OracleColumnTypeAttribute`
+Örnek: `MySqlColumnTypeAttribute`, `SqlServerColumnPrimaryKeyAttribute`, `PostgresTableName`, `OracleColumnTypeAttribute`
 
 Bazı attribute'lar (`DbColumnDefault`, `DbColumnCheck`, `DbColumnIndex`, `DbColumnName`, `DbIgnore`) **tüm provider'larda ortaktır**
 ve `UmbrellaFrame.ModelSync.Core` namespace'inden gelir.

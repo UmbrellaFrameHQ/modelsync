@@ -45,7 +45,7 @@ namespace UmbrellaFrame.ModelSync.MySql
         public string GenerateMySqlTable<T>(bool ifNotExists = false) where T : class, new()
             => GenerateSqlTable<T>(ifNotExists);
 
-        // �� DDL execution ���������������������������������������������������
+        // DDL execution
 
         /// <inheritdoc/>
         public void CreateDatabase()
@@ -145,7 +145,7 @@ namespace UmbrellaFrame.ModelSync.MySql
             }
         }
 
-        // �� ALTER TABLE �����������������������������������������������������
+        // ALTER TABLE
 
         /// <inheritdoc/>
         public void AddColumn<T>(string columnName) where T : class, new()

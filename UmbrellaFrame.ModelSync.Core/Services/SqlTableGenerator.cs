@@ -21,7 +21,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
     /// </summary>
     public abstract class SqlTableGenerator
     {
-        /// <summary>Per-instance SQL cache � thread-safe, no cross-provider pollution.</summary>
+        /// <summary>Per-instance SQL cache; thread-safe, no cross-provider pollution.</summary>
         protected readonly ConcurrentDictionary<Type, string> SqlCache =
             new ConcurrentDictionary<Type, string>();
 
@@ -35,7 +35,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
         /// <summary>
         /// Validates and quotes an SQL identifier using the provider-specific quote style.
-        /// <para>MySQL � <c>`</c>, SQL Server � <c>[</c>/<c>]</c>, PostgreSQL/SQLite � <c>"</c></para>
+        /// <para>MySQL uses <c>`</c>, SQL Server uses <c>[</c>/<c>]</c>, PostgreSQL/SQLite use <c>"</c>.</para>
         /// </summary>
         protected string QuoteIdentifier(string identifier)
         {
@@ -241,7 +241,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             return results;
         }
 
-        // �� ALTER TABLE helpers (provider-agnostic SQL builders) ������������
+        // ALTER TABLE helpers (provider-agnostic SQL builders)
 
         /// <summary>
         /// Builds an ADD COLUMN SQL fragment for the given column on model <typeparamref name="T"/>.
@@ -277,7 +277,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         {
             var propertyManager = new DynamicPropertyManager<T>();
             var tableName = GetTableName<T>(propertyManager);
-            // Standard SQL:2003 � supported by PostgreSQL 10+, MySQL 8+, SQLite 3.25+
+            // Standard SQL:2003; supported by PostgreSQL 10+, MySQL 8+, SQLite 3.25+.
             return $"ALTER TABLE {QuoteIdentifier(tableName)} RENAME COLUMN {QuoteIdentifier(oldColumnName)} TO {QuoteIdentifier(newColumnName)};";
         }
 
@@ -294,11 +294,11 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             if (columnTypeAttr == null)
                 throw new InvalidOperationException(CoreResources.Get("TableGen_MissingColumnTypeAttr", columnName, typeof(T).Name));
 
-            // Standard SQL � MySQL uses MODIFY COLUMN, SQL Server uses ALTER COLUMN
+            // Standard SQL; MySQL uses MODIFY COLUMN, SQL Server uses ALTER COLUMN.
             return $"ALTER TABLE {QuoteIdentifier(tableName)} ALTER COLUMN {QuoteIdentifier(columnName)} {columnTypeAttr.GetColumnType()};";
         }
 
-        // �� shared helpers ��������������������������������������������������
+        // Shared helpers
 
         protected string GetTableName<T>(DynamicPropertyManager<T> propertyManager) where T : class, new()
         {

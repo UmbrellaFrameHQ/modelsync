@@ -76,6 +76,31 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 var changed = historyRowExists && !legacyHashMissing && !string.Equals(currentHash, targetHash, StringComparison.Ordinal);
                 var changeType = ResolveChangeType(mode, historyRowExists, legacyHashMissing, changed);
                 var reason = ResolveDecisionReason(mode, historyRowExists, legacyHashMissing, changed);
+                var plannedSql = changeType != MigrationChangeType.None
+                    ? new List<string> { definition.Sql }
+                    : new List<string>();
+                var repairSql = new List<string>();
+                var unappliedDrift = new List<string>();
+                var requiresManualReview = false;
+                var historyDecision = changeType == MigrationChangeType.None
+                    ? (legacyHashMissing ? MigrationHistoryDecision.AdoptLegacyHash : MigrationHistoryDecision.NoHistoryChange)
+                    : MigrationHistoryDecision.RecordFullTargetHash;
+
+                if (definition.Category == MigrationScriptCategory.Tables && changed)
+                {
+                    if (Options.AutoAddMissingColumnsFromTableScripts)
+                        repairSql.AddRange(await BuildMissingColumnScriptsAsync(definition, cancellationToken).ConfigureAwait(false));
+
+                    plannedSql.Clear();
+                    requiresManualReview = true;
+                    historyDecision = MigrationHistoryDecision.ManualReviewRequired;
+                    reason = "Changed CREATE TABLE scripts require manual review because ModelSync cannot prove that the complete source drift is additive.";
+                    if (Options.AutoAddMissingColumnsFromTableScripts)
+                        unappliedDrift.Add("Best-effort missing-column repair SQL was generated for review only.");
+                    else
+                        unappliedDrift.Add("Best-effort missing-column repair is disabled. Enable AutoAddMissingColumnsFromTableScripts only for an explicit repair review workflow.");
+                    unappliedDrift.Add("The full target hash will not be recorded. Review type, nullability, default, check, key, index, and constraint changes explicitly.");
+                }
 
                 plans.Add(new MigrationSyncPlan
                 {
@@ -83,7 +108,13 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                     ChangeType = changeType,
                     CurrentHash = currentHash,
                     TargetHash = targetHash,
-                    SqlToApply = changeType != MigrationChangeType.None ? definition.Sql : string.Empty,
+                    SqlToApply = plannedSql.Count == 1 ? plannedSql[0] : string.Empty,
+                    SourceSql = definition.Sql,
+                    PlannedExecutionSql = plannedSql,
+                    RepairSql = repairSql,
+                    UnappliedDrift = unappliedDrift,
+                    RequiresManualReview = requiresManualReview,
+                    HistoryDecision = historyDecision,
                     Reason = reason,
                     DecisionReason = reason,
                     ExecutionMode = mode,
@@ -105,50 +136,14 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
         public async Task<IReadOnlyList<MigrationSyncPlan>> RunAsync(CancellationToken cancellationToken = default)
         {
-            if (Options.ResetDatabase)
-                ValidateResetSafety();
-
-            IDisposable? lockHandle = null;
-            DbConnection? lockConnection = null;
-            try
-            {
-                TransactionPolicyStartsTransaction();
-                ResolveAtomicityLevel();
-
-                if (Options.ResetDatabase)
-                    await ResetDatabaseAsync(cancellationToken).ConfigureAwait(false);
-
-                if (Options.LockOptions != null && Options.LockOptions.Enabled && Options.LockOptions.Mode != MigrationLockMode.Disabled)
-                {
-                    var strategy = ResolveLockStrategy();
-                    lockConnection = await CreateLockConnectionAsync(cancellationToken).ConfigureAwait(false);
-                    lockHandle = await strategy.AcquireAsync(lockConnection!, Options.LockOptions, cancellationToken).ConfigureAwait(false);
-                    lockConnection = null;
-                }
-
-                await EnsureInfrastructureAsync(cancellationToken).ConfigureAwait(false);
-
-                var plans = await CompareRegisteredAsync(cancellationToken).ConfigureAwait(false);
-                foreach (var plan in plans.Where(p => !p.HasChanges && p.LegacyHashAdoptionRequired))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
-                }
-
-                foreach (var plan in plans.Where(p => p.HasChanges))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await ApplyPlanAsync(plan, cancellationToken).ConfigureAwait(false);
-                    _logger.LogInformation("Migration script applied: {Category} {Id} {Name}", plan.Definition.Category, plan.Definition.Id, plan.Definition.Name);
-                }
-
-                return plans;
-            }
-            finally
-            {
-                SafeDisposeLock(lockHandle);
-                lockConnection?.Dispose();
-            }
+            var result = await RunWithResultAsync(cancellationToken).ConfigureAwait(false);
+            if (result.State == MigrationExecutionState.Cancelled)
+                throw new OperationCanceledException(result.ErrorMessage, cancellationToken);
+            if (result.State == MigrationExecutionState.LockTimeout)
+                throw new TimeoutException(result.ErrorMessage);
+            if (!result.Succeeded)
+                throw new MigrationExecutionException(result);
+            return result.Plans;
         }
 
         public async Task<MigrationExecutionResult> RunWithResultAsync(CancellationToken cancellationToken = default)
@@ -158,6 +153,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             IDisposable? lockHandle = null;
             DbConnection? lockConnection = null;
             var lockAcquired = false;
+            IReadOnlyList<MigrationSyncPlan> plans = Array.Empty<MigrationSyncPlan>();
             if (Options.ResetDatabase)
                 ValidateResetSafety();
 
@@ -169,6 +165,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 if (Options.ResetDatabase)
                 {
                     await ResetDatabaseAsync(cancellationToken).ConfigureAwait(false);
+                    await WaitUntilDatabaseReadyAfterResetAsync(cancellationToken).ConfigureAwait(false);
                 }
 
                 if (Options.LockOptions != null && Options.LockOptions.Enabled && Options.LockOptions.Mode != MigrationLockMode.Disabled)
@@ -182,13 +179,13 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
                 await EnsureInfrastructureAsync(cancellationToken).ConfigureAwait(false);
 
-                var plans = await CompareRegisteredAsync(cancellationToken).ConfigureAwait(false);
+                plans = await CompareRegisteredAsync(cancellationToken).ConfigureAwait(false);
                 foreach (var plan in plans.Where(p => p.HasChanges))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var item = await ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
                     items.Add(item);
-                    if (item.Action == MigrationExecutionAction.Failed)
+                    if (item.Action == MigrationExecutionAction.Failed || item.Action == MigrationExecutionAction.Blocked)
                         break;
                     _logger.LogInformation("Migration script applied: {Category} {Id} {Name}", plan.Definition.Category, plan.Definition.Id, plan.Definition.Name);
                 }
@@ -218,27 +215,29 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
                 var failed = items.Any(i => i.Action == MigrationExecutionAction.Failed || i.Action == MigrationExecutionAction.Blocked);
                 var historyWritten = items.Any(i => i.Action == MigrationExecutionAction.Applied || i.Action == MigrationExecutionAction.Reapplied);
+                var transactionStarted = items.Any(i => i.TransactionStarted);
                 return new MigrationExecutionResult(
                     items,
                     startedAt,
                     DateTimeOffset.UtcNow,
-                    failed ? MigrationExecutionState.Failed : ResolveSuccessfulState(),
-                    ResolveAtomicityLevel(),
+                    ResolveExecutionState(items, failed, transactionStarted),
+                    transactionStarted ? ResolveAtomicityLevel() : MigrationAtomicityLevel.None,
                     lockAcquired,
-                    TransactionPolicyStartsTransaction(),
-                    historyWritten);
+                    transactionStarted,
+                    historyWritten,
+                    plans: plans);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                return new MigrationExecutionResult(items, startedAt, DateTimeOffset.UtcNow, MigrationExecutionState.Cancelled, ResolveAtomicityLevel(), lockAcquired, TransactionPolicyStartsTransaction(), false);
+                return new MigrationExecutionResult(items, startedAt, DateTimeOffset.UtcNow, MigrationExecutionState.Cancelled, ResolveAtomicityLevel(), lockAcquired, TransactionPolicyStartsTransaction(), false, ex.GetType().Name, Redact(ex.Message), Redact(ex.InnerException?.Message ?? string.Empty), plans);
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
-                return new MigrationExecutionResult(items, startedAt, DateTimeOffset.UtcNow, MigrationExecutionState.LockTimeout, MigrationAtomicityLevel.None, lockAcquired, false, false);
+                return new MigrationExecutionResult(items, startedAt, DateTimeOffset.UtcNow, MigrationExecutionState.LockTimeout, MigrationAtomicityLevel.None, lockAcquired, false, false, ex.GetType().Name, Redact(ex.Message), Redact(ex.InnerException?.Message ?? string.Empty), plans);
             }
-            catch
+            catch (Exception ex)
             {
-                return new MigrationExecutionResult(items, startedAt, DateTimeOffset.UtcNow, MigrationExecutionState.Failed, ResolveAtomicityLevel(), lockAcquired, TransactionPolicyStartsTransaction(), false);
+                return new MigrationExecutionResult(items, startedAt, DateTimeOffset.UtcNow, MigrationExecutionState.Failed, ResolveAtomicityLevel(), lockAcquired, TransactionPolicyStartsTransaction(), false, ex.GetType().Name, Redact(ex.Message), Redact(ex.InnerException?.Message ?? string.Empty), plans);
             }
             finally
             {
@@ -248,7 +247,15 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         }
 
         protected virtual async Task ApplyPlanAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
-            => await ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
+        {
+            var result = await ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
+            if (result.Action == MigrationExecutionAction.Failed || result.Action == MigrationExecutionAction.Blocked)
+                throw new MigrationExecutionException(new MigrationExecutionResult(
+                    new[] { result },
+                    result.StartedAt,
+                    result.CompletedAt,
+                    MigrationExecutionState.Failed));
+        }
 
         protected virtual async Task<MigrationExecutionItemResult> ApplyPlanWithResultAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
         {
@@ -267,22 +274,26 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 StartedAt = startedAt
             };
 
-            var scripts = new List<string>();
-            if (plan.Definition.Category == MigrationScriptCategory.Tables &&
-                plan.ChangeType == MigrationChangeType.Reapply &&
-                Options.AutoAddMissingColumnsFromTableScripts)
+            if (plan.RequiresManualReview)
             {
-                scripts.AddRange(await BuildMissingColumnScriptsAsync(plan.Definition, cancellationToken).ConfigureAwait(false));
+                result.Action = MigrationExecutionAction.Blocked;
+                result.FailureStage = "ManualReview";
+                result.ErrorCode = "TableScriptDriftRequiresManualReview";
+                result.ErrorMessage = plan.DecisionReason;
+                result.CompletedAt = DateTimeOffset.UtcNow;
+                return result;
             }
-            else
-            {
-                scripts.Add(plan.SqlToApply);
-            }
+
+            var scripts = plan.PlannedExecutionSql.Count > 0
+                ? plan.PlannedExecutionSql.ToList()
+                : string.IsNullOrWhiteSpace(plan.SqlToApply) ? new List<string>() : new List<string> { plan.SqlToApply };
 
             try
             {
-                using (var scope = await OpenExecutionScopeAsync(cancellationToken).ConfigureAwait(false))
+                var transactionPolicy = ResolveScriptTransactionPolicy(plan.Definition);
+                using (var scope = await OpenExecutionScopeAsync(transactionPolicy, cancellationToken).ConfigureAwait(false))
                 {
+                    result.TransactionStarted = scope.TransactionStarted;
                     foreach (var sql in scripts)
                     {
                         var batches = SplitBatches(PrepareScriptSql(plan.Definition, sql)).Where(batch => !string.IsNullOrWhiteSpace(batch)).ToList();
@@ -296,6 +307,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                             }
                             catch (Exception ex) when (!(ex is OperationCanceledException))
                             {
+                                result.RollbackSucceeded = await scope.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
                                 result.Action = MigrationExecutionAction.Failed;
                                 result.FailureStage = "ExecuteBatch";
                                 result.ErrorCode = ex.GetType().Name;
@@ -308,10 +320,24 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                         }
                     }
 
-                    if (scripts.Count > 0)
-                        await RecordHistoryAsync(scope, plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
-                    else if (plan.LegacyHashAdoptionRequired)
-                        await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        if (scripts.Count > 0)
+                            await RecordHistoryAsync(scope, plan.Definition, plan.TargetHash, cancellationToken).ConfigureAwait(false);
+                        else if (plan.LegacyHashAdoptionRequired)
+                            await AdoptLegacyHashAsync(plan, cancellationToken).ConfigureAwait(false);
+                        await scope.CompleteAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    {
+                        result.RollbackSucceeded = await scope.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+                        result.Action = MigrationExecutionAction.Failed;
+                        result.FailureStage = "RecordHistoryOrCommit";
+                        result.ErrorCode = ex.GetType().Name;
+                        PopulateProviderError(result, ex);
+                        result.CompletedAt = DateTimeOffset.UtcNow;
+                        return result;
+                    }
                 }
 
                 result.LegacyHashAdopted = plan.LegacyHashAdoptionRequired;
@@ -373,27 +399,31 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         protected virtual void ValidateResetSafety()
         {
             var reset = Options.ResetOptions;
-            var approval = reset?.Approval ?? Options.DestructiveOptions;
+            if (reset == null || !reset.Enabled)
+                throw new InvalidOperationException("Database reset requires ResetOptions.Enabled=true, explicit approval, and ExpectedDatabaseName.");
+
+            var approval = reset.Approval;
             if (approval == null || !approval.AllowDestructiveChanges)
                 throw new InvalidOperationException("Database reset is destructive. Provide explicit destructive approval before executing it.");
-            if (reset != null && reset.Enabled)
-            {
-                if (string.IsNullOrWhiteSpace(reset.ExpectedDatabaseName))
-                    throw new InvalidOperationException("ExpectedDatabaseName is required for database reset.");
-                if (reset.BackupBeforeReset &&
-                    string.IsNullOrWhiteSpace(reset.BackupFilePath) &&
-                    string.IsNullOrWhiteSpace(reset.BackupDirectory))
-                    throw new InvalidOperationException("BackupDirectory or BackupFilePath is required when BackupBeforeReset is enabled.");
-                if (reset.AllowedEnvironments != null && reset.AllowedEnvironments.Count > 0 &&
-                    !reset.AllowedEnvironments.Any(e => string.Equals(e, reset.EnvironmentName, StringComparison.OrdinalIgnoreCase)))
-                    throw new InvalidOperationException("Database reset is not allowed for the configured environment.");
-                ValidateResetDatabaseName(reset.ExpectedDatabaseName);
-            }
+            if (string.IsNullOrWhiteSpace(reset.ExpectedDatabaseName))
+                throw new InvalidOperationException("ExpectedDatabaseName is required for database reset.");
+            if (reset.BackupBeforeReset &&
+                string.IsNullOrWhiteSpace(reset.BackupFilePath) &&
+                string.IsNullOrWhiteSpace(reset.BackupDirectory))
+                throw new InvalidOperationException("BackupDirectory or BackupFilePath is required when BackupBeforeReset is enabled.");
+            if (reset.BackupBeforeReset && !SupportsDatabaseBackupBeforeReset)
+                throw new NotSupportedException($"{ProviderName} does not support BackupBeforeReset. Create and verify a provider-native backup before requesting reset.");
+            if (reset.AllowedEnvironments != null && reset.AllowedEnvironments.Count > 0 &&
+                !reset.AllowedEnvironments.Any(e => string.Equals(e, reset.EnvironmentName, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Database reset is not allowed for the configured environment.");
+            ValidateResetDatabaseName(reset.ExpectedDatabaseName);
         }
 
         protected virtual bool SupportsTransactions => false;
 
         protected virtual bool SupportsTransactionalDdl => false;
+
+        protected virtual bool SupportsDatabaseBackupBeforeReset => false;
 
         protected virtual MigrationExecutionState ResolveSuccessfulState()
         {
@@ -424,7 +454,53 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             return SupportsTransactions;
         }
 
+        private MigrationExecutionState ResolveExecutionState(
+            IReadOnlyList<MigrationExecutionItemResult> items,
+            bool failed,
+            bool transactionStarted)
+        {
+            if (!failed)
+                return transactionStarted ? MigrationExecutionState.Committed : MigrationExecutionState.CompletedWithoutTransaction;
+
+            var failedIndex = items.ToList().FindIndex(item =>
+                item.Action == MigrationExecutionAction.Failed || item.Action == MigrationExecutionAction.Blocked);
+            var priorApplied = failedIndex > 0 && items.Take(failedIndex).Any(item =>
+                item.Action == MigrationExecutionAction.Applied || item.Action == MigrationExecutionAction.Reapplied);
+            var failedItem = failedIndex >= 0 ? items[failedIndex] : null;
+            if (priorApplied || (failedItem != null && failedItem.CompletedBatchCount > 0 && !failedItem.RollbackSucceeded))
+                return MigrationExecutionState.PartiallyApplied;
+            if (failedItem != null && failedItem.RollbackSucceeded)
+                return MigrationExecutionState.RolledBack;
+            return MigrationExecutionState.Failed;
+        }
+
+        protected bool TransactionPolicyStartsTransaction(MigrationTransactionPolicy policy)
+        {
+            if (policy == MigrationTransactionPolicy.Forbidden)
+                return false;
+            if (policy == MigrationTransactionPolicy.Required && !SupportsTransactions)
+                throw new InvalidOperationException("TransactionRequiredButUnsupported");
+            return SupportsTransactions;
+        }
+
+        protected MigrationTransactionPolicy ResolveScriptTransactionPolicy(MigrationScriptDefinition definition)
+        {
+            if (definition == null)
+                throw new ArgumentNullException(nameof(definition));
+
+            var policy = definition.TransactionPolicyOverride ?? Options.TransactionPolicy;
+            if (policy == MigrationTransactionPolicy.Auto && !IsTransactionCompatible(definition))
+                return MigrationTransactionPolicy.Forbidden;
+            return policy;
+        }
+
+        protected virtual bool IsTransactionCompatible(MigrationScriptDefinition definition)
+            => true;
+
         protected virtual Task<DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<DbConnection?>(null);
+
+        protected virtual Task<DbConnection?> CreateReadinessConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult<DbConnection?>(null);
 
         private IMigrationLockStrategy ResolveLockStrategy()
@@ -444,6 +520,17 @@ namespace UmbrellaFrame.ModelSync.Core.Services
                 throw new InvalidOperationException("ExpectedDatabaseName is required for database reset.");
         }
 
+        protected virtual string ProviderName => GetType().Name;
+
+        protected int ResetCommandTimeoutSeconds
+        {
+            get
+            {
+                var timeout = Options.ResetOptions?.CommandTimeout ?? TimeSpan.FromSeconds(30);
+                return Math.Max(1, (int)Math.Ceiling(timeout.TotalSeconds));
+            }
+        }
+
         protected static string CreateHistoryKey(MigrationScriptCategory category, string id)
             => $"{category}:{id}";
 
@@ -453,7 +540,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         protected virtual string PrepareScriptSql(MigrationScriptDefinition definition, string sql)
             => sql;
 
-        protected virtual Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        protected virtual Task<IMigrationExecutionScope> OpenExecutionScopeAsync(MigrationTransactionPolicy transactionPolicy, CancellationToken cancellationToken)
             => Task.FromResult<IMigrationExecutionScope>(new DelegatingMigrationExecutionScope(ExecuteSqlAsync));
 
         protected virtual Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
@@ -468,6 +555,7 @@ namespace UmbrellaFrame.ModelSync.Core.Services
         protected static string CreateBatchPreview(string sql)
         {
             var normalized = Regex.Replace(sql ?? string.Empty, @"\s+", " ").Trim();
+            normalized = SqlTextSanitizer.RedactLiteralsAndComments(normalized);
             normalized = Redact(normalized);
             return normalized.Length <= 1024 ? normalized : normalized.Substring(0, 1024);
         }
@@ -479,6 +567,8 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
             var redacted = Regex.Replace(value, @"(?i)(password|pwd|token|api[_-]?key|secret|access[_-]?key)\s*=\s*[^;\s]+", "$1=<redacted>");
             redacted = Regex.Replace(redacted, @"(?i)(password|pwd|token|api[_-]?key|secret|access[_-]?key)\s*[:=]\s*['""]?[^,'""\s;]+", "$1=<redacted>");
+            redacted = Regex.Replace(redacted, @"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+", "Bearer <redacted>");
+            redacted = Regex.Replace(redacted, @"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", "<redacted-jwt>");
             return redacted;
         }
 
@@ -500,6 +590,31 @@ namespace UmbrellaFrame.ModelSync.Core.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Migration lock release failed after migration execution. The original migration outcome is preserved.");
+            }
+        }
+
+        protected virtual async Task WaitUntilDatabaseReadyAfterResetAsync(CancellationToken cancellationToken)
+        {
+            var reset = Options.ResetOptions;
+            if (reset == null)
+                return;
+
+            using (var connection = await CreateReadinessConnectionAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (connection == null)
+                    return;
+
+                var strategy = new DefaultDatabaseReadinessStrategy();
+                await strategy.WaitUntilReadyAsync(
+                    connection,
+                    new DatabaseReadinessContext
+                    {
+                        Provider = ProviderName,
+                        DatabaseName = reset.ExpectedDatabaseName,
+                        RetryCount = reset.ReadinessRetryCount,
+                        RetryDelay = reset.ReadinessRetryDelay
+                    },
+                    cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -527,7 +642,10 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
         protected interface IMigrationExecutionScope : IDisposable
         {
+            bool TransactionStarted { get; }
             Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken);
+            Task CompleteAsync(CancellationToken cancellationToken);
+            Task<bool> RollbackAsync(CancellationToken cancellationToken);
         }
 
         private sealed class DelegatingMigrationExecutionScope : IMigrationExecutionScope
@@ -541,6 +659,14 @@ namespace UmbrellaFrame.ModelSync.Core.Services
 
             public Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
                 => _execute(sql, cancellationToken);
+
+            public bool TransactionStarted => false;
+
+            public Task CompleteAsync(CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task<bool> RollbackAsync(CancellationToken cancellationToken)
+                => Task.FromResult(false);
 
             public void Dispose()
             {

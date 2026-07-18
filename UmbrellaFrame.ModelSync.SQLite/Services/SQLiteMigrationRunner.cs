@@ -38,6 +38,9 @@ namespace UmbrellaFrame.ModelSync.SQLite
         protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult<System.Data.Common.DbConnection?>(SQLiteConnectionFactory.Create(_connectionString));
 
+        protected override Task<System.Data.Common.DbConnection?> CreateReadinessConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(SQLiteConnectionFactory.Create(_connectionString));
+
         protected override Task ResetDatabaseAsync(CancellationToken cancellationToken)
             => throw new NotSupportedException("SQLite database reset is not supported by SQLiteMigrationRunner. Delete the database file explicitly if you need a reset.");
 
@@ -149,7 +152,11 @@ namespace UmbrellaFrame.ModelSync.SQLite
 
         private async Task<MigrationExecutionItemResult> ApplyPlanWithSQLiteTransactionAsync(MigrationSyncPlan plan, CancellationToken cancellationToken)
         {
-            if (Options.TransactionPolicy == MigrationTransactionPolicy.Required || Options.TransactionPolicy == MigrationTransactionPolicy.Auto)
+            if (plan.RequiresManualReview)
+                return await base.ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
+
+            var policy = ResolveScriptTransactionPolicy(plan.Definition);
+            if (policy == MigrationTransactionPolicy.Required || policy == MigrationTransactionPolicy.Auto)
                 return await ApplyPlanWithTransactionAsync(plan, cancellationToken).ConfigureAwait(false);
 
             return await base.ApplyPlanWithResultAsync(plan, cancellationToken).ConfigureAwait(false);
@@ -167,20 +174,13 @@ namespace UmbrellaFrame.ModelSync.SQLite
                 Action = plan.ChangeType == MigrationChangeType.Reapply ? MigrationExecutionAction.Reapplied : MigrationExecutionAction.Applied,
                 ExistingHash = plan.CurrentHash,
                 TargetHash = plan.TargetHash,
-                StartedAt = startedAt
+                StartedAt = startedAt,
+                TransactionStarted = true
             };
 
-            var scripts = new List<string>();
-            if (plan.Definition.Category == MigrationScriptCategory.Tables &&
-                plan.ChangeType == MigrationChangeType.Reapply &&
-                Options.AutoAddMissingColumnsFromTableScripts)
-            {
-                scripts.AddRange(await BuildMissingColumnScriptsAsync(plan.Definition, cancellationToken).ConfigureAwait(false));
-            }
-            else
-            {
-                scripts.Add(plan.SqlToApply);
-            }
+            var scripts = plan.PlannedExecutionSql.Count > 0
+                ? plan.PlannedExecutionSql.ToList()
+                : string.IsNullOrWhiteSpace(plan.SqlToApply) ? new List<string>() : new List<string> { plan.SqlToApply };
 
             using (var connection = SQLiteConnectionFactory.Create(_connectionString))
             {
@@ -203,7 +203,11 @@ namespace UmbrellaFrame.ModelSync.SQLite
                             catch (Exception ex) when (!(ex is OperationCanceledException))
                             {
                                 if (transactionOpen)
+                                {
                                     await RollbackQuietlyAsync(connection).ConfigureAwait(false);
+                                    result.RollbackSucceeded = true;
+                                    transactionOpen = false;
+                                }
                                 result.Action = MigrationExecutionAction.Failed;
                                 result.FailureStage = "ExecuteBatch";
                                 result.ErrorCode = ex.GetType().Name;
@@ -230,7 +234,11 @@ namespace UmbrellaFrame.ModelSync.SQLite
                 catch (Exception ex) when (!(ex is OperationCanceledException))
                 {
                     if (transactionOpen)
+                    {
                         await RollbackQuietlyAsync(connection).ConfigureAwait(false);
+                        result.RollbackSucceeded = true;
+                        transactionOpen = false;
+                    }
                     result.Action = MigrationExecutionAction.Failed;
                     result.FailureStage = result.CompletedBatchCount < result.BatchCount ? "ExecuteBatch" : "RecordHistory";
                     result.ErrorCode = ex.GetType().Name;
@@ -247,7 +255,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             }
         }
 
-        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(MigrationTransactionPolicy transactionPolicy, CancellationToken cancellationToken)
         {
             var connection = SQLiteConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -345,6 +353,8 @@ namespace UmbrellaFrame.ModelSync.SQLite
             result.ErrorMessage = Redact(sqlite.Message);
         }
 
+        protected override string ProviderName => "SQLite";
+
         private static async Task ReadLegacyHistoryAsync(SqliteConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
         {
             using (var command = connection.CreateCommand())
@@ -435,6 +445,7 @@ namespace UmbrellaFrame.ModelSync.SQLite
             }
 
             public SqliteConnection Connection { get; }
+            public bool TransactionStarted => false;
 
             public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
             {
@@ -444,6 +455,12 @@ namespace UmbrellaFrame.ModelSync.SQLite
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
+
+            public Task CompleteAsync(CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task<bool> RollbackAsync(CancellationToken cancellationToken)
+                => Task.FromResult(false);
 
             public void Dispose()
             {

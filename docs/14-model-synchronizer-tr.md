@@ -1,42 +1,42 @@
 # 14 - Model Synchronizer
 
-Model synchronizer, attribute ile isaretlenmis C# sema modellerini canli veritabaniyla karsilastirir ve herhangi bir islem yapmadan once incelenebilir dry-run plani uretir.
+Model synchronizer, attribute ile işaretlenmiş C# şema modellerini canlı veritabanıyla karşılaştırır ve herhangi bir işlem yapmadan önce incelenebilir bir dry-run planı üretir.
 
-Bu ozellik mevcut `ITableGenerator`, provider table generator, migration runner ve stored procedure synchronizer API'lerini bozmaz; onlarin uzerine eklenen ayri bir katmandir.
+Bu özellik mevcut `ITableGenerator`, provider table generator, migration runner ve stored procedure synchronizer API'lerini bozmaz; onların üzerine eklenen ayrı bir katmandır.
 
-## Amac
+## Amaç
 
-- ModelSync tablo ve kolon attribute'larini okumak.
-- `DbColumnName` ve `DbIgnore` attribute'lerini schema discovery sirasinda dikkate almak.
-- Canli veritabani semasini introspect etmek.
-- Incelenebilir diff plani uretmek.
-- Yalniz update-safe/additive islemleri otomatik uygulamak.
-- Destructive, riskli veya unsupported islemleri uygulamadan raporlamak.
-- Model sync ve sirali SQL scriptlerini tek sonuc icinde birlestirmek.
+- ModelSync tablo ve kolon attribute'larını okumak.
+- `DbColumnName` ve `DbIgnore` attribute'lerini schema discovery sırasında dikkate almak.
+- Canlı veritabanı şemasını introspect etmek.
+- İncelenebilir diff planı üretmek.
+- Yalnız update-safe/additive işlemleri otomatik uygulamak.
+- Destructive, riskli veya unsupported işlemleri uygulamadan raporlamak.
+- Model sync ve sıralı SQL scriptlerini tek sonuç içinde birleştirmek.
 
-## Provider Destegi
+## Provider Desteği
 
-| Provider | Model diff | Guvenli apply | Stored procedure scriptleri | Trigger scriptleri | Seed scriptleri | CustomSql scriptleri |
+| Provider | Model diff | Güvenli apply | Stored procedure scriptleri | Trigger scriptleri | Seed scriptleri | CustomSql scriptleri |
 |---|---:|---:|---:|---:|---:|---:|
 | SQL Server / Azure SQL | Var | Var | Var | Var | Var | Var |
 | MySQL / MariaDB | Var | Var | Var | Var | Var | Var |
 | PostgreSQL | Var | Var | Var | Var | Var | Var |
 | SQLite | Var | Var | Yok | Var | Var | Var |
 
-SQLite stored procedure desteklemez. SQLite model synchronizer stored procedure scripti alirsa plan icinde unsupported operation uretir ve `ApplyAsync()` devam etmez.
+SQLite stored procedure desteklemez. SQLite model synchronizer stored procedure scripti alırsa plan içinde unsupported operation üretir ve `ApplyAsync()` devam etmez.
 
-## Guvenli Islemler
+## Güvenli İşlemler
 
-- Eksik tablo olusturma.
+- Eksik tablo oluşturma.
 - Eksik nullable kolon ekleme.
-- Default degeri olan eksik `NOT NULL` kolon ekleme.
-- Eksik indeks olusturma.
-- Provider guvenli ALTER destekliyorsa eksik default/check/unique/foreign key constraint ekleme.
-- History/hash takipli sirali SQL script uygulama.
+- Default değeri olan eksik `NOT NULL` kolon ekleme.
+- Eksik indeks oluşturma.
+- Provider güvenli ALTER destekliyorsa eksik default/check/unique/foreign key constraint ekleme.
+- History/hash takipli sıralı SQL script uygulama.
 
-Guvenli islemler konfigürasyonla kapatilabilir. Bu durumda islem `ModelSyncResult.SkippedOperations` listesinde gorunur ve ilgisiz guvenli islemleri bloklamaz.
+Güvenli işlemler konfigürasyonla kapatılabilir. Bu durumda işlem `ModelSyncResult.SkippedOperations` listesinde görünür ve ilgisiz güvenli işlemleri bloklamaz.
 
-## Tablo Bazli Execution Policy
+## Tablo Bazlı Execution Policy
 
 ModelSync, aynı çalıştırmada farklı tablolar için farklı migration sahipliği tanımlayabilir. Policy runtime options üzerinden verilir; model attribute'u değildir. Çünkü manuel/otomatik migration kararı genellikle ortama ve deployment stratejisine bağlıdır:
 
@@ -52,46 +52,46 @@ options.TablePolicies
     .ForSchema("audit", ModelSyncTableMode.ApplySafeChanges);
 ```
 
-Policy cozum sirasi deterministiktir:
+Policy çözüm sırası deterministiktir:
 
 ```text
-CLR model type -> schema/table -> schema -> DefaultTableMode -> mevcut global davranis
+CLR model type -> schema/table -> schema -> DefaultTableMode -> mevcut global davranış
 ```
 
-| Mode | Davranis |
+| Mode | Davranış |
 |---|---|
-| `Inherit` | Mevcut global model-sync davranisini kullanir. Varsayilan degerdir ve geriye uyumlulugu korur. |
-| `ManualOnly` | Tablo karsilastirilir; uretilen operasyonlar `ManualOperations` altinda raporlanir ve hicbir zaman otomatik calistirilmaz. Manuel operasyonlar ilgisiz otomatik guvenli operasyonlari bloklamaz. |
-| `ApplySafeChanges` | Yalniz guvenli, provider tarafindan desteklenen ve dependency'leri hazir operasyonlar otomatik uygulanabilir. Destructive/riskli degisiklikler bloklu kalir. |
-| `Ignore` | Tablo normal diff uretiminden cikarilir. Ignored tablolar baska managed tablolar icin dependency target olarak database'de var mi diye yine kontrol edilebilir. |
+| `Inherit` | Mevcut global model-sync davranışını kullanır. Varsayılan değerdir ve geriye uyumluluğu korur. |
+| `ManualOnly` | Tablo karşılaştırılır; üretilen operasyonlar `ManualOperations` altında raporlanır ve hiçbir zaman otomatik çalıştırılmaz. Manuel operasyonlar ilgisiz otomatik güvenli operasyonları bloklamaz. |
+| `ApplySafeChanges` | Yalnız güvenli, provider tarafından desteklenen ve dependency'leri hazır operasyonlar otomatik uygulanabilir. Destructive/riskli değişiklikler bloklu kalır. |
+| `Ignore` | Tablo normal diff üretiminden çıkarılır. Ignored tablolar başka managed tablolar için dependency target olarak database'de var mı diye yine kontrol edilebilir. |
 
-`ModelSyncResult` operasyonlari `AutomaticOperations`, `ManualOperations`, `SkippedOperations` ve `BlockedOperations` olarak ayirir. `ApplyAsync()` yalniz otomatik guvenli operasyonlari uygular. `ManualOnly` islemin guvenli oldugu anlamina gelmez; ModelSync SQL/reason bilgisini raporlar ama otomatik calistirmaz.
+`ModelSyncResult` operasyonları `AutomaticOperations`, `ManualOperations`, `SkippedOperations` ve `BlockedOperations` olarak ayırır. `ApplyAsync()` yalnız otomatik güvenli operasyonları uygular. `ManualOnly` işlemin güvenli olduğu anlamına gelmez; ModelSync SQL/reason bilgisini raporlar ama otomatik çalıştırmaz.
 
-Otomatik bir tablo eksik manuel veya ignored parent tabloya bagimliysa ilgili foreign-key operasyonu acik dependency nedeni ile bloklanir. Parent database'de zaten varsa ve provider operasyonu destekliyorsa otomatik child tablo devam edebilir.
+Otomatik bir tablo eksik manuel veya ignored parent tabloya bağımlıysa ilgili foreign-key operasyonu açık dependency nedeni ile bloklanır. Parent database'de zaten varsa ve provider operasyonu destekliyorsa otomatik child tablo devam edebilir.
 
-## Global Plan Fazlari
+## Global Plan Fazları
 
-ModelSync model-diff islemlerini model iteration sirasina baglamadan deterministik global fazlarla uretir:
+ModelSync model-diff işlemlerini model iteration sırasına bağlamadan deterministik global fazlarla üretir:
 
 ```text
 Create tables -> Add columns -> Add defaults -> Add checks -> Add unique constraints -> Add indexes -> Add foreign keys -> Apply scripts
 ```
 
-Bu sayede child model parent modelden once gelse veya tablolar arasinda dairesel FK iliskisi olsa bile once eksik tablolar planlanir, foreign key islemleri tablo olusturma fazindan sonra gelir.
+Bu sayede child model parent modelden önce gelse veya tablolar arasında dairesel FK ilişkisi olsa bile önce eksik tablolar planlanır, foreign key işlemleri tablo oluşturma fazından sonra gelir.
 
-## Bloklanan Islemler
+## Bloklanan İşlemler
 
-- `ReportUnmappedTables = true` ise modelde olmayan database tablolarini silme plani.
+- `ReportUnmappedTables = true` ise modelde olmayan database tablolarını silme planı.
 - Kolon silme.
-- Kolon yeniden adlandirma.
-- Kolon tipi degistirme.
-- Daraltici veya uyumsuz tip degisiklikleri.
+- Kolon yeniden adlandırma.
+- Kolon tipi değiştirme.
+- Daraltıcı veya uyumsuz tip değişiklikleri.
 - `NULL` kolonunu `NOT NULL` yapmak.
 - Mevcut tabloya defaultsuz `NOT NULL` kolon eklemek.
 - Mevcut tabloya eksik primary-key, generated-value, unique veya foreign-key kolon eklemek.
-- SQLite stored procedure gibi provider tarafindan desteklenmeyen islemler.
+- SQLite stored procedure gibi provider tarafından desteklenmeyen işlemler.
 
-## SQL Server Ornegi
+## SQL Server Örneği
 
 ```csharp
 using UmbrellaFrame.ModelSync.SqlServer;
@@ -126,9 +126,9 @@ await result.ThrowIfUnsupportedOrDestructiveAsync();
 await result.ApplyAsync(cancellationToken);
 ```
 
-## Net Model Secimi
+## Net Model Seçimi
 
-Hangi model siniflarinin karsilastirmaya dahil olacagini acikca belirlemek icin `FromTypes` kullanin:
+Hangi model sınıflarının karşılaştırmaya dahil olacağını açıkça belirlemek için `FromTypes` kullanın:
 
 ```csharp
 var result = await SqlServerModelSynchronizer
@@ -136,23 +136,23 @@ var result = await SqlServerModelSynchronizer
     .CompareAsync(cancellationToken);
 ```
 
-`FromAssemblies` provider-aware calisir. SQL Server synchronizer yalniz SQL Server ModelSync attribute'larini, MySQL synchronizer yalniz MySQL attribute'larini okur. Iki model sinifi ayni schema/table ciftine map edilirse ModelSync duplicate operasyon uretmek yerine acik hata firlatir.
+`FromAssemblies` provider-aware çalışır. SQL Server synchronizer yalnız SQL Server ModelSync attribute'larını, MySQL synchronizer yalnız MySQL attribute'larını okur. İki model sınıfı aynı schema/table çiftine map edilirse ModelSync duplicate operasyon üretmek yerine açık hata fırlatır.
 
-Varsayilan olarak `FromTypes` ve `FromAssemblies` yalniz verilen/kesfedilen model setini senkronize eder ve ilgisiz database tablolarini raporlamaz. Model setinin authoritative olmasini ve fazla database tablolarinin blocked `DropTable` olarak gorunmesini istiyorsaniz `ReportUnmappedTables = true` kullanin.
+Varsayılan olarak `FromTypes` ve `FromAssemblies` yalnız verilen/keşfedilen model setini senkronize eder ve ilgisiz database tablolarını raporlamaz. Model setinin authoritative olmasını ve fazla database tablolarının blocked `DropTable` olarak görünmesini istiyorsanız `ReportUnmappedTables = true` kullanın.
 
-Provider synchronizer'lar structured value-generation bilgisini korur. SQL Server identity, MySQL auto-increment, PostgreSQL `SERIAL`/`BIGSERIAL` ve SQLite integer rowid primary key bilgisi plan olusturma sirasinda `DbValueGenerationKind` ile temsil edilir. Eski primary-key SQL snippet metadata'si yalniz geriye uyumluluk icin korunur.
+Provider synchronizer'lar structured value-generation bilgisini korur. SQL Server identity, MySQL auto-increment, PostgreSQL `SERIAL`/`BIGSERIAL` ve SQLite integer rowid primary key bilgisi plan oluşturma sırasında `DbValueGenerationKind` ile temsil edilir. Eski primary-key SQL snippet metadata'si yalnız geriye uyumluluk için korunur.
 
-Canli sema karsilastirmasi mumkun oldugunda semantic metadata kullanir. Ornegin database'de `UX_ManuallyNamed(Code)` adli unique index varsa modeldeki `Code` unique istegi karsilanmis kabul edilir; ModelSync yalniz kendi uretecegi `UQ_Table_Code` adini aramaz.
+Canlı şema karşılaştırması mümkün olduğunda semantic metadata kullanır. Örneğin database'de `UX_ManuallyNamed(Code)` adlı unique index varsa modeldeki `Code` unique isteği karşılanmış kabul edilir; ModelSync yalnız kendi üreteceği `UQ_Table_Code` adını aramaz.
 
 ## Ordered Scripts
 
-Embedded scriptler kategoriye gore su sirayla kesfedilir ve calistirilir:
+Embedded scriptler kategoriye göre şu sırayla keşfedilir ve çalıştırılır:
 
 ```text
 Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 ```
 
-Desteklenen embedded resource klasorleri:
+Desteklenen embedded resource klasörleri:
 
 ```text
 Scripts/Tables
@@ -168,13 +168,13 @@ Scripts/CustomSql
 SchemaMigration_CustomSql
 ```
 
-`HistorySchema`, SQL Server ve PostgreSQL gibi schema destekleyen provider'larda history tablolarinin nerede olusturulacagini belirler. SQL Server stored procedure scriptleri model synchronizer veya migration runner uzerinden calistirildiginda `CREATE OR ALTER PROCEDURE` formuna normalize edilir; stored procedure dosyalarinda tek procedure tutun ve `GO` separator kullanmayin.
+`HistorySchema`, SQL Server ve PostgreSQL gibi schema destekleyen provider'larda history tablolarının nerede oluşturulacağını belirler. SQL Server stored procedure scriptleri model synchronizer veya migration runner üzerinden çalıştırıldığında `CREATE OR ALTER PROCEDURE` formuna normalize edilir; stored procedure dosyalarında tek procedure tutun ve `GO` separator kullanmayın.
 
-Model diff islemleri risk siniflandirmasindan gecer. Kaydedilen SQL scriptleri guvenilir proje artifact'i kabul edilir; ModelSync script metnini destructive SQL acisindan parse etmez.
+Model diff işlemleri risk sınıflandırmasından geçer. Kaydedilen SQL scriptleri güvenilir proje artifact'i kabul edilir; ModelSync script metnini destructive SQL açısından parse etmez.
 
-Migration runner karsilastirmasi read-only'dir. Infrastructure `CompareRegisteredAsync()` tarafindan degil, `RunAsync()` veya acik `EnsureInfrastructureAsync()` cagrisi tarafindan olusturulur.
+Migration runner karşılaştırması read-only'dir. Infrastructure `CompareRegisteredAsync()` tarafından değil, `RunAsync()` veya açık `EnsureInfrastructureAsync()` çağrısı tarafından oluşturulur.
 
-## Provider Siniflari
+## Provider Sınıfları
 
 | Provider | Options | Synchronizer |
 |---|---|---|
@@ -183,8 +183,8 @@ Migration runner karsilastirmasi read-only'dir. Infrastructure `CompareRegistere
 | PostgreSQL | `PostgresModelSyncOptions` | `PostgresModelSynchronizer` |
 | SQLite | `SQLiteModelSyncOptions` | `SQLiteModelSynchronizer` |
 
-## Production Kullanimi
+## Production Kullanımı
 
-Once `CompareAsync()` calistirin ve planin tamamini loglayin. `BlockedOperations` bos degilse otomatik apply yapmayin. Production ortamlarinda synchronizer'i uygulama trafigi baslamadan once tek deployment job icinde calistirmak daha guvenlidir.
+Önce `CompareAsync()` çalıştırın ve planın tamamını loglayın. `BlockedOperations` boş değilse otomatik apply yapmayın. Production ortamlarında synchronizer'ı uygulama trafiği başlamadan önce tek deployment job içinde çalıştırmak daha güvenlidir.
 
-ModelSync'i sessiz sema mutasyon motoru gibi kullanmayin. Bu ozellik guvenli eklemeleri kolaylastirmak ve riskli veritabani degisikliklerini gorunur hale getirmek icin tasarlanmistir.
+ModelSync'i sessiz şema mutasyon motoru gibi kullanmayın. Bu özellik güvenli eklemeleri kolaylaştırmak ve riskli veritabanı değişikliklerini görünür hale getirmek için tasarlanmıştır.

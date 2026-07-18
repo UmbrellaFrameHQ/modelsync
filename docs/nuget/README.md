@@ -8,11 +8,11 @@
 
 ModelSync is a schema and migration toolkit for .NET projects that want explicit database changes without adopting a full ORM. It generates provider-specific DDL from attributed C# models, compares models with live databases, runs ordered SQL migrations, synchronizes stored procedures, and produces deployment reports.
 
-Current version: **1.3.0**
+Current version: **1.4.0-rc.1**
 
-## What's New in 1.3.0
+## What's New in 1.4.0-rc.1
 
-Version 1.3.0 adds reviewable migration reports, a safer CLI workflow, stronger model analyzers, and clearer provider support boundaries. Existing generator and migration APIs remain available.
+Version 1.4.0-rc.1 makes migration failures observable, keeps repair suggestions separate from executable SQL, strengthens transaction/history reporting, and removes application-specific SQL Server schema defaults. Existing generator and migration API signatures remain available; review the behavior changes before adopting the RC.
 
 ## Choose A Workflow
 
@@ -29,12 +29,12 @@ Version 1.3.0 adds reviewable migration reports, a safer CLI workflow, stronger 
 Install the provider you need. Core is included automatically.
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.4.0-rc.1
 ```
 
 `UmbrellaFrame.ModelSync.Oracle` is publicly available as a preview provider for table DDL and partial safe model synchronization. Its migration runner, routine synchronization, reset, and native lock features are not production-ready.
@@ -121,7 +121,7 @@ History rows and SQL hashes make repeat runs predictable. Registered SQL files a
 The CLI supports `sqlserver`, `mysql`, `mariadb`, `postgresql`, and `sqlite`. Oracle is intentionally unavailable in the CLI while its migration runner remains preview-only.
 
 ```bash
-dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.4.0-rc.1
 ```
 
 Pass secrets through an environment variable instead of a process argument:
@@ -155,6 +155,7 @@ modelsync run \
 - `DbColumnDefault`, `DbColumnCheck`, and migration scripts contain reviewed SQL and must not use untrusted input.
 - Prefer a deployment-time migration job. If startup migration is unavoidable, keep provider-native locking enabled.
 - Database reset requires explicit destructive approval, an expected database name, environment validation, and system-database protection.
+- Run database reset from a single deployment/local runner; do not start multiple application instances with reset enabled.
 - SQL Server can optionally back up a database before reset.
 
 ## Provider Snapshot
@@ -174,6 +175,6 @@ modelsync run \
 - [Provider support matrix](https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/provider-support-matrix.md)
 - [Migration runner](https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/12-migration-runner.md)
 - [CLI and reporting](https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/migration-reporting.md)
-- [1.3.0 release notes](https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/releases/1.3.0.md)
+- [1.4.0-rc.1 release notes](https://github.com/UmbrellaFrameHQ/modelsync/blob/main/docs/releases/1.4.0-rc.1.md)
 
 MIT © UmbrellaFrame

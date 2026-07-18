@@ -38,6 +38,9 @@ namespace UmbrellaFrame.ModelSync.SqlServer
         protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult<System.Data.Common.DbConnection?>(SqlServerConnectionFactory.Create(_connectionString));
 
+        protected override Task<System.Data.Common.DbConnection?> CreateReadinessConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(SqlServerConnectionFactory.Create(_connectionString));
+
         protected override async Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
             var builder = new SqlConnectionStringBuilder(_connectionString);
@@ -63,6 +66,7 @@ END
 CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
                 using (var command = new SqlCommand(sql, connection))
                 {
+                    command.CommandTimeout = ResetCommandTimeoutSeconds;
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -114,7 +118,7 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
                             }
                         }
                     }
-                    catch (SqlException ex) when (IsMissingHistoryTable(ex))
+                    catch (SqlException ex) when (IsMissingHistoryTable(ex, category))
                     {
                     }
                     catch (SqlException ex) when (IsMissingHistoryHashColumn(ex))
@@ -153,11 +157,14 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             }
         }
 
-        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(MigrationTransactionPolicy transactionPolicy, CancellationToken cancellationToken)
         {
             var connection = SqlServerConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-            return new SqlServerExecutionScope(connection);
+            var transaction = TransactionPolicyStartsTransaction(transactionPolicy)
+                ? connection.BeginTransaction()
+                : null;
+            return new SqlServerExecutionScope(connection, transaction);
         }
 
         protected override async Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
@@ -166,6 +173,7 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             var plan = Dialect.BuildRecordHistoryPlan(HistorySchema(), definition.Category, definition.Id, definition.Name, hash);
             using (var command = new SqlCommand(plan.CommandText, sqlScope.Connection))
             {
+                command.Transaction = sqlScope.Transaction;
                 AddParameters(command, plan);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
@@ -202,19 +210,7 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
         }
 
         protected override bool IsMissingInfrastructureException(Exception exception)
-        {
-            var sql = exception as SqlException;
-            if (sql == null)
-                return false;
-
-            foreach (SqlError error in sql.Errors)
-            {
-                if (error.Number == 208 || error.Number == 2760 || error.Number == 15151)
-                    return true;
-            }
-
-            return false;
-        }
+            => false;
 
         private async Task ReadLegacyHistoryAsync(SqlConnection connection, MigrationScriptCategory category, IDictionary<string, string> result, CancellationToken cancellationToken)
         {
@@ -227,8 +223,17 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             }
         }
 
-        private static bool IsMissingHistoryTable(SqlException exception)
-            => exception.Errors.Cast<SqlError>().Any(error => error.Number == 208 || error.Number == 2760 || error.Number == 15151);
+        private bool IsMissingHistoryTable(SqlException exception, MigrationScriptCategory category)
+        {
+            var expectedTable = Dialect.HistoryTableName(category);
+            return exception.Errors.Cast<SqlError>().Any(error =>
+                IsExpectedMissingHistoryObject(error.Number, error.Message, expectedTable));
+        }
+
+        private static bool IsExpectedMissingHistoryObject(int number, string message, string expectedTable)
+            => number == 208 &&
+               !string.IsNullOrWhiteSpace(expectedTable) &&
+               (message ?? string.Empty).IndexOf(expectedTable, StringComparison.OrdinalIgnoreCase) >= 0;
 
         private static bool IsMissingHistoryHashColumn(SqlException exception)
             => exception.Errors.Cast<SqlError>().Any(error => error.Number == 207);
@@ -258,11 +263,6 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             if (string.IsNullOrWhiteSpace(configured.HistorySchema))
                 configured.HistorySchema = "sec";
             ValidateIdentifier(configured.HistorySchema, nameof(configured.HistorySchema));
-            if (configured.Schemas.Count == 0)
-            {
-                foreach (var schema in new[] { "app", "ref", "sec", "auth", "log", "crm", "exp", "veh", "fin" })
-                    configured.Schemas.Add(schema);
-            }
             if (!configured.Schemas.Contains(configured.HistorySchema, StringComparer.OrdinalIgnoreCase))
                 configured.Schemas.Add(configured.HistorySchema);
             return configured;
@@ -296,6 +296,26 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
             result.ErrorObjectName = Redact(error.Procedure ?? string.Empty);
             result.ErrorMessage = Redact(error.Message);
         }
+
+        protected override bool SupportsTransactions => true;
+
+        protected override bool SupportsTransactionalDdl => true;
+
+        protected override bool SupportsDatabaseBackupBeforeReset => true;
+
+        protected override bool IsTransactionCompatible(MigrationScriptDefinition definition)
+        {
+            foreach (var batch in SplitBatches(definition.Sql))
+            {
+                var sql = SqlDefinitionNormalizer.Normalize(batch);
+                if (Regex.IsMatch(sql, @"(?:^|;)\s*(?:(?:CREATE|ALTER|DROP)\s+DATABASE|BACKUP\s+(?:DATABASE|LOG)|RESTORE\s+(?:DATABASE|LOG)|CREATE\s+FULLTEXT\s+INDEX|ALTER\s+FULLTEXT\s+INDEX|RECONFIGURE)\b", RegexOptions.IgnoreCase))
+                    return false;
+            }
+
+            return true;
+        }
+
+        protected override string ProviderName => "SQL Server";
 
         protected override void ValidateResetDatabaseName(string databaseName)
         {
@@ -358,21 +378,64 @@ CREATE DATABASE [{EscapeIdentifier(targetDb)}];";
 
         private sealed class SqlServerExecutionScope : IMigrationExecutionScope
         {
-            public SqlServerExecutionScope(SqlConnection connection)
+            private bool _completed;
+
+            public SqlServerExecutionScope(SqlConnection connection, SqlTransaction? transaction)
             {
                 Connection = connection;
+                Transaction = transaction;
             }
 
             public SqlConnection Connection { get; }
+            public SqlTransaction? Transaction { get; }
+            public bool TransactionStarted => Transaction != null;
 
             public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
             {
                 using (var command = new SqlCommand(sql, Connection))
+                {
+                    command.Transaction = Transaction;
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            public async Task CompleteAsync(CancellationToken cancellationToken)
+            {
+                if (Transaction != null)
+                    Transaction.Commit();
+                _completed = true;
+            }
+
+            public Task<bool> RollbackAsync(CancellationToken cancellationToken)
+            {
+                if (Transaction == null || _completed)
+                    return Task.FromResult(false);
+                try
+                {
+                    Transaction.Rollback();
+                    _completed = true;
+                    return Task.FromResult(true);
+                }
+                catch
+                {
+                    return Task.FromResult(false);
+                }
             }
 
             public void Dispose()
             {
+                if (!_completed && Transaction != null)
+                {
+                    try
+                    {
+                        Transaction.Rollback();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                Transaction?.Dispose();
                 Connection.Dispose();
             }
         }

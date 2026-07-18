@@ -31,5 +31,7 @@ namespace UmbrellaFrame.ModelSync.Core
         public MigrationScriptExecutionMode ExecutionMode { get; set; } = MigrationScriptExecutionMode.HashTracked;
         public string DecisionReason { get; set; } = string.Empty;
         public bool LegacyHashAdopted { get; set; }
+        public bool TransactionStarted { get; set; }
+        public bool RollbackSucceeded { get; set; }
     }
 }

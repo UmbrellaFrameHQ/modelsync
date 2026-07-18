@@ -10,7 +10,7 @@ internal static class Program
     private static readonly string ShellWord = string.Concat("power", "shell");
     private static readonly string ShortShellWord = string.Concat("p", "wsh");
     private static readonly string VerifyNoShellCommand = "verify-no-" + ShellWord;
-    private const string CurrentReleaseVersion = "1.3.0";
+    private const string CurrentReleaseVersion = "1.4.0-rc.1";
     private static readonly string[] ForbiddenScriptExtensions =
     {
         "." + "ps" + "1",
@@ -568,7 +568,7 @@ internal static class Program
 
     private static void VerifyVersionConsistencySelfTest()
     {
-        var clean = "<Project><PropertyGroup><Version>1.3.0</Version></PropertyGroup></Project>";
+        var clean = "<Project><PropertyGroup><Version>1.4.0-rc.1</Version></PropertyGroup></Project>";
         var bad = "<Project><PropertyGroup><Version>1.0.8</Version></PropertyGroup></Project>";
         if (!Regex.IsMatch(clean, $@"<Version>\s*{Regex.Escape(CurrentReleaseVersion)}\s*</Version>", RegexOptions.CultureInvariant))
         {
@@ -629,9 +629,9 @@ internal static class Program
 
         var runner = ReadRequired(root, "UmbrellaFrame.ModelSync.Core/Services/SqlMigrationRunnerBase.cs", violations);
         var compareBody = ExtractMethodBody(runner, "CompareRegisteredAsync");
-        if (compareBody.Contains("EnsureHistory", StringComparison.Ordinal) ||
-            compareBody.Contains("AdoptLegacyHash", StringComparison.Ordinal) ||
-            compareBody.Contains("RecordHistory", StringComparison.Ordinal))
+        if (compareBody.Contains("EnsureHistoryTablesAsync(", StringComparison.Ordinal) ||
+            compareBody.Contains("AdoptLegacyHashAsync(", StringComparison.Ordinal) ||
+            compareBody.Contains("RecordHistoryAsync(", StringComparison.Ordinal))
         {
             violations.Add("SqlMigrationRunnerBase.CompareRegisteredAsync: compare path must not mutate history infrastructure or adoption state.");
         }
@@ -907,17 +907,20 @@ internal static class Program
             "docs/releases/1.2.2.md",
             "docs/releases/1.2.3.md",
             "docs/releases/1.3.0.md",
+            "docs/releases/1.4.0-rc.1.md",
             "docs/migrations/README.md",
             "docs/migrations/_template.md",
             "docs/migrations/1.2.0-to-1.2.1.md",
             "docs/migrations/1.2.1-to-1.2.2.md",
             "docs/migrations/1.2.2-to-1.2.3.md",
             "docs/migrations/1.2.3-to-1.3.0.md",
+            "docs/migrations/1.3.0-to-1.4.0-rc.1.md",
             "docs/versioning-and-compatibility.md",
             "docs/deprecation-policy.md",
             "docs/provider-support-matrix.md",
             "docs/migration-reporting.md",
             "docs/cli-and-scaffolder-roadmap.md",
+            "docs/general-recommendation-roadmap.md",
             "docs/roadmap-1.3.md",
             "examples/cli-quickstart/README.md",
             "examples/cli-quickstart/Database/Scripts/Tables/001_CreateCliProducts.sql",
@@ -931,11 +934,12 @@ internal static class Program
 
         var readme = ReadRequired(root, "README.md", violations);
         RequireContains(readme, "Versioning, Release Notes and Migration Guides", "README.md: versioning/release navigation section is missing.", violations);
-        RequireContains(readme, "docs/releases/1.3.0.md", "README.md: current 1.3.0 release note link is missing.", violations);
-        RequireContains(readme, "docs/migrations/1.2.3-to-1.3.0.md", "README.md: 1.2.3 to 1.3.0 migration guide link is missing.", violations);
+        RequireContains(readme, "docs/releases/1.4.0-rc.1.md", "README.md: current RC release note link is missing.", violations);
+        RequireContains(readme, "docs/migrations/1.3.0-to-1.4.0-rc.1.md", "README.md: current RC migration guide link is missing.", violations);
         RequireContains(readme, "docs/provider-support-matrix.md", "README.md: provider support matrix link is missing.", violations);
         RequireContains(readme, "docs/migration-reporting.md", "README.md: migration reporting link is missing.", violations);
         RequireContains(readme, "docs/cli-and-scaffolder-roadmap.md", "README.md: CLI/scaffolder roadmap link is missing.", violations);
+        RequireContains(readme, "docs/general-recommendation-roadmap.md", "README.md: general recommendation roadmap link is missing.", violations);
         RequireContains(readme, "modelsync validate", "README.md: CLI validate example is missing.", violations);
         RequireContains(readme, "--dry-run", "README.md: CLI dry-run example is missing.", violations);
 
@@ -945,16 +949,28 @@ internal static class Program
         RequireContains(release, "modelsync validate", "docs/releases/1.3.0.md: CLI validate feature is missing.", violations);
         RequireContains(release, "Performance smoke", "docs/releases/1.3.0.md: performance smoke coverage note is missing.", violations);
 
+        var candidateRelease = ReadRequired(root, "docs/releases/1.4.0-rc.1.md", violations);
+        RequireContains(candidateRelease, "## Fixed", "RC release notes: Fixed section is missing.", violations);
+        RequireContains(candidateRelease, "## Changed", "RC release notes: Changed section is missing.", violations);
+        RequireContains(candidateRelease, "## Compatibility", "RC release notes: Compatibility section is missing.", violations);
+        RequireContains(candidateRelease, "## Migration notes", "RC release notes: Migration notes section is missing.", violations);
+        RequireContains(candidateRelease, "## Provider validation", "RC release notes: Provider validation section is missing.", violations);
+        RequireContains(candidateRelease, "## Known limitations", "RC release notes: Known limitations section is missing.", violations);
+
+        var migrationGuide = ReadRequired(root, "docs/migrations/1.3.0-to-1.4.0-rc.1.md", violations);
+        RequireContains(migrationGuide, "Changed table scripts now require manual review by default", "RC migration guide: changed table manual-review rule is missing.", violations);
+        RequireContains(migrationGuide, "AutoAddMissingColumnsFromTableScripts` is disabled by default", "RC migration guide: AutoAdd default policy is missing.", violations);
+
         var changelog = ReadRequired(root, "CHANGELOG.md", violations);
         RequireContains(changelog, "## [1.3.0] - 2026-07-14", "CHANGELOG.md: final 1.3.0 entry is missing.", violations);
 
         foreach (var packageId in PublicLibraryPackageIds())
         {
             var expected = $"dotnet add package {packageId} --version {CurrentReleaseVersion}";
-            RequireContains(readme, expected, $"README.md: missing 1.3.0 install snippet for {packageId}.", violations);
+            RequireContains(readme, expected, $"README.md: missing {CurrentReleaseVersion} install snippet for {packageId}.", violations);
         }
 
-        RequireContains(readme, $"dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version {CurrentReleaseVersion}", "README.md: missing 1.3.0 install snippet for CLI tool.", violations);
+        RequireContains(readme, $"dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version {CurrentReleaseVersion}", $"README.md: missing {CurrentReleaseVersion} install snippet for CLI tool.", violations);
 
         RequireContains(readme, "Oracle note:", "README.md: Oracle preview/public NuGet note is missing.", violations);
 
@@ -1407,24 +1423,26 @@ internal static class Program
             }
         }
 
-        var tempRoot = Path.Combine(Path.GetTempPath(), "ModelSync-consumer-compatibility-" + Guid.NewGuid().ToString("N"));
+        var tempBase = Path.Combine(Path.GetPathRoot(root) ?? Path.GetTempPath(), "ModelSyncConsumerGate");
+        Directory.CreateDirectory(tempBase);
+        var tempRoot = Path.Combine(tempBase, Guid.NewGuid().ToString("N"));
         var legacySource = File.ReadAllText(Path.Combine(root, "tools", "UmbrellaFrame.ModelSync.RepositoryChecks", "ConsumerCompatibility", "LegacyConsumer", "Program.cs"));
         var canonicalSource = File.ReadAllText(Path.Combine(root, "tools", "UmbrellaFrame.ModelSync.RepositoryChecks", "ConsumerCompatibility", "CanonicalProviderConsumer", "Program.cs"));
 
         try
         {
-            var baseline = CreateConsumerProject(tempRoot, "BaselineLegacyConsumer", legacySource, baselineVersion, null);
+            var baseline = CreateConsumerProject(tempRoot, "BaselineLegacyConsumer", legacySource, baselineVersion, null, LegacyConsumerPackageIds());
             BuildConsumerProject(baseline, "baseline");
 
-            var legacyCandidate = CreateConsumerProject(tempRoot, "CandidateLegacyConsumer", legacySource, candidateVersion, candidateSourcePath);
+            var legacyCandidate = CreateConsumerProject(tempRoot, "CandidateLegacyConsumer", legacySource, candidateVersion, candidateSourcePath, LegacyConsumerPackageIds());
             BuildConsumerProject(legacyCandidate, "legacy candidate");
 
-            var canonicalCandidate = CreateConsumerProject(tempRoot, "CanonicalCandidateConsumer", canonicalSource, candidateVersion, candidateSourcePath);
+            var canonicalCandidate = CreateConsumerProject(tempRoot, "CanonicalCandidateConsumer", canonicalSource, candidateVersion, candidateSourcePath, ConsumerPackageIds());
             BuildConsumerProject(canonicalCandidate, "canonical candidate");
 
-            ValidateConsumerAssets(baseline, baselineVersion, forbiddenVersion: candidateVersion, "baseline");
-            ValidateConsumerAssets(legacyCandidate, candidateVersion, forbiddenVersion: baselineVersion, "legacy candidate");
-            ValidateConsumerAssets(canonicalCandidate, candidateVersion, forbiddenVersion: baselineVersion, "canonical candidate");
+            ValidateConsumerAssets(baseline, baselineVersion, forbiddenVersion: candidateVersion, "baseline", LegacyConsumerPackageIds());
+            ValidateConsumerAssets(legacyCandidate, candidateVersion, forbiddenVersion: baselineVersion, "legacy candidate", LegacyConsumerPackageIds());
+            ValidateConsumerAssets(canonicalCandidate, candidateVersion, forbiddenVersion: baselineVersion, "canonical candidate", ConsumerPackageIds());
 
             if (!string.IsNullOrWhiteSpace(evidenceOutput))
             {
@@ -1465,19 +1483,19 @@ internal static class Program
         return null;
     }
 
-    private static string CreateConsumerProject(string root, string name, string source, string version, string? localPackageSource)
+    private static string CreateConsumerProject(string root, string name, string source, string version, string? localPackageSource, IReadOnlyList<string> packageIds)
     {
         var projectDirectory = Path.Combine(root, name);
         Directory.CreateDirectory(projectDirectory);
         File.WriteAllText(Path.Combine(projectDirectory, "Program.cs"), source, Encoding.UTF8);
-        File.WriteAllText(Path.Combine(projectDirectory, name + ".csproj"), BuildConsumerProjectFile(version), Encoding.UTF8);
+        File.WriteAllText(Path.Combine(projectDirectory, name + ".csproj"), BuildConsumerProjectFile(version, packageIds), Encoding.UTF8);
         File.WriteAllText(Path.Combine(projectDirectory, "NuGet.Config"), BuildNuGetConfig(localPackageSource), Encoding.UTF8);
         return projectDirectory;
     }
 
-    private static string BuildConsumerProjectFile(string version)
+    private static string BuildConsumerProjectFile(string version, IReadOnlyList<string> packageIds)
     {
-        var packageReferences = string.Join(Environment.NewLine, ConsumerPackageIds().Select(packageId =>
+        var packageReferences = string.Join(Environment.NewLine, packageIds.Select(packageId =>
             $"    <PackageReference Include=\"{packageId}\" Version=\"{version}\" />"));
 
         return $"""
@@ -1488,6 +1506,7 @@ internal static class Program
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RestorePackagesPath>$(MSBuildProjectDirectory)/.nuget-packages</RestorePackagesPath>
   </PropertyGroup>
   <ItemGroup>
 {packageReferences}
@@ -1498,9 +1517,22 @@ internal static class Program
 
     private static string BuildNuGetConfig(string? localPackageSource)
     {
-        var source = string.IsNullOrWhiteSpace(localPackageSource)
-            ? "https://api.nuget.org/v3/index.json"
-            : localPackageSource.Replace("&", "&amp;").Replace("\"", "&quot;");
+        const string nugetOrg = "https://api.nuget.org/v3/index.json";
+
+        if (string.IsNullOrWhiteSpace(localPackageSource))
+        {
+            return $"""
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="nuget.org" value="{nugetOrg}" />
+  </packageSources>
+</configuration>
+""";
+        }
+
+        var source = localPackageSource.Replace("&", "&amp;").Replace("\"", "&quot;");
 
         return $"""
 <?xml version="1.0" encoding="utf-8"?>
@@ -1508,6 +1540,7 @@ internal static class Program
   <packageSources>
     <clear />
     <add key="ModelSyncConsumerSource" value="{source}" />
+    <add key="nuget.org" value="{nugetOrg}" />
   </packageSources>
 </configuration>
 """;
@@ -1528,7 +1561,7 @@ internal static class Program
         }
     }
 
-    private static void ValidateConsumerAssets(string projectDirectory, string requiredVersion, string forbiddenVersion, string label)
+    private static void ValidateConsumerAssets(string projectDirectory, string requiredVersion, string forbiddenVersion, string label, IReadOnlyList<string> packageIds)
     {
         var assetsPath = Path.Combine(projectDirectory, "obj", "project.assets.json");
         if (!File.Exists(assetsPath))
@@ -1537,7 +1570,7 @@ internal static class Program
         }
 
         var assets = File.ReadAllText(assetsPath);
-        foreach (var packageId in ConsumerPackageIds())
+        foreach (var packageId in packageIds)
         {
             if (!assets.Contains(packageId + "/" + requiredVersion, StringComparison.OrdinalIgnoreCase))
             {
@@ -1639,6 +1672,17 @@ internal static class Program
         };
 
     private static string[] PublicLibraryPackageIds()
+        => new[]
+        {
+            "UmbrellaFrame.ModelSync.Core",
+            "UmbrellaFrame.ModelSync.SqlServer",
+            "UmbrellaFrame.ModelSync.MySql",
+            "UmbrellaFrame.ModelSync.PostgreSQL",
+            "UmbrellaFrame.ModelSync.SQLite",
+            "UmbrellaFrame.ModelSync.Analyzers"
+        };
+
+    private static string[] LegacyConsumerPackageIds()
         => new[]
         {
             "UmbrellaFrame.ModelSync.Core",

@@ -70,7 +70,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             return sql;
         }
 
-        // �� DDL execution ���������������������������������������������������
+        // DDL execution
 
         /// <inheritdoc/>
         public void CreateDatabase()
@@ -195,7 +195,7 @@ namespace UmbrellaFrame.ModelSync.SqlServer
             }
         }
 
-        // �� ALTER TABLE �����������������������������������������������������
+        // ALTER TABLE
 
         /// <inheritdoc/>
         public void AddColumn<T>(string columnName) where T : class, new()

@@ -143,7 +143,7 @@ namespace UmbrellaFrame.ModelSync.MySql
             {
                 HistorySchema = _options.HistorySchema,
                 EnsureHistoryTables = true,
-                AutoAddMissingColumnsFromTableScripts = true,
+                AutoAddMissingColumnsFromTableScripts = false,
                 DestructiveOptions = _options.AllowDestructiveChanges ? DestructiveOperationOptions.Allow() : null
             });
 

@@ -88,4 +88,22 @@ public class MigrationExecutionMarkdownReportTests
     {
         Assert.Throws<ArgumentNullException>(() => MigrationExecutionMarkdownReport.Create(null!));
     }
+
+    [Test]
+    public void Create_ShouldIncludeRootFailureMetadata()
+    {
+        var result = new MigrationExecutionResult(
+            Array.Empty<MigrationExecutionItemResult>(),
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMilliseconds(1),
+            MigrationExecutionState.Failed,
+            errorCode: "InvalidOperationException",
+            errorMessage: "Infrastructure failed password=<redacted>");
+
+        var report = MigrationExecutionMarkdownReport.Create(result);
+
+        Assert.That(report, Does.Contain("## Root Failure"));
+        Assert.That(report, Does.Contain("InvalidOperationException"));
+        Assert.That(report, Does.Contain("password=<redacted>"));
+    }
 }

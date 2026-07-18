@@ -36,6 +36,17 @@ namespace UmbrellaFrame.ModelSync.Core
                 .Append(FormatDuration(result.Duration))
                 .AppendLine(" |");
 
+            if (!string.IsNullOrWhiteSpace(result.ErrorMessage) || !string.IsNullOrWhiteSpace(result.ErrorCode))
+            {
+                builder.AppendLine();
+                builder.AppendLine("## Root Failure");
+                builder.AppendLine();
+                builder.Append("- Error code: ").AppendLine(Sanitize(result.ErrorCode));
+                builder.Append("- Message: ").AppendLine(Sanitize(result.ErrorMessage));
+                if (!string.IsNullOrWhiteSpace(result.InnerErrorMessage))
+                    builder.Append("- Inner message: ").AppendLine(Sanitize(result.InnerErrorMessage));
+            }
+
             builder.AppendLine();
             builder.AppendLine("## Counts");
             builder.AppendLine();

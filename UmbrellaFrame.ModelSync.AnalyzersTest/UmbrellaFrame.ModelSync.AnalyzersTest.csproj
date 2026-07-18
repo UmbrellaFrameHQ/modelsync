@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\UmbrellaFrame.ModelSync.Analyzers\UmbrellaFrame.ModelSync.Core.Analyzers.csproj" />
     <ProjectReference Include="..\UmbrellaFrame.ModelSync.MySql\UmbrellaFrame.ModelSync.MySql.csproj" />
+    <ProjectReference Include="..\UmbrellaFrame.ModelSync.PostgreSQL\UmbrellaFrame.ModelSync.PostgreSQL.csproj" />
   </ItemGroup>
 
 </Project>

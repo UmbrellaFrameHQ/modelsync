@@ -1,3 +1,4 @@
+using Npgsql;
 using UmbrellaFrame.ModelSync.Core;
 using UmbrellaFrame.ModelSync.PostgreSQL;
 
@@ -61,6 +62,39 @@ public sealed class PostgresLegacyCompatibilityIntegrationTests
         RequireIntegration();
 
         Assert.That(MigrationCompatibilityProfiles.LegacyEmbeddedSql, Is.EqualTo("LegacyEmbeddedSql"));
+    }
+
+    [Test]
+    public async Task TransactionFailure_ShouldRollbackTableAndHistory()
+    {
+        RequireIntegration();
+        var suffix = Guid.NewGuid().ToString("N");
+        var table = "modelsync_tx_" + suffix;
+        var scriptId = "tx-" + suffix;
+        var runner = new PostgresMigrationRunner(GetConnectionString());
+        runner.RegisterScript(MigrationScriptDefinition.Create(
+            scriptId,
+            "Transactional rollback probe",
+            MigrationScriptCategory.Tables,
+            $"CREATE TABLE public.\"{table}\"(id INTEGER PRIMARY KEY); INSERT INTO public.modelsync_missing_target(id) VALUES (1);"));
+
+        var result = await runner.RunWithResultAsync();
+
+        Assert.That(result.State, Is.EqualTo(MigrationExecutionState.RolledBack));
+        Assert.That(result.TransactionStarted, Is.True);
+        Assert.That(result.Items.Single().RollbackSucceeded, Is.True);
+
+        await using var connection = new NpgsqlConnection(GetConnectionString());
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT to_regclass(@name) IS NOT NULL;";
+        command.Parameters.AddWithValue("name", "public." + table);
+        Assert.That(Convert.ToBoolean(await command.ExecuteScalarAsync()), Is.False);
+
+        command.Parameters.Clear();
+        command.CommandText = "SELECT COUNT(*) FROM sec.\"SchemaMigration_Tables\" WHERE \"Id\" = @id;";
+        command.Parameters.AddWithValue("id", scriptId);
+        Assert.That(Convert.ToInt32(await command.ExecuteScalarAsync()), Is.EqualTo(0));
     }
 
     private static PostgresMigrationRunner CreateRunner(string seedSql = "CREATE TABLE IF NOT EXISTS public.modelsync_legacy_seed(id SERIAL PRIMARY KEY, name TEXT NOT NULL);")

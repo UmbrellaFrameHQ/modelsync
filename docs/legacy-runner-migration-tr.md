@@ -1,43 +1,43 @@
-# Legacy Runner Gecis Rehberi - Turkce
+# Legacy Runner Geçiş Rehberi - Türkçe
 
-Bu rehber, gomulu SQL migration gecmisi olan bir projeyi eski history bilgisini kaybetmeden ModelSync'e tasimak icin hazirlanmistir.
+Bu rehber, gömülü SQL migration geçmişi olan bir projeyi eski history bilgisini kaybetmeden ModelSync'e taşımak için hazırlanmıştır.
 
-Durum: tum provider legacy compatibility gate'leri gectikten sonra 1.2.0 hatti ile yayinlanmistir.
+Durum: tüm provider legacy compatibility gate'leri geçtikten sonra 1.2.0 hattı ile yayımlanmıştır.
 
 ## Compatibility Profile
 
-Mevcut runner table, stored procedure, trigger ve seed klasorlerini ayri yonetiyorsa `MigrationCompatibilityProfiles.LegacyEmbeddedSql` kullanilir.
+Mevcut runner table, stored procedure, trigger ve seed klasörlerini ayrı yönetiyorsa `MigrationCompatibilityProfiles.LegacyEmbeddedSql` kullanılır.
 
-Profil kategori davranisi:
+Profil kategori davranışı:
 
 | Kategori | Mod | Neden |
 |---|---|---|
-| Tables | HashTracked | Table scriptleri yalniz hash degistiginde tekrar uygulanmalidir. |
-| StoredProcedures | EveryRun | Legacy sistemlerde routine scriptleri cogunlukla her run yeniden uygulanir. |
-| Triggers | EveryRun | Trigger tanimi script govdesiyle surekli esitlenmelidir. |
-| Seeds | RunOnce | Seed scriptleri mevcut datayi duplicate etmemelidir. |
-| CustomSql | HashTracked | Custom SQL ilk eklendiginde veya degistiginde calismalidir. |
+| Tables | HashTracked | Table scriptleri yalnız hash değiştiğinde tekrar uygulanmalıdır. |
+| StoredProcedures | EveryRun | Legacy sistemlerde routine scriptleri çoğunlukla her run yeniden uygulanır. |
+| Triggers | EveryRun | Trigger tanımı script gövdesiyle sürekli eşitlenmelidir. |
+| Seeds | RunOnce | Seed scriptleri mevcut datayı duplicate etmemelidir. |
+| CustomSql | HashTracked | Custom SQL ilk eklendiğinde veya değiştiğinde çalışmalıdır. |
 
-## Gecis Sirasi
+## Geçiş Sırası
 
-1. Veritabani backup alin.
-2. ModelSync'i legacy compatibility profile ile yapilandirin.
-3. Once compare calistirin; database'i degistirmeden `SqlHash` upgrade/adoption ihtiyacini raporladigini dogrulayin.
-4. Ilk mutation run'i kontrollu ortamda calistirin.
-5. Legacy history tablolarina additive `SqlHash` kolonu eklendigini dogrulayin.
-6. Seed duplicate korumasini kontrol edin: matching legacy seed satirlari adopt edilmeli, tekrar calismamalidir.
-7. Ikinci run ile idempotency kontrolu yapin.
-8. Stored procedure ve trigger `EveryRun` davranisini dogrulayin.
-9. Eski runner'i yalniz ModelSync history ve idempotency dogrulandiktan sonra kaldirin.
-10. Hosted service/startup tarafinda yalniz ModelSync yolunu birakin.
-11. Eski migration core kodunu ve legacy runner registration'larini temizleyin.
+1. Veritabanı backup alın.
+2. ModelSync'i legacy compatibility profile ile yapılandırın.
+3. Önce compare çalıştırın; database'i değiştirmeden `SqlHash` upgrade/adoption ihtiyacını raporladığını doğrulayın.
+4. İlk mutation run'ı kontrollü ortamda çalıştırın.
+5. Legacy history tablolarına additive `SqlHash` kolonu eklendiğini doğrulayın.
+6. Seed duplicate korumasını kontrol edin: matching legacy seed satırları adopt edilmeli, tekrar çalışmamalıdır.
+7. İkinci run ile idempotency kontrolü yapın.
+8. Stored procedure ve trigger `EveryRun` davranışını doğrulayın.
+9. Eski runner'ı yalnız ModelSync history ve idempotency doğrulandıktan sonra kaldırın.
+10. Hosted service/startup tarafında yalnız ModelSync yolunu bırakın.
+11. Eski migration core kodunu ve legacy runner registration'larını temizleyin.
 
-## Expertis Notlari
+## Expertis Notları
 
-Expertis tarzi SQL Server projelerinde mevcut `sec.SchemaMigration_Tables`, `sec.SchemaMigration_StoredProcedures`, `sec.SchemaMigration_Triggers` ve `sec.SchemaMigration_Seeds` satirlari korunmalidir. ModelSync orphan legacy satirlari silmeden `SqlHash` eklemelidir. Custom SQL scriptleri eklendiginde `sec.SchemaMigration_CustomSql` ModelSync tarafindan bootstrap edilebilir.
+Expertis tarzı SQL Server projelerinde mevcut `sec.SchemaMigration_Tables`, `sec.SchemaMigration_StoredProcedures`, `sec.SchemaMigration_Triggers` ve `sec.SchemaMigration_Seeds` satırları korunmalıdır. ModelSync orphan legacy satırları silmeden `SqlHash` eklemelidir. Custom SQL scriptleri eklendiğinde `sec.SchemaMigration_CustomSql` ModelSync tarafından bootstrap edilebilir.
 
-## Guvenlik Kurallari
+## Güvenlik Kuralları
 
-Compare read-only kalir. Infrastructure creation, `SqlHash` upgrade, hash adoption, reset, lock ve script execution yalniz mutation API'leriyle yapilir.
+Compare read-only kalır. Infrastructure creation, `SqlHash` upgrade, hash adoption, reset, lock ve script execution yalnız mutation API'leriyle yapılır.
 
-Safe ALTER kurallari model tablolari icin degismez. Framework history tablosuna `SqlHash` eklenmesi infrastructure upgrade'dir; destructive model degisikliklerini otomatik hale getirmez.
+Safe ALTER kuralları model tabloları için değişmez. Framework history tablosuna `SqlHash` eklenmesi infrastructure upgrade'dir; destructive model değişikliklerini otomatik hale getirmez.

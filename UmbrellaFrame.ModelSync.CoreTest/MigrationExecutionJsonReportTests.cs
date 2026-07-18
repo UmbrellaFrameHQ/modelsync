@@ -41,7 +41,7 @@ public class MigrationExecutionJsonReportTests
     [Test]
     public void Create_ShouldEscapeStringsAndBoundFailedBatchPreview()
     {
-        var longSql = "SELECT \"secret\"\n" + new string('B', 1200);
+        var longSql = "SELECT '<redacted>'\n" + new string('B', 1200);
         var result = new MigrationExecutionResult(
             new[]
             {
@@ -68,12 +68,31 @@ public class MigrationExecutionJsonReportTests
 
         Assert.That(item.GetProperty("errorMessage").GetString(), Is.EqualTo("Bad \"SQL\""));
         Assert.That(preview, Has.Length.LessThanOrEqualTo(1024));
-        Assert.That(preview, Does.StartWith("SELECT \"secret\""));
+        Assert.That(preview, Does.StartWith("SELECT '<redacted>'"));
+        Assert.That(preview, Does.Not.Contain("secret-value"));
     }
 
     [Test]
     public void Create_ShouldRejectNullResult()
     {
         Assert.Throws<ArgumentNullException>(() => MigrationExecutionJsonReport.Create(null!));
+    }
+
+    [Test]
+    public void Create_ShouldIncludeRootFailureMetadata()
+    {
+        var result = new MigrationExecutionResult(
+            Array.Empty<MigrationExecutionItemResult>(),
+            DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+            DateTimeOffset.Parse("2026-01-01T00:00:01Z"),
+            MigrationExecutionState.Failed,
+            errorCode: "InvalidOperationException",
+            errorMessage: "Infrastructure failed password=<redacted>");
+
+        using var document = JsonDocument.Parse(MigrationExecutionJsonReport.Create(result));
+        var root = document.RootElement;
+
+        Assert.That(root.GetProperty("errorCode").GetString(), Is.EqualTo("InvalidOperationException"));
+        Assert.That(root.GetProperty("errorMessage").GetString(), Does.Contain("password=<redacted>"));
     }
 }

@@ -10,8 +10,10 @@ This example shows the first safe workflow for the `modelsync` command-line tool
 ## Install
 
 ```bash
-dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.4.0-rc.1
 ```
+
+This example follows the current release candidate. Use the latest stable version instead when evaluating ModelSync for production.
 
 Keep the connection string outside process arguments:
 

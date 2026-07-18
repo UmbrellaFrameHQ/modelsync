@@ -14,7 +14,11 @@ namespace UmbrellaFrame.ModelSync.Core
             MigrationAtomicityLevel atomicity = MigrationAtomicityLevel.None,
             bool lockAcquired = false,
             bool transactionStarted = false,
-            bool historyWritten = false)
+            bool historyWritten = false,
+            string errorCode = "",
+            string errorMessage = "",
+            string innerErrorMessage = "",
+            IEnumerable<MigrationSyncPlan>? plans = null)
         {
             Items = (items ?? Enumerable.Empty<MigrationExecutionItemResult>()).ToList();
             StartedAt = startedAt;
@@ -24,6 +28,10 @@ namespace UmbrellaFrame.ModelSync.Core
             LockAcquired = lockAcquired;
             TransactionStarted = transactionStarted;
             HistoryWritten = historyWritten;
+            ErrorCode = errorCode ?? string.Empty;
+            ErrorMessage = errorMessage ?? string.Empty;
+            InnerErrorMessage = innerErrorMessage ?? string.Empty;
+            Plans = (plans ?? Enumerable.Empty<MigrationSyncPlan>()).ToList();
         }
 
         public IReadOnlyList<MigrationExecutionItemResult> Items { get; }
@@ -34,6 +42,10 @@ namespace UmbrellaFrame.ModelSync.Core
         public bool LockAcquired { get; }
         public bool TransactionStarted { get; }
         public bool HistoryWritten { get; }
+        public string ErrorCode { get; }
+        public string ErrorMessage { get; }
+        public string InnerErrorMessage { get; }
+        public IReadOnlyList<MigrationSyncPlan> Plans { get; }
         public TimeSpan Duration => CompletedAt >= StartedAt ? CompletedAt - StartedAt : TimeSpan.Zero;
         public bool Succeeded => State != MigrationExecutionState.Failed &&
                                  State != MigrationExecutionState.RolledBack &&

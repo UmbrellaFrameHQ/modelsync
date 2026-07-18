@@ -31,6 +31,9 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult<System.Data.Common.DbConnection?>(PostgresConnectionFactory.Create(_connectionString));
 
+        protected override Task<System.Data.Common.DbConnection?> CreateReadinessConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(PostgresConnectionFactory.Create(_connectionString));
+
         protected override async Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
             var builder = new NpgsqlConnectionStringBuilder(_connectionString);
@@ -43,13 +46,20 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var terminate = new NpgsqlCommand("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = @db AND pid <> pg_backend_pid();", connection))
                 {
+                    terminate.CommandTimeout = ResetCommandTimeoutSeconds;
                     terminate.Parameters.AddWithValue("@db", database);
                     await terminate.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
-                    using (var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{EscapeIdentifier(database!)}\";", connection))
+                using (var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{EscapeIdentifier(database!)}\";", connection))
+                {
+                    drop.CommandTimeout = ResetCommandTimeoutSeconds;
                     await drop.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-                    using (var create = new NpgsqlCommand($"CREATE DATABASE \"{EscapeIdentifier(database!)}\";", connection))
+                }
+                using (var create = new NpgsqlCommand($"CREATE DATABASE \"{EscapeIdentifier(database!)}\";", connection))
+                {
+                    create.CommandTimeout = ResetCommandTimeoutSeconds;
                     await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
         }
 
@@ -172,11 +182,14 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             }
         }
 
-        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(MigrationTransactionPolicy transactionPolicy, CancellationToken cancellationToken)
         {
             var connection = PostgresConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-            return new PostgresExecutionScope(connection);
+            var transaction = TransactionPolicyStartsTransaction(transactionPolicy)
+                ? connection.BeginTransaction()
+                : null;
+            return new PostgresExecutionScope(connection, transaction);
         }
 
         protected override async Task RecordHistoryAsync(IMigrationExecutionScope scope, MigrationScriptDefinition definition, string hash, CancellationToken cancellationToken)
@@ -185,6 +198,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             var plan = Dialect.BuildRecordHistoryPlan(HistorySchema(), definition.Category, definition.Id, definition.Name, hash);
             using (var command = new NpgsqlCommand(plan.CommandText, postgresScope.Connection))
             {
+                command.Transaction = postgresScope.Transaction;
                 AddParameters(command, plan);
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
@@ -207,17 +221,27 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             result.ErrorObjectName = Redact(postgres.Routine ?? string.Empty);
         }
 
+        protected override bool SupportsTransactions => true;
+
+        protected override bool SupportsTransactionalDdl => true;
+
+        protected override bool IsTransactionCompatible(MigrationScriptDefinition definition)
+        {
+            var sql = SqlDefinitionNormalizer.Normalize(definition.Sql);
+            return !Regex.IsMatch(
+                sql,
+                @"(?:^|;)\s*(?:(?:CREATE|DROP)\s+(?:DATABASE|TABLESPACE)|ALTER\s+SYSTEM|VACUUM|CLUSTER|CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY|REINDEX(?:\s+\w+)?\s+CONCURRENTLY)\b",
+                RegexOptions.IgnoreCase);
+        }
+
+        protected override string ProviderName => "PostgreSQL";
+
         private static MigrationRunnerOptions ConfigureDefaults(MigrationRunnerOptions? options)
         {
             var configured = options ?? MigrationRunnerOptions.Default();
             if (string.IsNullOrWhiteSpace(configured.HistorySchema))
                 configured.HistorySchema = "sec";
             ValidateIdentifier(configured.HistorySchema, nameof(configured.HistorySchema));
-            if (configured.Schemas.Count == 0)
-            {
-                foreach (var schema in new[] { "app", "ref", "sec", "auth", "log", "crm", "exp", "veh", "fin" })
-                    configured.Schemas.Add(schema);
-            }
             if (!configured.Schemas.Contains(configured.HistorySchema, StringComparer.OrdinalIgnoreCase))
                 configured.Schemas.Add(configured.HistorySchema);
             return configured;
@@ -259,21 +283,64 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
 
         private sealed class PostgresExecutionScope : IMigrationExecutionScope
         {
-            public PostgresExecutionScope(NpgsqlConnection connection)
+            private bool _completed;
+
+            public PostgresExecutionScope(NpgsqlConnection connection, NpgsqlTransaction? transaction)
             {
                 Connection = connection;
+                Transaction = transaction;
             }
 
             public NpgsqlConnection Connection { get; }
+            public NpgsqlTransaction? Transaction { get; }
+            public bool TransactionStarted => Transaction != null;
 
             public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
             {
                 using (var command = new NpgsqlCommand(sql, Connection))
+                {
+                    command.Transaction = Transaction;
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            public Task CompleteAsync(CancellationToken cancellationToken)
+            {
+                Transaction?.Commit();
+                _completed = true;
+                return Task.CompletedTask;
+            }
+
+            public Task<bool> RollbackAsync(CancellationToken cancellationToken)
+            {
+                if (Transaction == null || _completed)
+                    return Task.FromResult(false);
+                try
+                {
+                    Transaction.Rollback();
+                    _completed = true;
+                    return Task.FromResult(true);
+                }
+                catch
+                {
+                    return Task.FromResult(false);
+                }
             }
 
             public void Dispose()
             {
+                if (!_completed && Transaction != null)
+                {
+                    try
+                    {
+                        Transaction.Rollback();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                Transaction?.Dispose();
                 Connection.Dispose();
             }
         }

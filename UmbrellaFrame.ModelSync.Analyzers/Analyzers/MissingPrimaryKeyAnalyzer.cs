@@ -43,7 +43,8 @@ namespace UmbrellaFrame.ModelSync.Core.Analyzers
             if (classSymbol == null) return;
 
             bool hasTableNameAttr = classSymbol.GetAttributes().Any(a =>
-                a.AttributeClass?.Name.EndsWith("TableNameAttribute") == true);
+                a.AttributeClass != null &&
+                AnalyzerAttributeNames.IsTableNameAttribute(a.AttributeClass.Name));
 
             if (!hasTableNameAttr) return;
 

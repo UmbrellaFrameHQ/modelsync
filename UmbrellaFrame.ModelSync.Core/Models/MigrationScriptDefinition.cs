@@ -11,13 +11,16 @@ namespace UmbrellaFrame.ModelSync.Core
         public MigrationScriptCategory Category { get; set; }
         public string Sql { get; set; } = string.Empty;
         public string Source { get; set; } = string.Empty;
+        /// <summary>Overrides the runner transaction policy for this script when set.</summary>
+        public MigrationTransactionPolicy? TransactionPolicyOverride { get; set; }
 
         public static MigrationScriptDefinition Create(
             string id,
             string name,
             MigrationScriptCategory category,
             string sql,
-            string source = "")
+            string source = "",
+            MigrationTransactionPolicy? transactionPolicyOverride = null)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("Migration script id cannot be empty.", nameof(id));
@@ -32,7 +35,8 @@ namespace UmbrellaFrame.ModelSync.Core
                 Name = name.Trim(),
                 Category = category,
                 Sql = sql,
-                Source = source ?? string.Empty
+                Source = source ?? string.Empty,
+                TransactionPolicyOverride = transactionPolicyOverride
             };
         }
 

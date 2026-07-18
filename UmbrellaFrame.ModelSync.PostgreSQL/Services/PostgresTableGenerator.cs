@@ -44,7 +44,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
         public string GeneratePostgresTable<T>(bool ifNotExists = false) where T : class, new()
             => GenerateSqlTable<T>(ifNotExists);
 
-        // �� DDL execution ���������������������������������������������������
+        // DDL execution
 
         /// <inheritdoc/>
         public void CreateDatabase()
@@ -158,7 +158,7 @@ namespace UmbrellaFrame.ModelSync.PostgreSQL
             }
         }
 
-        // �� ALTER TABLE �����������������������������������������������������
+        // ALTER TABLE
 
         /// <summary>
         /// PostgreSQL requires the <c>TYPE</c> keyword:

@@ -31,6 +31,9 @@ namespace UmbrellaFrame.ModelSync.MySql
         protected override Task<System.Data.Common.DbConnection?> CreateLockConnectionAsync(CancellationToken cancellationToken)
             => Task.FromResult<System.Data.Common.DbConnection?>(MySqlConnectionFactory.Create(_connectionString));
 
+        protected override Task<System.Data.Common.DbConnection?> CreateReadinessConnectionAsync(CancellationToken cancellationToken)
+            => Task.FromResult<System.Data.Common.DbConnection?>(MySqlConnectionFactory.Create(_connectionString));
+
         protected override async Task ResetDatabaseAsync(CancellationToken cancellationToken)
         {
             var builder = new MySqlConnectionStringBuilder(_connectionString);
@@ -43,9 +46,15 @@ namespace UmbrellaFrame.ModelSync.MySql
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 using (var drop = new MySqlCommand($"DROP DATABASE IF EXISTS `{EscapeIdentifier(database)}`;", connection))
+                {
+                    drop.CommandTimeout = ResetCommandTimeoutSeconds;
                     await drop.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
                 using (var create = new MySqlCommand($"CREATE DATABASE `{EscapeIdentifier(database)}`;", connection))
+                {
+                    create.CommandTimeout = ResetCommandTimeoutSeconds;
                     await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
         }
 
@@ -159,8 +168,9 @@ namespace UmbrellaFrame.ModelSync.MySql
             }
         }
 
-        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(CancellationToken cancellationToken)
+        protected override async Task<IMigrationExecutionScope> OpenExecutionScopeAsync(MigrationTransactionPolicy transactionPolicy, CancellationToken cancellationToken)
         {
+            _ = TransactionPolicyStartsTransaction(transactionPolicy);
             var connection = MySqlConnectionFactory.Create(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             return new MySqlExecutionScope(connection);
@@ -189,6 +199,8 @@ namespace UmbrellaFrame.ModelSync.MySql
             result.ProviderErrorState = mysql.SqlState ?? string.Empty;
             result.ErrorMessage = Redact(mysql.Message);
         }
+
+        protected override string ProviderName => "MySQL/MariaDB";
 
         private static void ValidateIdentifier(string identifier, string parameterName)
         {
@@ -224,12 +236,19 @@ namespace UmbrellaFrame.ModelSync.MySql
             }
 
             public MySqlConnection Connection { get; }
+            public bool TransactionStarted => false;
 
             public async Task ExecuteSqlAsync(string sql, CancellationToken cancellationToken)
             {
                 using (var command = new MySqlCommand(sql, Connection))
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
+
+            public Task CompleteAsync(CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task<bool> RollbackAsync(CancellationToken cancellationToken)
+                => Task.FromResult(false);
 
             public void Dispose()
             {

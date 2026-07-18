@@ -2,7 +2,7 @@
 
 Installation, model definition, SQL generation, DDL execution, migration runner, stored procedure synchronization, live model synchronization, analyzers, testing, troubleshooting, and production usage.
 
-**Version scope:** 1.3.0
+**Version scope:** 1.4.0-rc.1
 **Author:** UmbrellaFrame / ModelSync
 
 # Table Of Contents
@@ -31,13 +31,13 @@ Installation, model definition, SQL generation, DDL execution, migration runner,
 22. [Complete Project Structure](#complete-project-structure)
 23. [Quick API Reference](#quick-api-reference)
 24. [CLI And Migration Reports](#cli-and-migration-reports)
-25. [Version 1.3.0 Limits](#version-130-limits)
+25. [Version 1.4.0-rc.1 Limits](#version-140-rc1-limits)
 26. [FAQ](#faq)
 27. [Conclusion](#conclusion)
 
 # About This Guide
 
-This guide is written for .NET developers who install **ModelSync 1.3.0** from NuGet and want to use it correctly without reading the source code first.
+This guide is written for .NET developers who install **ModelSync 1.4.0-rc.1** from NuGet and want to use it correctly without reading the source code first.
 
 > Legacy runner note: ModelSync keeps compatibility support for embedded SQL runners. See [Legacy Runner Migration - English](legacy-runner-migration-en.md).
 
@@ -101,31 +101,31 @@ Install only the provider you need.
 SQL Server / Azure SQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.4.0-rc.1
 ```
 
 MySQL / MariaDB:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.4.0-rc.1
 ```
 
 PostgreSQL:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.4.0-rc.1
 ```
 
 SQLite:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.4.0-rc.1
 ```
 
 Oracle preview:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.4.0-rc.1
 ```
 
 The Oracle package is publicly available, but its migration runner, stored procedure synchronization, reset, and native lock features are not production-ready. It is therefore not exposed as a `modelsync` CLI provider.
@@ -133,7 +133,7 @@ The Oracle package is publicly available, but its migration runner, stored proce
 Analyzer:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.4.0-rc.1
 ```
 
 Common namespaces:
@@ -357,7 +357,7 @@ Every public property intended as a column should have a provider column type at
 public string Email { get; set; } = string.Empty;
 ```
 
-By default, the column name is the property name. `DbColumnName("database_column")` overrides it and `DbIgnore` excludes public helper properties from schema discovery. Both are part of the 1.3.0 package line.
+By default, the column name is the property name. `DbColumnName("database_column")` overrides it and `DbIgnore` excludes public helper properties from schema discovery. Both are part of the 1.4.0-rc.1 package line.
 
 ## Primary Key
 
@@ -651,8 +651,14 @@ Resources must end with `.sql`.
 | `ChangeType` | `None`, `Apply`, or `Reapply` |
 | `CurrentHash` | Hash stored in history |
 | `TargetHash` | Hash of current script SQL |
-| `SqlToApply` | SQL that will be applied |
+| `SourceSql` | Registered source artifact |
+| `PlannedExecutionSql` | SQL selected for automatic execution |
+| `RepairSql` | Review-only additive repair suggestions |
+| `UnappliedDrift` | Drift that automatic repair cannot prove resolved |
+| `SqlToApply` | Compatibility alias for the planned execution SQL |
 | `Reason` | Explanation |
+
+Changed table scripts are not silently repaired and marked fully applied. ModelSync sets `RequiresManualReview`, leaves `PlannedExecutionSql` empty, and does not advance the full script hash. When `AutoAddMissingColumnsFromTableScripts` is deliberately enabled, the best-effort parser may also expose review-only `RepairSql` suggestions. Create a new migration after reviewing the change.
 
 ## History Tables
 
@@ -672,7 +678,7 @@ History is used because catalog checks alone cannot answer which script version 
 
 ## Missing Column Repair
 
-When an already-applied table script changes, ModelSync can parse simple `CREATE TABLE` scripts and add missing columns.
+When `AutoAddMissingColumnsFromTableScripts` is enabled and an already-applied table script changes, ModelSync can parse simple `CREATE TABLE` scripts and suggest missing columns.
 
 This repair is additive only:
 
@@ -838,7 +844,7 @@ var result = await SqlServerModelSynchronizer
 
 ## Table Execution Policies
 
-ModelSync 1.3.0 lets one run mix manual and automatic table ownership:
+ModelSync 1.4.0-rc.1 lets one run mix manual and automatic table ownership:
 
 ```csharp
 options.DefaultTableMode = ModelSyncTableMode.ManualOnly;
@@ -901,7 +907,7 @@ For the focused reference, see [14 - Model Synchronizer](14-model-synchronizer.m
 Install:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.4.0-rc.1
 ```
 
 Rules:
@@ -1079,7 +1085,7 @@ MyApplication/
   appsettings.json
 ```
 
-Keep schema models separate from domain entities and API DTOs when possible. ModelSync 1.3.0 can exclude helpers with `DbIgnore`.
+Keep schema models separate from domain entities and API DTOs when possible. ModelSync 1.4.0-rc.1 can exclude helpers with `DbIgnore`.
 
 # Quick API Reference
 
@@ -1141,7 +1147,7 @@ Keep schema models separate from domain entities and API DTOs when possible. Mod
 Install the CLI as a .NET tool:
 
 ```bash
-dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.4.0-rc.1
 ```
 
 Keep credentials outside process arguments, preview first, and require explicit apply:
@@ -1155,10 +1161,10 @@ modelsync run --provider sqlite --connection-env MODELSYNC_CONNECTION_STRING --s
 
 `validate` checks discovery and duplicate IDs; it does not prove arbitrary SQL safe. `--connection` remains available for compatibility but can expose secrets in process listings. Ctrl+C is propagated to migration operations.
 
-# Version 1.3.0 Limits
+# Version 1.4.0-rc.1 Limits
 
 - Model-to-live-database diff is additive/safety-first, not a full destructive migration engine.
-- ModelSync 1.3.0 includes `DbIgnore` and `DbColumnName` for schema discovery control.
+- ModelSync 1.4.0-rc.1 includes `DbIgnore` and `DbColumnName` for schema discovery control.
 - Oracle is preview-only and does not yet include the full migration runner, stored procedure, reset, or native-lock feature set.
 - CLI validation checks migration metadata and duplicate IDs; it is not a provider SQL parser.
 - Schema-qualified table-name attributes are intentionally limited by strict identifier validation.

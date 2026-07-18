@@ -115,6 +115,15 @@ namespace UmbrellaFrame.ModelSync.Cli
             var result = await runner.RunWithResultAsync(cancellationToken).ConfigureAwait(false);
             WriteReports(cli, result);
             PrintSummary(result);
+            return MapExecutionResultToExitCode(result);
+        }
+
+        internal static int MapExecutionResultToExitCode(MigrationExecutionResult result)
+        {
+            if (result == null)
+                throw new ArgumentNullException(nameof(result));
+            if (result.State == MigrationExecutionState.Cancelled)
+                return Cancelled;
             return result.Succeeded ? Success : ExecutionError;
         }
 
@@ -228,6 +237,13 @@ namespace UmbrellaFrame.ModelSync.Cli
                     Console.WriteLine($"Reason: {item.DecisionReason}");
                 else if (!string.IsNullOrWhiteSpace(item.Reason))
                     Console.WriteLine($"Reason: {item.Reason}");
+                Console.WriteLine($"History: {item.HistoryDecision}");
+                foreach (var sql in item.PlannedExecutionSql)
+                    Console.WriteLine($"Planned SQL: {sql}");
+                foreach (var sql in item.RepairSql)
+                    Console.WriteLine($"Repair suggestion: {sql}");
+                foreach (var drift in item.UnappliedDrift)
+                    Console.WriteLine($"Unapplied drift: {drift}");
             }
         }
 
@@ -236,7 +252,7 @@ namespace UmbrellaFrame.ModelSync.Cli
             var version = Assembly.GetExecutingAssembly()
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-            return string.IsNullOrWhiteSpace(version) ? "1.3.0" : version;
+            return string.IsNullOrWhiteSpace(version) ? "1.4.0-rc.1" : version;
         }
 
         internal static string ResolveConnectionString(CliOptions cli)

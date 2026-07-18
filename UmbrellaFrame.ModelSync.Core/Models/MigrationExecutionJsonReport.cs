@@ -18,6 +18,9 @@ namespace UmbrellaFrame.ModelSync.Core
             AppendProperty(builder, "lockAcquired", result.LockAcquired, 1, comma: true);
             AppendProperty(builder, "transactionStarted", result.TransactionStarted, 1, comma: true);
             AppendProperty(builder, "historyWritten", result.HistoryWritten, 1, comma: true);
+            AppendProperty(builder, "errorCode", result.ErrorCode, 1, comma: true);
+            AppendProperty(builder, "errorMessage", result.ErrorMessage, 1, comma: true);
+            AppendProperty(builder, "innerErrorMessage", result.InnerErrorMessage, 1, comma: true);
             AppendProperty(builder, "startedAt", result.StartedAt.ToString("O"), 1, comma: true);
             AppendProperty(builder, "completedAt", result.CompletedAt.ToString("O"), 1, comma: true);
             AppendProperty(builder, "durationMs", Math.Round(result.Duration.TotalMilliseconds, 2), 1, comma: true);

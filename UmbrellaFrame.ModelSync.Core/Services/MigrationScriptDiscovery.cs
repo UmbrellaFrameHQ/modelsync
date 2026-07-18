@@ -111,7 +111,13 @@ namespace UmbrellaFrame.ModelSync.Core
         }
 
         private static bool ContainsSegment(string source, string segment)
-            => source?.IndexOf(segment, StringComparison.OrdinalIgnoreCase) >= 0;
+        {
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(segment))
+                return false;
+
+            var parts = source.Split(new[] { '/', '\\', '.' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Any(part => string.Equals(part, segment, StringComparison.OrdinalIgnoreCase));
+        }
 
         private static int ResolveNumericPrefix(string id)
         {

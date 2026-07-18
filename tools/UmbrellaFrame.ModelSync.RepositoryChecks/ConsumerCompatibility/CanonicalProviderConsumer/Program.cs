@@ -3,14 +3,6 @@ using UmbrellaFrame.ModelSync.PostgreSQL;
 using UmbrellaFrame.ModelSync.SQLite;
 using UmbrellaFrame.ModelSync.SqlServer;
 
-[System.AttributeUsage(System.AttributeTargets.Class, Inherited = false)]
-public sealed class PostgresTableNameAttribute : PostgresTableName
-{
-    public PostgresTableNameAttribute(string tableName) : base(tableName)
-    {
-    }
-}
-
 [SqlServerTableName("SqlServerProducts")]
 public sealed class SqlServerProduct
 {
@@ -33,7 +25,7 @@ public sealed class MySqlProduct
     [MySqlColumnType(MySqlColumnType.INT)] [MySqlColumnDefaultSql("(1 + 2)")] [MySqlColumnCheck("C >= 0")] [MySqlColumnIndex("IX_MySqlProducts_C")] public int C { get; set; }
 }
 
-[PostgresTableNameAttribute("PostgresProducts")]
+[PostgresTableName("PostgresProducts")]
 public sealed class PostgresProduct
 {
     [PostgresColumnType(PostgresColumnType.INTEGER)] [PostgresColumnPrimaryKey] public int Id { get; set; }

@@ -15,7 +15,7 @@ ModelSync keeps database structure close to your .NET code without turning the p
 
 It is a good fit for Dapper, ADO.NET, hand-written SQL, and services where schema changes should remain visible in code review.
 
-Current package version: `1.3.0`
+Current package version: `1.4.0-rc.1`
 
 ### Find The Right Tool
 
@@ -44,13 +44,13 @@ Start with the [full usage guide](docs/13-full-usage-guide-en.md) when choosing 
 Provider packages pull `UmbrellaFrame.ModelSync.Core` automatically.
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.Core --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.Core --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.MySql --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.PostgreSQL --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.SQLite --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.4.0-rc.1
 ```
 
 Oracle remains a preview provider. Its migration runner, stored procedure synchronization, reset, and native lock features are not production-ready yet. See the [provider support matrix](docs/provider-support-matrix.md) before adopting it.
@@ -165,7 +165,7 @@ Execution order is `Tables -> StoredProcedures -> Triggers -> Seeds -> CustomSql
 ### CLI: Preview First, Apply Deliberately
 
 ```bash
-dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.3.0
+dotnet tool install --global UmbrellaFrame.ModelSync.Cli --version 1.4.0-rc.1
 ```
 
 Keep connection strings out of process arguments:
@@ -215,6 +215,10 @@ var options = new MigrationRunnerOptions
 
 System databases are rejected. SQL Server reset runs before the native migration lock is acquired, then readiness, infrastructure, history, and scripts continue under the normal lock. Backup paths are evaluated from the SQL Server service account's filesystem.
 
+`ResetDatabase = true` requires `ResetOptions.Enabled = true`, explicit reset approval, and `ExpectedDatabaseName`. Legacy `DestructiveOptions.Allow()` alone is intentionally rejected for database reset. Failed migration reports include bounded diagnostics and redact SQL string literal values from failed-batch previews.
+
+Use database reset from a single deployment job or local development runner. Do not let multiple application instances start with `ResetDatabase = true`; the target database can be dropped before the provider-native target lock exists.
+
 ### Provider Support
 
 | Feature | SQL Server | MySQL/MariaDB | PostgreSQL | SQLite | Oracle preview |
@@ -247,11 +251,12 @@ The detailed and tested limitations live in the [provider support matrix](docs/p
 | Live synchronization | [English](docs/14-model-synchronizer.md) · [Türkçe](docs/14-model-synchronizer-tr.md) |
 | CLI and reports | [CLI guide](UmbrellaFrame.ModelSync.Cli/README.md) · [Reporting](docs/migration-reporting.md) |
 | CLI and scaffolder direction | [Roadmap](docs/cli-and-scaffolder-roadmap.md) |
-| Release | [1.3.0 notes](docs/releases/1.3.0.md) · [Migration guide](docs/migrations/1.2.3-to-1.3.0.md) |
+| Maturity roadmap | [General recommendation roadmap](docs/general-recommendation-roadmap.md) |
+| Release candidate | [1.4.0-rc.1 notes](docs/releases/1.4.0-rc.1.md) · [Migration guide](docs/migrations/1.3.0-to-1.4.0-rc.1.md) |
 
 ### Versioning, Release Notes and Migration Guides
 
-Start with the current [release notes](docs/releases/1.3.0.md) when upgrading. Breaking or behavior-sensitive changes are paired with a focused [migration guide](docs/migrations/1.2.3-to-1.3.0.md), while the complete history remains in [CHANGELOG.md](CHANGELOG.md).
+Start with the RC [release notes](docs/releases/1.4.0-rc.1.md) when evaluating the candidate. Behavior-sensitive changes are paired with a focused [migration guide](docs/migrations/1.3.0-to-1.4.0-rc.1.md), while the complete history remains in [CHANGELOG.md](CHANGELOG.md).
 
 ### Build And Test
 
@@ -279,7 +284,7 @@ ModelSync, veritabanı yapısını .NET koduna yakın tutmak isteyen fakat bunun
 
 Dapper, ADO.NET ve elle SQL yazılan projelerde özellikle işe yarar. Amaç veritabanını gizlice değiştirmek değil; yapılacak değişikliği görünür, tekrar edilebilir ve incelenebilir hale getirmektir.
 
-Güncel sürüm: **1.3.0**
+Güncel sürüm: **1.4.0-rc.1**
 
 ### Hangisini Kullanmalıyım?
 
@@ -294,9 +299,9 @@ Güncel sürüm: **1.3.0**
 Provider paketi Core paketini otomatik getirir:
 
 ```bash
-dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.3.0
-dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.3.0
+dotnet add package UmbrellaFrame.ModelSync.SqlServer --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Oracle --version 1.4.0-rc.1
+dotnet add package UmbrellaFrame.ModelSync.Analyzers --version 1.4.0-rc.1
 ```
 
 Oracle şu anda preview durumundadır. Tablo DDL ve güvenli model karşılaştırmasının bir bölümü vardır; migration runner, stored procedure, reset ve native lock desteği henüz production seviyesinde değildir.
